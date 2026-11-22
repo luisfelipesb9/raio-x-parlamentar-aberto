@@ -1,0 +1,16 @@
+id: R04
+nome: Gasto da cota fora do padrão
+tipo: inferencia
+categoria: gastos
+conclui: risco_integridade
+predicado: outlier_ceap
+parametros: {z_limiar: 3.5, minimo_deputados: 5}
+se: "z_max > z_limiar"
+entao: "Gastou R$ {valor_top} em '{categoria_top}', cerca de {vezes_mediana}x o que um deputado típico gasta."
+cf: 0.5
+penalidades:
+  - {se: "z_max < 5", fator: 0.8, motivo: "Desvio moderado"}
+por_que: "Gasto muito acima dos colegas não é ilegal por si só, mas é um bom ponto de partida para fiscalizar."
+limitacoes:
+  - "Gasto alto pode ter justificativa (estado distante, mandato mais longo no período)."
+fonte_metodologica: "Operação Serenata de Amor (Rosie) — z-score robusto"

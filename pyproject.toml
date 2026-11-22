@@ -1,0 +1,20 @@
+[project]
+name = "raio-x-parlamentar"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.7",
+  "pyyaml>=6",
+  "duckdb>=1.0",
+  "httpx>=0.27",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100

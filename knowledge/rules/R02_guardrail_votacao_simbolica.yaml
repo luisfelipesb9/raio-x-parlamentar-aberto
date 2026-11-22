@@ -1,0 +1,9 @@
+id: R02
+nome: Votação simbólica não gera voto individual
+tipo: guardrail
+categoria: votacao
+predicado: somente_votacoes_nominais
+prioridade: 1
+por_que: "Em votações simbólicas não há registro de como cada deputado votou; atribuir voto seria inventar dado."
+limitacoes: ["Votações simbólicas aparecem apenas como resultado da Casa."]
+fonte_metodologica: "Regimento Interno da Câmara; pesquisa do projeto"

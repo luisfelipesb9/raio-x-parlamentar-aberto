@@ -1,0 +1,9 @@
+/contracts/        @luis
+/sources/          @luis
+/ingest/           @luis
+/repo/             @luis
+/engine/           @luis
+/graph/            @pedro
+/api/              @pedro
+/web/              @pedro
+/tests/e2e/        @pedro

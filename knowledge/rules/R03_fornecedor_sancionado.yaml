@@ -1,0 +1,14 @@
+id: R03
+nome: Pagou fornecedor com sanção vigente
+tipo: inferencia
+categoria: integridade
+conclui: risco_integridade
+predicado: fornecedor_sancionado
+se: "n_despesas >= 1"
+entao: "Usou a cota parlamentar para pagar {n_despesas} despesa(s), R$ {valor_total}, a empresa(s) que estavam punidas pelo governo (CEIS/CNEP) na data do gasto."
+cf: 0.9
+por_que: "Empresas no CEIS/CNEP estão proibidas de contratar com o poder público; o pagamento merece explicação."
+limitacoes:
+  - "Não prova que o deputado sabia da sanção."
+  - "Casamento exato por CNPJ; sem risco de homonímia."
+fonte_metodologica: "Portal da Transparência (CGU) + CEAP"

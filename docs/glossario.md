@@ -1,0 +1,11 @@
+# Glossário (textos reaproveitáveis nos tooltips da web)
+- **CEAP / Cota parlamentar**: verba mensal para despesas do mandato (passagem, combustível, escritório).
+- **Votação nominal**: cada voto fica registrado com o nome do deputado.
+- **Votação simbólica**: aprovada por acordo/manifestação; não existe registro individual.
+- **Orientação do governo**: recomendação do líder do governo sobre como votar.
+- **Emenda parlamentar**: parte do orçamento que o deputado indica para um destino.
+- **Emenda Pix**: transferência especial direta a estados/municípios, com menor rastreabilidade.
+- **CEIS / CNEP**: cadastros de empresas punidas e impedidas de contratar com o governo.
+- **PEP**: pessoa politicamente exposta.
+- **QSA**: quadro de sócios e administradores de uma empresa.
+- **Fator de certeza (CF)**: número de 0 a 1 que diz o quanto o sistema confia numa conclusão.
