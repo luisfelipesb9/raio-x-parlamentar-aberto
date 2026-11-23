@@ -10,6 +10,7 @@ preservado assim; sócio PJ traz o CNPJ inteiro.
 """
 from __future__ import annotations
 
+import logging
 import re
 import time
 import unicodedata
@@ -26,6 +27,8 @@ BASE = "https://brasilapi.com.br/api/cnpj/v1"
 FONTE = "brasilapi_cnpj"
 _TIPO_SOCIO = {1: "PJ", 2: "PF", 3: "estrangeiro"}  # identificador_de_socio
 _ESPERA_MAX = 60.0
+_INDISPONIVEL: Any = object()  # sentinela: CNPJ com 5xx/timeout persistente
+_log = logging.getLogger(__name__)
 
 
 def _digitos(texto: Any) -> str:
@@ -97,8 +100,11 @@ class RfbSource(Source):
 
     def fetch(self, cnpjs: Iterable[str]) -> dict:
         """Consulta cada CNPJ (14 dígitos, com ou sem máscara) uma vez; guarda cada resposta em
-        data/raw/rfb/<cnpj>.json. Devolve {"cnpjs": [respostas], "nao_encontrados": [cnpj], "invalidos": [texto recebido]};
-        CNPJ inválido é só registrado em "invalidos" e o resto do lote segue."""
+        data/raw/rfb/<cnpj>.json. Devolve {"cnpjs": [respostas], "nao_encontrados": [cnpj], "invalidos": [texto recebido],
+        "indisponiveis": [cnpj]}. CNPJ inválido é só registrado em "invalidos" e o resto do lote segue.
+        CNPJ que continua com erro 5xx/timeout depois de todas as tentativas vai para "indisponiveis"
+        (a empresa fica sem dados da Receita; nada é inventado) e o lote segue. 429 persistente e
+        erros 4xx continuam abortando: indicam limite de uso ou requisição errada, não falha pontual."""
         lista: dict[str, None] = {}
         invalidos: list[str] = []
         for c in cnpjs:  # inválido (formato ou DV) não gasta requisição nem aborta o lote
@@ -107,11 +113,24 @@ class RfbSource(Source):
                 lista[d] = None
             elif str(c) not in invalidos:
                 invalidos.append(str(c))
-        raw: dict[str, list] = {"cnpjs": [], "nao_encontrados": [], "invalidos": invalidos}
+        raw: dict[str, list] = {"cnpjs": [], "nao_encontrados": [], "invalidos": invalidos,
+                                "indisponiveis": []}
         for i, cnpj in enumerate(lista):
             if i:
                 self._dormir(self.pausa)
-            dados = self._consultar(cnpj)
+            try:
+                dados = self._consultar(cnpj)
+            except httpx.TransportError:
+                dados = _INDISPONIVEL
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code < 500:
+                    raise
+                dados = _INDISPONIVEL
+            if dados is _INDISPONIVEL:
+                _log.warning("rfb: CNPJ %s indisponível na BrasilAPI após %d tentativas; seguindo",
+                             cnpj, self.max_tentativas)
+                raw["indisponiveis"].append(cnpj)
+                continue
             if dados is None:
                 raw["nao_encontrados"].append(cnpj)
                 continue
