@@ -1,0 +1,368 @@
+{
+ "deputados": [
+  {
+   "tipo": "deputado",
+   "chave": "74646",
+   "atributos": {
+    "nome": "Aurélio Novaes",
+    "partido": "PSDB",
+    "uf": "MG",
+    "foto": "https://www.camara.leg.br/internet/deputado/bandep/74646.jpg"
+   },
+   "fonte": "camara_api_v2",
+   "id_oficial": "74646",
+   "url": "https://dadosabertos.camara.leg.br/api/v2/deputados/74646",
+   "coletado_em": "2026-11-23T00:29:49.444985Z"
+  },
+  {
+   "tipo": "deputado",
+   "chave": "220625",
+   "atributos": {
+    "nome": "Delegada Iara",
+    "partido": "AVANTE",
+    "uf": "MG",
+    "foto": "https://www.camara.leg.br/internet/deputado/bandep/220625.jpg"
+   },
+   "fonte": "camara_api_v2",
+   "id_oficial": "220625",
+   "url": "https://dadosabertos.camara.leg.br/api/v2/deputados/220625",
+   "coletado_em": "2026-11-23T00:29:49.445227Z"
+  },
+  {
+   "tipo": "deputado",
+   "chave": "220625",
+   "atributos": {
+    "nome": "Delegada Iara",
+    "partido": "PL",
+    "uf": "MG",
+    "foto": "https://www.camara.leg.br/internet/deputado/bandep/220625.jpg"
+   },
+   "fonte": "camara_api_v2",
+   "id_oficial": "220625",
+   "url": "https://dadosabertos.camara.leg.br/api/v2/deputados/220625",
+   "coletado_em": "2026-11-23T00:29:49.445227Z"
+  },
+  {
+   "tipo": "deputado",
+   "chave": "160758",
+   "atributos": {
+    "nome": "Demetrio Sálvio",
+    "partido": "PL",
+    "uf": "MG",
+    "foto": "https://www.camara.leg.br/internet/deputado/bandep/160758.jpg"
+   },
+   "fonte": "camara_api_v2",
+   "id_oficial": "160758",
+   "url": "https://dadosabertos.camara.leg.br/api/v2/deputados/160758",
+   "coletado_em": "2026-11-23T00:29:49.445270Z"
+  },
+  {
+   "tipo": "deputado",
+   "chave": "227800",
+   "atributos": {
+    "nome": "Dante Gonzaga Jr",
+    "partido": "PSC",
+    "uf": "MG",
+    "foto": "https://www.camara.leg.br/internet/deputado/bandep/227800.jpg"
+   },
+   "fonte": "camara_api_v2",
+   "id_oficial": "227800",
+   "url": "https://dadosabertos.camara.leg.br/api/v2/deputados/227800",
+   "coletado_em": "2026-11-23T00:29:49.445300Z"
+  },
+  {
+   "tipo": "deputado",
+   "chave": "227800",
+   "atributos": {
+    "nome": "Dante Gonzaga Jr",
+    "partido": "PODE",
+    "uf": "MG",
+    "foto": "https://www.camara.leg.br/internet/deputado/bandep/227800.jpg"
+   },
+   "fonte": "camara_api_v2",
+   "id_oficial": "227800",
+   "url": "https://dadosabertos.camara.leg.br/api/v2/deputados/227800",
+   "coletado_em": "2026-11-23T00:29:49.445301Z"
+  },
+  {
+   "tipo": "deputado",
+   "chave": "227800",
+   "atributos": {
+    "nome": "Dante Gonzaga Jr",
+    "partido": "REPUBLICANOS",
+    "uf": "MG",
+    "foto": "https://www.camara.leg.br/internet/deputado/bandep/227800.jpg"
+   },
+   "fonte": "camara_api_v2",
+   "id_oficial": "227800",
+   "url": "https://dadosabertos.camara.leg.br/api/v2/deputados/227800",
+   "coletado_em": "2026-11-23T00:29:49.445302Z"
+  },
+  {
+   "tipo": "deputado",
+   "chave": "74158",
+   "atributos": {
+    "nome": "Murilo Herlinger",
+    "partido": "PDT",
+    "uf": "MG",
+    "foto": "https://www.camara.leg.br/internet/deputado/bandep/74158.jpg"
+   },
+   "fonte": "camara_api_v2",
+   "id_oficial": "74158",
+   "url": "https://dadosabertos.camara.leg.br/api/v2/deputados/74158",
+   "coletado_em": "2026-11-23T00:29:49.445669Z"
+  },
+  {
+   "tipo": "deputado",
+   "chave": "209787",
+   "atributos": {
+    "nome": "Nilson Ferreira",
+    "partido": "PL",
+    "uf": "MG",
+    "foto": "https://www.camara.leg.br/internet/deputado/bandep/209787.jpg"
+   },
+   "fonte": "camara_api_v2",
+   "id_oficial": "209787",
+   "url": "https://dadosabertos.camara.leg.br/api/v2/deputados/209787",
+   "coletado_em": "2026-11-23T00:29:49.445717Z"
+  },
+  {
+   "tipo": "deputado",
+   "chave": "141516",
+   "atributos": {
+    "nome": "Plinio Abi-Mansur",
+    "partido": "PSDB",
+    "uf": "MG",
+    "foto": "https://www.camara.leg.br/internet/deputado/bandep/141516.jpg"
+   },
+   "fonte": "camara_api_v2",
+   "id_oficial": "141516",
+   "url": "https://dadosabertos.camara.leg.br/api/v2/deputados/141516",
+   "coletado_em": "2026-11-23T00:29:49.445749Z"
+  },
+  {
+   "tipo": "deputado",
+   "chave": "141531",
+   "atributos": {
+    "nome": "Rogerio de Castro",
+    "partido": "UNIÃO",
+    "uf": "MG",
+    "foto": "https://www.camara.leg.br/internet/deputado/bandep/141531.jpg"
+   },
+   "fonte": "camara_api_v2",
+   "id_oficial": "141531",
+   "url": "https://dadosabertos.camara.leg.br/api/v2/deputados/141531",
+   "coletado_em": "2026-11-23T00:29:49.445845Z"
+  },
+  {
+   "tipo": "deputado",
+   "chave": "235712",
+   "atributos": {
+    "nome": "Vevê",
+    "partido": "AVANTE",
+    "uf": "MG",
+    "foto": "https://www.camara.leg.br/internet/deputado/bandep/235712.jpg"
+   },
+   "fonte": "camara_api_v2",
+   "id_oficial": "235712",
+   "url": "https://dadosabertos.camara.leg.br/api/v2/deputados/235712",
+   "coletado_em": "2026-11-23T00:29:49.445934Z"
+  },
+  {
+   "tipo": "deputado",
+   "chave": "160632",
+   "atributos": {
+    "nome": "Zeca Silva",
+    "partido": "SOLIDARIEDADE",
+    "uf": "MG",
+    "foto": "https://www.camara.leg.br/internet/deputado/bandep/160632.jpg"
+   },
+   "fonte": "camara_api_v2",
+   "id_oficial": "160632",
+   "url": "https://dadosabertos.camara.leg.br/api/v2/deputados/160632",
+   "coletado_em": "2026-11-23T00:29:49.445968Z"
+  },
+  {
+   "tipo": "deputado",
+   "chave": "160632",
+   "atributos": {
+    "nome": "Zeca Silva",
+    "partido": "UNIÃO",
+    "uf": "MG",
+    "foto": "https://www.camara.leg.br/internet/deputado/bandep/160632.jpg"
+   },
+   "fonte": "camara_api_v2",
+   "id_oficial": "160632",
+   "url": "https://dadosabertos.camara.leg.br/api/v2/deputados/160632",
+   "coletado_em": "2026-11-23T00:29:49.445969Z"
+  }
+ ],
+ "candidaturas": [
+  {
+   "tipo": "candidatura",
+   "chave": "130001613348",
+   "atributos": {
+    "ano": 2022,
+    "cpf": "90000000680",
+    "nome": "AURÉLIO NOVAES DA CARDOSO",
+    "nome_urna": "AURÉLIO NOVAES",
+    "cargo": "Deputado Federal",
+    "uf": "MG",
+    "partido": "PSDB",
+    "situacao": "ELEITO POR MÉDIA"
+   },
+   "fonte": "tse_consulta_cand",
+   "id_oficial": "130001613348",
+   "url": "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2022.zip",
+   "coletado_em": "2026-11-23T00:29:49.448588Z"
+  },
+  {
+   "tipo": "candidatura",
+   "chave": "130001611005",
+   "atributos": {
+    "ano": 2022,
+    "cpf": "90000000175",
+    "nome": "NILSON FERREIRA DE OLIVEIRA",
+    "nome_urna": "NILSON FERREIRA",
+    "cargo": "Deputado Federal",
+    "uf": "MG",
+    "partido": "PL",
+    "situacao": "ELEITO POR QP"
+   },
+   "fonte": "tse_consulta_cand",
+   "id_oficial": "130001611005",
+   "url": "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2022.zip",
+   "coletado_em": "2026-11-23T00:29:49.448748Z"
+  },
+  {
+   "tipo": "candidatura",
+   "chave": "130001612991",
+   "atributos": {
+    "ano": 2022,
+    "cpf": "90000000507",
+    "nome": "JOAQUIM SILVA SOARES",
+    "nome_urna": "ZECA SILVA",
+    "cargo": "Deputado Federal",
+    "uf": "MG",
+    "partido": "SOLIDARIEDADE",
+    "situacao": "ELEITO POR MÉDIA"
+   },
+   "fonte": "tse_consulta_cand",
+   "id_oficial": "130001612991",
+   "url": "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2022.zip",
+   "coletado_em": "2026-11-23T00:29:49.448916Z"
+  },
+  {
+   "tipo": "candidatura",
+   "chave": "130001611016",
+   "atributos": {
+    "ano": 2022,
+    "cpf": "90000000256",
+    "nome": "DEMETRIO SÁLVIO CAMPOS RANGEL",
+    "nome_urna": "DEMETRIO SÁLVIO",
+    "cargo": "Deputado Federal",
+    "uf": "MG",
+    "partido": "PL",
+    "situacao": "ELEITO POR QP"
+   },
+   "fonte": "tse_consulta_cand",
+   "id_oficial": "130001611016",
+   "url": "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2022.zip",
+   "coletado_em": "2026-11-23T00:29:49.449191Z"
+  },
+  {
+   "tipo": "candidatura",
+   "chave": "130001607620",
+   "atributos": {
+    "ano": 2022,
+    "cpf": "90000000760",
+    "nome": "ROGERIO BATISTA DE CASTRO",
+    "nome_urna": "ROGERIO DE CASTRO",
+    "cargo": "Deputado Federal",
+    "uf": "MG",
+    "partido": "UNIÃO",
+    "situacao": "ELEITO POR QP"
+   },
+   "fonte": "tse_consulta_cand",
+   "id_oficial": "130001607620",
+   "url": "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2022.zip",
+   "coletado_em": "2026-11-23T00:29:49.451465Z"
+  },
+  {
+   "tipo": "candidatura",
+   "chave": "130001613373",
+   "atributos": {
+    "ano": 2022,
+    "cpf": "90000000418",
+    "nome": "PLINIO ABI-MANSUR",
+    "nome_urna": "PLINIO ABI-MANSUR",
+    "cargo": "Deputado Federal",
+    "uf": "MG",
+    "partido": "PSDB",
+    "situacao": "ELEITO POR QP"
+   },
+   "fonte": "tse_consulta_cand",
+   "id_oficial": "130001613373",
+   "url": "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2022.zip",
+   "coletado_em": "2026-11-23T00:29:49.451533Z"
+  },
+  {
+   "tipo": "candidatura",
+   "chave": "130001603582",
+   "atributos": {
+    "ano": 2022,
+    "cpf": "90000000841",
+    "nome": "IARA MARIA MOREIRA DIAS BARBOSA",
+    "nome_urna": "DELEGADA IARA BARBOSA",
+    "cargo": "Deputado Federal",
+    "uf": "MG",
+    "partido": "AVANTE",
+    "situacao": "ELEITO POR MÉDIA"
+   },
+   "fonte": "tse_consulta_cand",
+   "id_oficial": "130001603582",
+   "url": "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2022.zip",
+   "coletado_em": "2026-11-23T00:29:49.448940Z"
+  },
+  {
+   "tipo": "candidatura",
+   "chave": "130001606709",
+   "atributos": {
+    "ano": 2022,
+    "cpf": "90000000337",
+    "nome": "MURILO LAURO HERLINGER",
+    "nome_urna": "DR MURILO HERLINGER",
+    "cargo": "Deputado Federal",
+    "uf": "MG",
+    "partido": "PDT",
+    "situacao": "ELEITO POR QP"
+   },
+   "fonte": "tse_consulta_cand",
+   "id_oficial": "130001606709",
+   "url": "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2022.zip",
+   "coletado_em": "2026-11-23T00:29:49.449048Z"
+  },
+  {
+   "tipo": "candidatura",
+   "chave": "130001603559",
+   "atributos": {
+    "ano": 2022,
+    "cpf": "90000000922",
+    "nome": "HELDER GOMES NASCENTE",
+    "nome_urna": "VEVÊ DE CAIARA - DR. HELDER",
+    "cargo": "Deputado Federal",
+    "uf": "MG",
+    "partido": "AVANTE",
+    "situacao": "SUPLENTE"
+   },
+   "fonte": "tse_consulta_cand",
+   "id_oficial": "130001603559",
+   "url": "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2022.zip",
+   "coletado_em": "2026-11-23T00:29:49.451664Z"
+  }
+ ],
+ "esperado": {
+  "plinio_abi_mansur": "141516",
+  "sq_plinio_abi_mansur": "130001613373"
+ }
+}
