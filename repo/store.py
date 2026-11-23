@@ -16,7 +16,7 @@ from repo.links import Ambiguidade, EntityLink
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "raio_x.duckdb"
 ENV_DB = "RAIO_X_DB"
 MIGRATIONS = sorted((Path(__file__).parent / "migrations").glob("*.sql"))
-SCHEMA = "\n".join(p.read_text() for p in MIGRATIONS)  # todas idempotentes (IF NOT EXISTS)
+SCHEMA = "\n".join(p.read_text(encoding="utf-8") for p in MIGRATIONS)  # todas idempotentes (IF NOT EXISTS)
 
 _COLUNAS_NDJSON = ("{tipo:'VARCHAR',chave:'VARCHAR',atributos:'VARCHAR',fonte:'VARCHAR',"
                    "id_oficial:'VARCHAR',url:'VARCHAR',coletado_em:'VARCHAR'}")
