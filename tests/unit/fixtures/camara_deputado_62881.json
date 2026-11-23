@@ -1,0 +1,46 @@
+{
+ "dados": {
+  "id": 62881,
+  "uri": "https://dadosabertos.camara.leg.br/api/v2/deputados/62881",
+  "nomeCivil": "FRANCISCO DALTON BASTOS FORMOSO",
+  "ultimoStatus": {
+   "id": 62881,
+   "uri": "https://dadosabertos.camara.leg.br/api/v2/deputados/62881",
+   "nome": "Dalton Formoso",
+   "siglaPartido": "PP",
+   "uriPartido": null,
+   "siglaUf": "CE",
+   "idLegislatura": 57,
+   "urlFoto": "https://www.camara.leg.br/internet/deputado/bandep/62881.jpg",
+   "email": null,
+   "data": "2023-02-01",
+   "nomeEleitoral": "Dalton Formoso",
+   "gabinete": {
+    "nome": "219",
+    "predio": "4",
+    "sala": "219",
+    "andar": "2",
+    "telefone": "",
+    "email": ""
+   },
+   "situacao": "Exercício",
+   "condicaoEleitoral": "Titular",
+   "descricaoStatus": null
+  },
+  "cpf": "11144477735",
+  "sexo": "M",
+  "urlWebsite": null,
+  "redeSocial": [],
+  "dataNascimento": "1970-01-01",
+  "dataFalecimento": null,
+  "ufNascimento": "CE",
+  "municipioNascimento": "Fortaleza",
+  "escolaridade": "Superior"
+ },
+ "links": [
+  {
+   "rel": "self",
+   "href": "https://dadosabertos.camara.leg.br/api/v2/deputados/62881"
+  }
+ ]
+}

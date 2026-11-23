@@ -1,0 +1,61 @@
+{
+ "dados": [
+  {
+   "uri": "https://dadosabertos.camara.leg.br/api/v2/deputados/74856",
+   "nome": "Livia Cavalcante",
+   "codTipo": 10000,
+   "tipo": "Deputado(a)",
+   "ordemAssinatura": 1,
+   "proponente": 1
+  },
+  {
+   "uri": "https://dadosabertos.camara.leg.br/api/v2/deputados/141450",
+   "nome": "Haroldo Leal",
+   "codTipo": 10000,
+   "tipo": "Deputado(a)",
+   "ordemAssinatura": 2,
+   "proponente": 1
+  },
+  {
+   "uri": "https://dadosabertos.camara.leg.br/api/v2/deputados/160512",
+   "nome": "Ariovaldo Ribas",
+   "codTipo": 10000,
+   "tipo": "Deputado(a)",
+   "ordemAssinatura": 3,
+   "proponente": 1
+  },
+  {
+   "uri": "https://dadosabertos.camara.leg.br/api/v2/deputados/204515",
+   "nome": "Anselmo Jandoni",
+   "codTipo": 10000,
+   "tipo": "Deputado(a)",
+   "ordemAssinatura": 4,
+   "proponente": 1
+  },
+  {
+   "uri": "https://dadosabertos.camara.leg.br/api/v2/deputados/204379",
+   "nome": "Aníbal Fontoura",
+   "codTipo": 10000,
+   "tipo": "Deputado(a)",
+   "ordemAssinatura": 5,
+   "proponente": 0
+  },
+  {
+   "uri": "https://dadosabertos.camara.leg.br/api/v2/deputados/73579",
+   "nome": "Alvino Fragoso",
+   "codTipo": 10000,
+   "tipo": "Deputado(a)",
+   "ordemAssinatura": 6,
+   "proponente": 0
+  },
+  {
+   "uri": "https://dadosabertos.camara.leg.br/api/v2/deputados/220538",
+   "nome": "Alencastro",
+   "codTipo": 10000,
+   "tipo": "Deputado(a)",
+   "ordemAssinatura": 7,
+   "proponente": 0
+  }
+ ],
+ "links": []
+}
