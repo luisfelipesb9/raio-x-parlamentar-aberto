@@ -1,6 +1,7 @@
 .venv/
 __pycache__/
-data/
+data/*
 *.duckdb
 node_modules/
 .next/
+.claude/

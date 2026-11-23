@@ -1,9 +1,12 @@
-/contracts/        @luis
-/sources/          @luis
-/ingest/           @luis
-/repo/             @luis
-/engine/           @luis
-/graph/            @pedro
-/api/              @pedro
-/web/              @pedro
-/tests/e2e/        @pedro
+# Fase 1 (fundação e raciocínio): Luis · Fase 2 (produto e operação): Pedro
+/contracts/        @luisfelipesb9
+/sources/          @luisfelipesb9
+/ingest/           @luisfelipesb9
+/repo/             @luisfelipesb9
+/engine/           @luisfelipesb9 @pedrormes
+/knowledge/        @luisfelipesb9 @pedrormes
+/graph/            @pedrormes
+/api/              @pedrormes
+/web/              @pedrormes
+/tests/e2e/        @pedrormes
+/docs/             @luisfelipesb9 @pedrormes
