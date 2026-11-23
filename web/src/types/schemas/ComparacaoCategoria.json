@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "Nivel": {
+      "enum": [
+        "alta",
+        "media",
+        "indicio",
+        "inconclusivo"
+      ],
+      "title": "Nivel",
+      "type": "string"
+    },
+    "ResumoCategoria": {
+      "properties": {
+        "categoria": {
+          "title": "Categoria",
+          "type": "string"
+        },
+        "n_findings": {
+          "title": "N Findings",
+          "type": "integer"
+        },
+        "cf_max": {
+          "title": "Cf Max",
+          "type": "number"
+        },
+        "nivel_max": {
+          "$ref": "#/$defs/Nivel"
+        }
+      },
+      "required": [
+        "categoria",
+        "n_findings",
+        "cf_max",
+        "nivel_max"
+      ],
+      "title": "ResumoCategoria",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "categoria": {
+      "title": "Categoria",
+      "type": "string"
+    },
+    "a": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ResumoCategoria"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "b": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ResumoCategoria"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "categoria",
+    "a",
+    "b"
+  ],
+  "title": "ComparacaoCategoria",
+  "type": "object"
+}

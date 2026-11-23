@@ -1,0 +1,123 @@
+{
+  "$defs": {
+    "Evidence": {
+      "properties": {
+        "tipo": {
+          "title": "Tipo",
+          "type": "string"
+        },
+        "id_oficial": {
+          "title": "Id Oficial",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "descricao": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Descricao"
+        }
+      },
+      "required": [
+        "tipo",
+        "id_oficial",
+        "url",
+        "descricao"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Nivel": {
+      "enum": [
+        "alta",
+        "media",
+        "indicio",
+        "inconclusivo"
+      ],
+      "title": "Nivel",
+      "type": "string"
+    }
+  },
+  "description": "Conclusão do motor. Contrato de fronteira engine → api → web.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "deputado_id": {
+      "title": "Deputado Id",
+      "type": "string"
+    },
+    "regra": {
+      "title": "Regra",
+      "type": "string"
+    },
+    "categoria": {
+      "title": "Categoria",
+      "type": "string"
+    },
+    "conclusao": {
+      "title": "Conclusao",
+      "type": "string"
+    },
+    "cf": {
+      "maximum": 1,
+      "minimum": -1,
+      "title": "Cf",
+      "type": "number"
+    },
+    "nivel": {
+      "$ref": "#/$defs/Nivel"
+    },
+    "evidencias": {
+      "items": {
+        "$ref": "#/$defs/Evidence"
+      },
+      "title": "Evidencias",
+      "type": "array"
+    },
+    "guardrails_aplicados": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Guardrails Aplicados",
+      "type": "array"
+    },
+    "valores": {
+      "additionalProperties": true,
+      "title": "Valores",
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "deputado_id",
+    "regra",
+    "categoria",
+    "conclusao",
+    "cf",
+    "nivel",
+    "evidencias",
+    "guardrails_aplicados",
+    "valores"
+  ],
+  "title": "Finding",
+  "type": "object"
+}

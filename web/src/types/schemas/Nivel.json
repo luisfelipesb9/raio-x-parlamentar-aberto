@@ -1,0 +1,10 @@
+{
+  "enum": [
+    "alta",
+    "media",
+    "indicio",
+    "inconclusivo"
+  ],
+  "title": "Nivel",
+  "type": "string"
+}

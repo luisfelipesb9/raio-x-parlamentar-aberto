@@ -1,0 +1,40 @@
+{
+  "properties": {
+    "profundidade": {
+      "title": "Profundidade",
+      "type": "integer"
+    },
+    "objetivo": {
+      "title": "Objetivo",
+      "type": "string"
+    },
+    "regra": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Regra"
+    },
+    "cf": {
+      "title": "Cf",
+      "type": "number"
+    },
+    "nota": {
+      "title": "Nota",
+      "type": "string"
+    }
+  },
+  "required": [
+    "profundidade",
+    "objetivo",
+    "regra",
+    "cf",
+    "nota"
+  ],
+  "title": "PassoProva",
+  "type": "object"
+}

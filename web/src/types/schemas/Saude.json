@@ -1,0 +1,47 @@
+{
+  "properties": {
+    "status": {
+      "enum": [
+        "ok",
+        "degradado"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "contract_version": {
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "n_deputados": {
+      "title": "N Deputados",
+      "type": "integer"
+    },
+    "n_findings": {
+      "title": "N Findings",
+      "type": "integer"
+    },
+    "banco": {
+      "enum": [
+        "ok",
+        "ausente",
+        "erro"
+      ],
+      "title": "Banco",
+      "type": "string"
+    },
+    "pseudonimizado": {
+      "title": "Pseudonimizado",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "status",
+    "contract_version",
+    "n_deputados",
+    "n_findings",
+    "banco",
+    "pseudonimizado"
+  ],
+  "title": "Saude",
+  "type": "object"
+}

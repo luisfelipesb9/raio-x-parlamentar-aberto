@@ -1,0 +1,29 @@
+{
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "tipo": {
+      "title": "Tipo",
+      "type": "string"
+    },
+    "rotulo": {
+      "title": "Rotulo",
+      "type": "string"
+    },
+    "atributos": {
+      "additionalProperties": true,
+      "title": "Atributos",
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "tipo",
+    "rotulo",
+    "atributos"
+  ],
+  "title": "GraphNode",
+  "type": "object"
+}

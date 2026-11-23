@@ -1,0 +1,38 @@
+{
+  "properties": {
+    "deputado_a": {
+      "title": "Deputado A",
+      "type": "string"
+    },
+    "deputado_b": {
+      "title": "Deputado B",
+      "type": "string"
+    },
+    "n_votacoes_comuns": {
+      "title": "N Votacoes Comuns",
+      "type": "integer"
+    },
+    "n_iguais": {
+      "title": "N Iguais",
+      "type": "integer"
+    },
+    "afinidade": {
+      "title": "Afinidade",
+      "type": "number"
+    },
+    "cf": {
+      "title": "Cf",
+      "type": "number"
+    }
+  },
+  "required": [
+    "deputado_a",
+    "deputado_b",
+    "n_votacoes_comuns",
+    "n_iguais",
+    "afinidade",
+    "cf"
+  ],
+  "title": "Afinidade",
+  "type": "object"
+}

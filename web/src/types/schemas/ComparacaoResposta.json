@@ -1,0 +1,381 @@
+{
+  "$defs": {
+    "Afinidade": {
+      "properties": {
+        "deputado_a": {
+          "title": "Deputado A",
+          "type": "string"
+        },
+        "deputado_b": {
+          "title": "Deputado B",
+          "type": "string"
+        },
+        "n_votacoes_comuns": {
+          "title": "N Votacoes Comuns",
+          "type": "integer"
+        },
+        "n_iguais": {
+          "title": "N Iguais",
+          "type": "integer"
+        },
+        "afinidade": {
+          "title": "Afinidade",
+          "type": "number"
+        },
+        "cf": {
+          "title": "Cf",
+          "type": "number"
+        }
+      },
+      "required": [
+        "deputado_a",
+        "deputado_b",
+        "n_votacoes_comuns",
+        "n_iguais",
+        "afinidade",
+        "cf"
+      ],
+      "title": "Afinidade",
+      "type": "object"
+    },
+    "ComparacaoCategoria": {
+      "properties": {
+        "categoria": {
+          "title": "Categoria",
+          "type": "string"
+        },
+        "a": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResumoCategoria"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "b": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResumoCategoria"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "categoria",
+        "a",
+        "b"
+      ],
+      "title": "ComparacaoCategoria",
+      "type": "object"
+    },
+    "Evidence": {
+      "properties": {
+        "tipo": {
+          "title": "Tipo",
+          "type": "string"
+        },
+        "id_oficial": {
+          "title": "Id Oficial",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "descricao": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Descricao"
+        }
+      },
+      "required": [
+        "tipo",
+        "id_oficial",
+        "url",
+        "descricao"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Finding": {
+      "description": "Conclusão do motor. Contrato de fronteira engine → api → web.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "deputado_id": {
+          "title": "Deputado Id",
+          "type": "string"
+        },
+        "regra": {
+          "title": "Regra",
+          "type": "string"
+        },
+        "categoria": {
+          "title": "Categoria",
+          "type": "string"
+        },
+        "conclusao": {
+          "title": "Conclusao",
+          "type": "string"
+        },
+        "cf": {
+          "maximum": 1,
+          "minimum": -1,
+          "title": "Cf",
+          "type": "number"
+        },
+        "nivel": {
+          "$ref": "#/$defs/Nivel"
+        },
+        "evidencias": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidencias",
+          "type": "array"
+        },
+        "guardrails_aplicados": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Guardrails Aplicados",
+          "type": "array"
+        },
+        "valores": {
+          "additionalProperties": true,
+          "title": "Valores",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "deputado_id",
+        "regra",
+        "categoria",
+        "conclusao",
+        "cf",
+        "nivel",
+        "evidencias",
+        "guardrails_aplicados",
+        "valores"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "GraphNode": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "tipo": {
+          "title": "Tipo",
+          "type": "string"
+        },
+        "rotulo": {
+          "title": "Rotulo",
+          "type": "string"
+        },
+        "atributos": {
+          "additionalProperties": true,
+          "title": "Atributos",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "tipo",
+        "rotulo",
+        "atributos"
+      ],
+      "title": "GraphNode",
+      "type": "object"
+    },
+    "Nivel": {
+      "enum": [
+        "alta",
+        "media",
+        "indicio",
+        "inconclusivo"
+      ],
+      "title": "Nivel",
+      "type": "string"
+    },
+    "PerfilDeputado": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "nome": {
+          "title": "Nome",
+          "type": "string"
+        },
+        "partido": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Partido"
+        },
+        "uf": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uf"
+        },
+        "foto": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Foto"
+        },
+        "n_findings": {
+          "title": "N Findings",
+          "type": "integer"
+        },
+        "categorias": {
+          "items": {
+            "$ref": "#/$defs/ResumoCategoria"
+          },
+          "title": "Categorias",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "nome",
+        "partido",
+        "uf",
+        "foto",
+        "n_findings",
+        "categorias"
+      ],
+      "title": "PerfilDeputado",
+      "type": "object"
+    },
+    "ResumoCategoria": {
+      "properties": {
+        "categoria": {
+          "title": "Categoria",
+          "type": "string"
+        },
+        "n_findings": {
+          "title": "N Findings",
+          "type": "integer"
+        },
+        "cf_max": {
+          "title": "Cf Max",
+          "type": "number"
+        },
+        "nivel_max": {
+          "$ref": "#/$defs/Nivel"
+        }
+      },
+      "required": [
+        "categoria",
+        "n_findings",
+        "cf_max",
+        "nivel_max"
+      ],
+      "title": "ResumoCategoria",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "a": {
+      "$ref": "#/$defs/PerfilDeputado"
+    },
+    "b": {
+      "$ref": "#/$defs/PerfilDeputado"
+    },
+    "categorias": {
+      "items": {
+        "$ref": "#/$defs/ComparacaoCategoria"
+      },
+      "title": "Categorias",
+      "type": "array"
+    },
+    "afinidade_votos": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Afinidade"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "em_comum": {
+      "items": {
+        "$ref": "#/$defs/GraphNode"
+      },
+      "title": "Em Comum",
+      "type": "array"
+    },
+    "findings_a": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings A",
+      "type": "array"
+    },
+    "findings_b": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings B",
+      "type": "array"
+    }
+  },
+  "required": [
+    "a",
+    "b",
+    "categorias",
+    "afinidade_votos",
+    "em_comum",
+    "findings_a",
+    "findings_b"
+  ],
+  "title": "ComparacaoResposta",
+  "type": "object"
+}

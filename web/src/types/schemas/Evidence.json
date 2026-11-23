@@ -1,0 +1,44 @@
+{
+  "properties": {
+    "tipo": {
+      "title": "Tipo",
+      "type": "string"
+    },
+    "id_oficial": {
+      "title": "Id Oficial",
+      "type": "string"
+    },
+    "url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Url"
+    },
+    "descricao": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Descricao"
+    }
+  },
+  "required": [
+    "tipo",
+    "id_oficial",
+    "url",
+    "descricao"
+  ],
+  "title": "Evidence",
+  "type": "object"
+}

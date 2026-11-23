@@ -1,0 +1,109 @@
+{
+  "$defs": {
+    "Nivel": {
+      "enum": [
+        "alta",
+        "media",
+        "indicio",
+        "inconclusivo"
+      ],
+      "title": "Nivel",
+      "type": "string"
+    },
+    "ResumoCategoria": {
+      "properties": {
+        "categoria": {
+          "title": "Categoria",
+          "type": "string"
+        },
+        "n_findings": {
+          "title": "N Findings",
+          "type": "integer"
+        },
+        "cf_max": {
+          "title": "Cf Max",
+          "type": "number"
+        },
+        "nivel_max": {
+          "$ref": "#/$defs/Nivel"
+        }
+      },
+      "required": [
+        "categoria",
+        "n_findings",
+        "cf_max",
+        "nivel_max"
+      ],
+      "title": "ResumoCategoria",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "nome": {
+      "title": "Nome",
+      "type": "string"
+    },
+    "partido": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Partido"
+    },
+    "uf": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Uf"
+    },
+    "foto": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Foto"
+    },
+    "n_findings": {
+      "title": "N Findings",
+      "type": "integer"
+    },
+    "categorias": {
+      "items": {
+        "$ref": "#/$defs/ResumoCategoria"
+      },
+      "title": "Categorias",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "nome",
+    "partido",
+    "uf",
+    "foto",
+    "n_findings",
+    "categorias"
+  ],
+  "title": "PerfilDeputado",
+  "type": "object"
+}

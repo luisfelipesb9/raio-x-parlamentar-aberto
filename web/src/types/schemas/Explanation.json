@@ -1,0 +1,73 @@
+{
+  "$defs": {
+    "ExplanationStep": {
+      "properties": {
+        "regra": {
+          "title": "Regra",
+          "type": "string"
+        },
+        "condicao": {
+          "title": "Condicao",
+          "type": "string"
+        },
+        "resultado": {
+          "title": "Resultado",
+          "type": "boolean"
+        },
+        "detalhe": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detalhe"
+        }
+      },
+      "required": [
+        "regra",
+        "condicao",
+        "resultado",
+        "detalhe"
+      ],
+      "title": "ExplanationStep",
+      "type": "object"
+    }
+  },
+  "description": "Trilha 'Como cheguei aqui' + 'Por que isso importa'.",
+  "properties": {
+    "finding_id": {
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "como": {
+      "items": {
+        "$ref": "#/$defs/ExplanationStep"
+      },
+      "title": "Como",
+      "type": "array"
+    },
+    "por_que": {
+      "title": "Por Que",
+      "type": "string"
+    },
+    "limitacoes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitacoes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "finding_id",
+    "como",
+    "por_que",
+    "limitacoes"
+  ],
+  "title": "Explanation",
+  "type": "object"
+}

@@ -1,0 +1,36 @@
+{
+  "properties": {
+    "regra": {
+      "title": "Regra",
+      "type": "string"
+    },
+    "condicao": {
+      "title": "Condicao",
+      "type": "string"
+    },
+    "resultado": {
+      "title": "Resultado",
+      "type": "boolean"
+    },
+    "detalhe": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Detalhe"
+    }
+  },
+  "required": [
+    "regra",
+    "condicao",
+    "resultado",
+    "detalhe"
+  ],
+  "title": "ExplanationStep",
+  "type": "object"
+}

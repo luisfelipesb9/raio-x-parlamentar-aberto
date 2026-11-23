@@ -1,0 +1,27 @@
+{
+  "contract_version": "0.1.0",
+  "schemas": [
+    "Afinidade",
+    "Backlink",
+    "BacklinksResposta",
+    "ComparacaoCategoria",
+    "ComparacaoResposta",
+    "DeputadoResumo",
+    "Evidence",
+    "Explanation",
+    "ExplanationStep",
+    "Fact",
+    "Finding",
+    "GrafoResposta",
+    "GraphEdge",
+    "GraphNode",
+    "Nivel",
+    "PaginaDeputados",
+    "PassoProva",
+    "PerfilDeputado",
+    "PerguntarResposta",
+    "Problem",
+    "ResumoCategoria",
+    "Saude"
+  ]
+}

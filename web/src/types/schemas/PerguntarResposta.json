@@ -1,0 +1,104 @@
+{
+  "$defs": {
+    "Nivel": {
+      "enum": [
+        "alta",
+        "media",
+        "indicio",
+        "inconclusivo"
+      ],
+      "title": "Nivel",
+      "type": "string"
+    },
+    "PassoProva": {
+      "properties": {
+        "profundidade": {
+          "title": "Profundidade",
+          "type": "integer"
+        },
+        "objetivo": {
+          "title": "Objetivo",
+          "type": "string"
+        },
+        "regra": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Regra"
+        },
+        "cf": {
+          "title": "Cf",
+          "type": "number"
+        },
+        "nota": {
+          "title": "Nota",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profundidade",
+        "objetivo",
+        "regra",
+        "cf",
+        "nota"
+      ],
+      "title": "PassoProva",
+      "type": "object"
+    }
+  },
+  "description": "Resposta do encadeamento regressivo: 'o deputado X <objetivo>?' com a trilha da prova.",
+  "properties": {
+    "objetivo": {
+      "title": "Objetivo",
+      "type": "string"
+    },
+    "deputado_id": {
+      "title": "Deputado Id",
+      "type": "string"
+    },
+    "cf": {
+      "title": "Cf",
+      "type": "number"
+    },
+    "nivel": {
+      "$ref": "#/$defs/Nivel"
+    },
+    "regras_usadas": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Regras Usadas",
+      "type": "array"
+    },
+    "finding_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Finding Ids",
+      "type": "array"
+    },
+    "trilha": {
+      "items": {
+        "$ref": "#/$defs/PassoProva"
+      },
+      "title": "Trilha",
+      "type": "array"
+    }
+  },
+  "required": [
+    "objetivo",
+    "deputado_id",
+    "cf",
+    "nivel",
+    "regras_usadas",
+    "finding_ids",
+    "trilha"
+  ],
+  "title": "PerguntarResposta",
+  "type": "object"
+}

@@ -1,0 +1,116 @@
+{
+  "$defs": {
+    "Backlink": {
+      "properties": {
+        "no": {
+          "$ref": "#/$defs/GraphNode"
+        },
+        "aresta": {
+          "$ref": "#/$defs/GraphEdge"
+        }
+      },
+      "required": [
+        "no",
+        "aresta"
+      ],
+      "title": "Backlink",
+      "type": "object"
+    },
+    "GraphEdge": {
+      "properties": {
+        "origem": {
+          "title": "Origem",
+          "type": "string"
+        },
+        "destino": {
+          "title": "Destino",
+          "type": "string"
+        },
+        "relacao": {
+          "title": "Relacao",
+          "type": "string"
+        },
+        "peso": {
+          "default": 1.0,
+          "title": "Peso",
+          "type": "number"
+        },
+        "cf": {
+          "default": 1.0,
+          "title": "Cf",
+          "type": "number"
+        },
+        "evidencia_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidencia Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "origem",
+        "destino",
+        "relacao",
+        "peso",
+        "cf",
+        "evidencia_ids"
+      ],
+      "title": "GraphEdge",
+      "type": "object"
+    },
+    "GraphNode": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "tipo": {
+          "title": "Tipo",
+          "type": "string"
+        },
+        "rotulo": {
+          "title": "Rotulo",
+          "type": "string"
+        },
+        "atributos": {
+          "additionalProperties": true,
+          "title": "Atributos",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "tipo",
+        "rotulo",
+        "atributos"
+      ],
+      "title": "GraphNode",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "node_id": {
+      "title": "Node Id",
+      "type": "string"
+    },
+    "total": {
+      "title": "Total",
+      "type": "integer"
+    },
+    "backlinks": {
+      "items": {
+        "$ref": "#/$defs/Backlink"
+      },
+      "title": "Backlinks",
+      "type": "array"
+    }
+  },
+  "required": [
+    "node_id",
+    "total",
+    "backlinks"
+  ],
+  "title": "BacklinksResposta",
+  "type": "object"
+}

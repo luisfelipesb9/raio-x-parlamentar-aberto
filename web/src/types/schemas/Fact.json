@@ -1,0 +1,54 @@
+{
+  "description": "Um fato da base de fatos. Sempre rastreável até a fonte oficial.",
+  "properties": {
+    "tipo": {
+      "title": "Tipo",
+      "type": "string"
+    },
+    "chave": {
+      "title": "Chave",
+      "type": "string"
+    },
+    "atributos": {
+      "additionalProperties": true,
+      "title": "Atributos",
+      "type": "object"
+    },
+    "fonte": {
+      "title": "Fonte",
+      "type": "string"
+    },
+    "id_oficial": {
+      "title": "Id Oficial",
+      "type": "string"
+    },
+    "url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Url"
+    },
+    "coletado_em": {
+      "format": "date-time",
+      "title": "Coletado Em",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tipo",
+    "chave",
+    "atributos",
+    "fonte",
+    "id_oficial",
+    "url",
+    "coletado_em"
+  ],
+  "title": "Fact",
+  "type": "object"
+}

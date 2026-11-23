@@ -1,0 +1,43 @@
+{
+  "properties": {
+    "origem": {
+      "title": "Origem",
+      "type": "string"
+    },
+    "destino": {
+      "title": "Destino",
+      "type": "string"
+    },
+    "relacao": {
+      "title": "Relacao",
+      "type": "string"
+    },
+    "peso": {
+      "default": 1.0,
+      "title": "Peso",
+      "type": "number"
+    },
+    "cf": {
+      "default": 1.0,
+      "title": "Cf",
+      "type": "number"
+    },
+    "evidencia_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidencia Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "origem",
+    "destino",
+    "relacao",
+    "peso",
+    "cf",
+    "evidencia_ids"
+  ],
+  "title": "GraphEdge",
+  "type": "object"
+}
