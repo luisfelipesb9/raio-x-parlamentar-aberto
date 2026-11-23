@@ -1,0 +1,12 @@
+id: R08
+nome: Presunção de inocência e lacuna de dados
+tipo: guardrail
+categoria: geral
+predicado: presuncao_inocencia_lacuna
+prioridade: 2
+por_que: "Processo sem condenação definitiva não é culpa, e a falta de dado não é um dado: o sistema não pode punir nem inventar valor por isso."
+limitacoes:
+  - "Remove da base todo fato `processo` cujo transitado_em_julgado não seja verdadeiro, antes de qualquer regra; nenhuma regra reduz score por ele."
+  - "Deputado sem nenhum dado fica sem conclusões: nenhum predicado imputa valor; a média partidária só aparece em `valores` (contexto), nunca como conclusão pessoal."
+  - "Mínimo coerente: a imposição de 'não inventar valor' é estrutural (predicados partem de fatos existentes) e o guardrail apenas a audita e registra a contagem."
+fonte_metodologica: "CF/88 art. 5º, LVII; Elas no Congresso"

@@ -1,0 +1,13 @@
+id: R09
+nome: Merece atenção da fiscalização
+tipo: inferencia
+categoria: integridade
+conclui: merece_atencao_fiscalizacao
+requer: [risco_integridade]   # sub-objetivo: provado por R03, R04, R06 e R06b (CF combinado por MYCIN)
+entao: "Os sinais de risco encontrados justificam que órgãos de controle e a imprensa olhem com atenção."
+cf: 0.8
+por_que: "Reúne, em uma única pergunta, todos os indícios de risco de integridade já provados para o deputado."
+limitacoes:
+  - "Regra composta: só é avaliada no encadeamento regressivo (engine/backward.py), a pedido de um objetivo; o `make infer` não gera finding para ela."
+  - "Indício não é acusação: nenhum processo sem trânsito em julgado entra na conta (guardrail R08)."
+fonte_metodologica: "Composição de R03, R04, R06 e R06b"

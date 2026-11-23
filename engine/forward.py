@@ -25,7 +25,8 @@ def run(fb: FactBase, rules: list[Rule]) -> InferenceResult:
         _, desc = GUARDRAILS[r.predicado](fb, r.parametros)
         res.guardrail_log[r.id] = desc
     # 2) regras de inferência
-    for r in (r for r in rules if r.tipo == "inferencia"):
+    # regras compostas (`requer`) só existem no encadeamento regressivo (engine/backward.py)
+    for r in (r for r in rules if r.tipo == "inferencia" and not r.requer):
         for cand in PREDICATES[r.predicado](fb, r.parametros):
             env = {**r.parametros, **cand.valores}
             if r.se and not evaluate(r.se, env):

@@ -1,0 +1,20 @@
+id: R07
+nome: Concentração eleitoral de emendas
+tipo: inferencia
+categoria: emendas
+conclui: concentracao_eleitoral_emendas
+predicado: concentracao_emendas
+parametros: {razao_minima: 3, ano_pix_rastreavel: 2027}
+se: "razao >= razao_minima"
+entao: "As emendas foram para cidades onde o deputado teve {pct_destino}% dos votos válidos, cerca de {razao}x a votação dele nas demais cidades do estado ({pct_resto}%)."
+cf: 0.6
+penalidades:
+  - {se: "n_emendas_pix_pre_2027 > 0", fator: 0.8, motivo: "Emendas Pix anteriores a 2027 não têm destino final rastreável"}
+  - {se: "n_municipios_destino < 3", fator: 0.7, motivo: "Poucos municípios na comparação"}
+por_que: "Mostra se o dinheiro das emendas tende a ir para onde o deputado tem mais votos, o que ajuda o eleitor a entender a lógica de distribuição."
+limitacoes:
+  - "Correlação não é causa: o deputado pode ter mais votos onde atua há mais tempo e por isso destinar mais emendas ali."
+  - "Emendas Pix (transferências especiais) anteriores a 2027 não têm destino final rastreável; reduzem a certeza."
+  - "Municípios sem registro de votos do deputado ficam fora da comparação; se ele teve 0% no resto do estado, a razão não é calculada."
+  - "Só emendas com deputado identificado e valor empenhado > 0; emendas só com nome do autor são ignoradas."
+fonte_metodologica: "Radar do Voto"

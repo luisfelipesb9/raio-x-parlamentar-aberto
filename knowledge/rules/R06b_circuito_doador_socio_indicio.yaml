@@ -1,0 +1,18 @@
+id: R06b
+nome: Circuito doador-sócio-fornecedor (indício, identidade não confirmada)
+tipo: inferencia
+categoria: integridade
+conclui: risco_integridade
+predicado: circuito_doador_socio
+parametros: {modo: indicio}
+se: "n_circuitos >= 1"
+entao: "Pagou R$ {valor_ceap} da cota parlamentar a empresa(s) cujo sócio tem o mesmo nome de uma pessoa que doou R$ {valor_doado} à campanha do deputado: {ressalva}."
+cf: 0.85
+penalidades:
+  - {se: "n_confirmados == 0", fator: 0.4, motivo: "CPF do sócio não confirmável: identidade não confirmada (possível homônimo)"}
+por_que: "Dinheiro público pago a uma empresa possivelmente ligada a quem financiou a campanha merece conferência, mas aqui a identidade da pessoa ainda não foi confirmada."
+limitacoes:
+  - "Casamento só por nome normalizado; CPF mascarado ou ausente impede confirmar a identidade, então o CF fica em indício (<= 0,4) por construção."
+  - "O nome do sócio não é divulgado enquanto a identidade não for confirmada (LGPD)."
+  - "Dígitos visíveis do CPF mascarado incompatíveis com o do doador descartam o caso."
+fonte_metodologica: "Portal da Transparência/CEAP + TSE + Receita Federal (QSA)"

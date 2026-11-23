@@ -1,47 +1,14 @@
-"""Predicados: funções que leem a base de fatos e calculam valores para as regras.
-
-Cada regra YAML aponta para um predicado pelo nome. Para adicionar um novo:
-    @predicate("nome")
-    def f(fb: FactBase, params: dict) -> list[Candidate]: ...
-Guardrails usam @guardrail e retornam (quantidade_excluida, descricao).
-"""
+"""Predicados R01–R04."""
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable
-from dataclasses import dataclass, field
 from datetime import date
 from statistics import median
 from typing import Any
 
 from contracts import Evidence
 from engine.factbase import FactBase
-
-
-@dataclass
-class Candidate:
-    deputado_id: str
-    valores: dict[str, Any]
-    evidencias: list[Evidence] = field(default_factory=list)
-    premissas_cf: list[float] = field(default_factory=list)
-
-
-PREDICATES: dict[str, Callable[[FactBase, dict], list[Candidate]]] = {}
-GUARDRAILS: dict[str, Callable[[FactBase, dict], tuple[int, str]]] = {}
-
-
-def predicate(name: str):
-    def deco(fn):
-        PREDICATES[name] = fn
-        return fn
-    return deco
-
-
-def guardrail(name: str):
-    def deco(fn):
-        GUARDRAILS[name] = fn
-        return fn
-    return deco
+from engine.predicates.registry import Candidate, guardrail, predicate
 
 
 # ---------------------------------------------------------------- guardrails
@@ -84,30 +51,42 @@ def taxa_governismo(fb: FactBase, params: dict) -> list[Candidate]:
 
 @predicate("fornecedor_sancionado")
 def fornecedor_sancionado(fb: FactBase, params: dict) -> list[Candidate]:
-    """CNPJ que recebeu CEAP enquanto tinha sanção vigente (CEIS/CNEP)."""
+    """CNPJ que recebeu CEAP enquanto tinha sanção vigente (CEIS/CNEP).
+
+    Só casa por CNPJ preenchido (despesa/sanção de pessoa física não casa). Estornos (valor < 0)
+    não contam como pagamento: só valores > 0 entram, e só se o líquido por CNPJ for > 0.
+    """
     sancoes = defaultdict(list)
     for s in fb.of("sancao"):
-        sancoes[s.atributos["cnpj"]].append(s)
-    hits: dict[str, Candidate] = {}
+        if s.atributos.get("cnpj"):
+            sancoes[s.atributos["cnpj"]].append(s)
+    pagos: dict[tuple[str, str], list[tuple[Any, Any]]] = defaultdict(list)  # (dep, cnpj)
     for d in fb.of("despesa_ceap"):
         cnpj = d.atributos.get("cnpj")
         data = _d(d.atributos.get("data"))
+        if not cnpj:
+            continue
         for s in sancoes.get(cnpj, []):
             ini, fim = _d(s.atributos.get("inicio")), _d(s.atributos.get("fim"))
             if data and ini and data >= ini and (fim is None or data <= fim):
-                dep = d.atributos["deputado_id"]
-                c = hits.setdefault(dep, Candidate(dep, {"n_despesas": 0, "valor_total": 0.0,
-                                                         "cnpjs": []}))
-                c.valores["n_despesas"] += 1
-                c.valores["valor_total"] = round(c.valores["valor_total"]
-                                                 + float(d.atributos.get("valor", 0)), 2)
-                if cnpj not in c.valores["cnpjs"]:
-                    c.valores["cnpjs"].append(cnpj)
-                c.evidencias += [
-                    Evidence(tipo="despesa_ceap", id_oficial=d.id_oficial, url=d.url),
-                    Evidence(tipo="sancao", id_oficial=s.id_oficial, url=s.url,
-                             descricao=s.atributos.get("cadastro")),
-                ]
+                pagos[(d.atributos["deputado_id"], cnpj)].append((d, s))
+                break  # uma despesa conta uma vez, mesmo com várias sanções vigentes
+    hits: dict[str, Candidate] = {}
+    for (dep, cnpj), pares in pagos.items():
+        liquido = sum(float(d.atributos.get("valor", 0)) for d, _ in pares)
+        if liquido <= 0:
+            continue  # estorno anula o pagamento
+        c = hits.setdefault(dep, Candidate(dep, {"n_despesas": 0, "valor_total": 0.0,
+                                                 "cnpjs": []}))
+        c.valores["valor_total"] = round(c.valores["valor_total"] + liquido, 2)  # líquido
+        for d, s in pares:
+            if float(d.atributos.get("valor", 0)) <= 0:
+                continue
+            c.valores["n_despesas"] += 1
+            c.evidencias += [Evidence(tipo="despesa_ceap", id_oficial=d.id_oficial, url=d.url),
+                             Evidence(tipo="sancao", id_oficial=s.id_oficial, url=s.url,
+                                      descricao=s.atributos.get("cadastro"))]
+        c.valores["cnpjs"].append(cnpj)
     return list(hits.values())
 
 

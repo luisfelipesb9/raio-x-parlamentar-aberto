@@ -1,16 +1,31 @@
 """Encadeamento regressivo (goal-driven): 'o deputado X <objetivo>?'
 
-Busca regras cujo campo `conclui` é o objetivo, avalia só essas para o deputado pedido e
-combina as evidências por MYCIN. TODO (Pedro, fase 2): sub-objetivos encadeados
-(regra cujo `se` referencia outro objetivo) e pergunta interativa ao usuário.
+prove() resolve o objetivo recursivamente:
+  * regra de folha (com `predicado`): vale o CF do finding que o motor progressivo produz;
+  * regra composta (com `requer`): CF = cf_regra × min(CF dos sub-objetivos) — `certainty.propagate`
+    — e só dispara se TODOS os sub-objetivos tiverem CF > 0;
+  * várias regras para o mesmo objetivo: combinadas por MYCIN (`certainty.combine_all`).
+Ciclos (a requer b requer a) são detectados pela pilha de objetivos: o ramo cíclico vale CF 0 e é
+registrado na trilha, sem travar e sem impedir outros caminhos de prova.
+Pergunta interativa ao usuário continua fora de escopo.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from engine import certainty, forward
 from engine.factbase import FactBase
+from engine.forward import InferenceResult
 from engine.rules import Rule
+
+
+@dataclass
+class PassoProva:
+    profundidade: int
+    objetivo: str
+    regra: str | None
+    cf: float
+    nota: str = ""
 
 
 @dataclass
@@ -20,11 +35,69 @@ class GoalAnswer:
     cf: float
     regras_usadas: list[str]
     finding_ids: list[str]
+    trilha: list[PassoProva] = field(default_factory=list)
 
 
-def prove(goal: str, deputado_id: str, fb: FactBase, rules: list[Rule]) -> GoalAnswer:
-    relevantes = [r for r in rules if r.tipo == "guardrail" or r.conclui == goal]
-    res = forward.run(fb, relevantes)
-    mine = [f for f in res.findings if f.deputado_id == deputado_id]
-    return GoalAnswer(goal, deputado_id, round(certainty.combine_all([f.cf for f in mine]), 3),
-                      sorted({f.regra for f in mine}), [f.id for f in mine])
+def prove(goal: str, deputado_id: str, fb: FactBase, rules: list[Rule],
+          resultado: InferenceResult | None = None) -> GoalAnswer:
+    """`resultado`: InferenceResult de um forward.run já feito (com as regras alcançáveis ou todas);
+    se passado, não roda o motor progressivo de novo."""
+    por_objetivo: dict[str, list[Rule]] = {}
+    for r in rules:
+        if r.tipo == "inferencia" and r.conclui:
+            por_objetivo.setdefault(r.conclui, []).append(r)
+
+    # só as regras alcançáveis a partir do objetivo (+ guardrails) entram no motor progressivo
+    alcancaveis: set[str] = set()
+    vistos: set[str] = set()
+    fila = [goal]
+    while fila:
+        g = fila.pop()
+        if g in vistos:
+            continue
+        vistos.add(g)
+        for r in por_objetivo.get(g, []):
+            alcancaveis.add(r.id)
+            fila.extend(r.requer)
+    if resultado is None:
+        relevantes = [r for r in rules if r.tipo == "guardrail" or r.id in alcancaveis]
+        resultado = forward.run(fb, relevantes)
+    res = resultado
+    findings = {f.regra: f for f in res.findings if f.deputado_id == deputado_id}
+
+    trilha: list[PassoProva] = []
+    usadas: set[str] = set()
+    fids: list[str] = []
+
+    def resolve(obj: str, pilha: tuple[str, ...]) -> float:
+        prof = len(pilha)
+        if obj in pilha:
+            trilha.append(PassoProva(prof, obj, None, 0.0,
+                                     f"ciclo detectado: {' -> '.join((*pilha, obj))}"))
+            return 0.0
+        regras = por_objetivo.get(obj, [])
+        if not regras:
+            trilha.append(PassoProva(prof, obj, None, 0.0, "sem regra que conclua este objetivo"))
+            return 0.0
+        cfs: list[float] = []
+        for r in regras:
+            idx = len(trilha)
+            trilha.append(PassoProva(prof, obj, r.id, 0.0))
+            if r.requer:
+                subs = [resolve(s, (*pilha, obj)) for s in r.requer]
+                cf = certainty.propagate(r.cf, subs) if all(s > 0 for s in subs) else 0.0
+                nota = "sub-objetivos: " + ", ".join(f"{s}={c}" for s, c in zip(r.requer, subs))
+            else:
+                f = findings.get(r.id)
+                cf = f.cf if f else 0.0
+                nota = "finding " + f.id if f else "condições não satisfeitas"
+                if f and cf > 0:
+                    fids.append(f.id)
+            trilha[idx] = PassoProva(prof, obj, r.id, round(cf, 3), nota)
+            if cf > 0:
+                usadas.add(r.id)
+                cfs.append(cf)
+        return certainty.combine_all(cfs)
+
+    cf = resolve(goal, ())
+    return GoalAnswer(goal, deputado_id, round(cf, 3), sorted(usadas), sorted(set(fids)), trilha)

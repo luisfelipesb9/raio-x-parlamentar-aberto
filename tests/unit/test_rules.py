@@ -13,7 +13,7 @@ def run(fs):
 def test_base_de_conhecimento_carrega():
     ids = [r.id for r in load_rules()]
     assert ids[0] == "R02"  # guardrail roda primeiro
-    assert set(ids) == {"R01", "R02", "R03", "R04"}
+    assert set(ids) == {"R01", "R02", "R03", "R04", "R05", "R06", "R06b", "R07", "R08", "R09"}
 
 
 def test_r01_governismo_positivo_e_negativo(fatos_votacao):

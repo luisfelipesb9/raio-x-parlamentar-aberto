@@ -1,0 +1,16 @@
+id: R06
+nome: Circuito doador-sócio-fornecedor (identidade confirmada)
+tipo: inferencia
+categoria: integridade
+conclui: risco_integridade
+predicado: circuito_doador_socio
+parametros: {modo: confirmado}
+se: "n_circuitos >= 1"
+entao: "Pagou R$ {valor_ceap} da cota parlamentar a empresa(s) cujo sócio tem o mesmo nome de uma pessoa que doou R$ {valor_doado} à campanha do deputado: {ressalva}."
+cf: 0.85
+por_que: "Dinheiro público pago a uma empresa ligada a quem financiou a campanha é um padrão clássico de risco de retorno de doação e merece conferência."
+limitacoes:
+  - "Casamento por nome normalizado (sem acento, maiúsculo), confirmado por CPF íntegro igual. Casos sem CPF confirmável vão para a R06b (indício, CF <= 0,4)."
+  - "Não prova irregularidade: o fornecedor pode ter prestado o serviço normalmente."
+  - "Só considera doadores pessoa física da campanha ligada ao deputado (candidatura resolvida)."
+fonte_metodologica: "Portal da Transparência/CEAP + TSE (prestação de contas) + Receita Federal (QSA); lógica do Radar da República"

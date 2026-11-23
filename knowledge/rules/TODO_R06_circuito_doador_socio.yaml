@@ -1,3 +1,0 @@
-# TODO Pedro (fase 2): Circuito doador-sócio-fornecedor (CF rebaixado se CPF mascarado)
-# Renomeie para R06_circuito_doador_socio.yaml quando o predicado existir em engine/predicates.py.
-# Detalhes da lógica: docs/HANDOFF.md

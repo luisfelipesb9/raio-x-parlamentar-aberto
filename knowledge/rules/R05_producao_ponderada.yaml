@@ -1,0 +1,24 @@
+id: R05
+nome: Produção legislativa ponderada
+tipo: inferencia
+categoria: producao
+conclui: pontuacao_producao_legislativa  # objetivo descritivo (medida), não 'produz bem/mal'
+predicado: producao_ponderada
+parametros:
+  peso_coautor: 0.25
+  max_iniciativa: 32
+  escala_iniciativa: 25
+  max_relatoria: 8
+  escala_relatoria: 10.57
+  minimo_colegas_partido: 3
+se: "pontos >= 0"
+entao: "Produção legislativa: {pontos} de {pontos_max} pontos ({autorias} projetos de autoria, {coautorias} em coautoria e {relatorias} relatorias)."
+cf: 0.8
+penalidades:
+  - {se: "autorias + coautorias + relatorias < 5", fator: 0.7, motivo: "Poucas proposições registradas no período"}
+por_que: "Dá uma medida simples e comparável de quanto o deputado efetivamente propõe e relata, em vez de contar só discursos ou presença."
+limitacoes:
+  - "Mede quantidade ponderada, não qualidade nem aprovação das proposições."
+  - "Quem não tem nenhum registro de autoria fica sem pontuação (falta de dado não é produção zero)."
+  - "A média do partido aparece só como contexto, nunca como conclusão sobre o deputado."
+fonte_metodologica: "Radar da República V2"
