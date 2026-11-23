@@ -1,0 +1,16 @@
+# Projeto Vercel da API (raiz do repo).
+# LGPD: só a base PSEUDONIMIZADA vai para o deploy. Tudo em data/ é excluído,
+# exceto data/sample/raio_x_publico.duckdb (gere com `make sample-publico` e rode a varredura).
+web/
+tests/
+docs/
+.venv/
+.git/
+node_modules/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+data/*
+!data/sample/
+data/sample/*
+!data/sample/raio_x_publico.duckdb

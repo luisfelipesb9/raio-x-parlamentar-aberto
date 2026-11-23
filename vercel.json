@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 30,
+      "excludeFiles": "{web/**,tests/**,docs/**,data/raw/**,data/raio_x.duckdb,data/sample/raio_x_sample.duckdb,.venv/**,.git/**,**/__pycache__/**,.pytest_cache/**,.ruff_cache/**}"
+    }
+  }
+}
