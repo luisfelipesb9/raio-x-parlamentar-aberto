@@ -8,7 +8,7 @@ obtida e **o quanto** é certa.
 `knowledge/rules/`), motor de inferência com fatores de certeza e módulo de explicação.
 
 - Comece por [AGENTS.md](AGENTS.md) (mapa do repositório e regras).
-- Arquitetura: [docs/arquitetura.md](docs/arquitetura.md) · Status/divisão: [docs/HANDOFF.md](docs/HANDOFF.md)
+- Arquitetura: [docs/arquitetura.md](docs/arquitetura.md) · Status/divisão: [docs/HANDOFF.md](docs/HANDOFF.md) · Decisões: [docs/adr/](docs/adr/README.md) · Relatório: [docs/relatorio/relatorio.md](docs/relatorio/relatorio.md)
 
 ```
 make setup && make test
