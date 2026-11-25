@@ -4,7 +4,7 @@
 
 ## Como rodar
 ```
-make setup && make test          # 499 testes Python (pytest); web: 50 unit + 45 e2e
+make setup && make test          # 504 testes Python (pytest); web: 50 unit + 45 e2e
 make sample                      # ingere 20 deputados de MG (2024) + roda o motor -> data/sample/raio_x_sample.duckdb
 RAIO_X_DB=data/sample/raio_x_sample.duckdb make dev    # API em http://localhost:8000 (/docs)
 cd web && pnpm install && pnpm dev                     # web em http://localhost:3000
@@ -57,8 +57,10 @@ O deploy da API é pela CLI, a partir de um clone limpo (detalhes em `api/README
 2. Em um clone limpo, copie só `data/sample/raio_x_publico.duckdb` e rode `make deploy-check` (reprova se houver
    outro `.duckdb` na árvore).
 3. API (Root = raiz): `vercel link`; envs `RAIO_X_DB=data/sample/raio_x_publico.duckdb`, `RAIO_X_ID_SALT`,
-   `RAIO_X_CORS_ORIGINS=<url do web>`; `vercel deploy`; conferir `/saude` (`status: ok`, `pseudonimizado: true`).
-4. Web (Root = `web/`): env `NEXT_PUBLIC_API_URL=<url da API>`.
+   `RAIO_X_CORS_ORIGINS=<url do web>`; `vercel deploy` (preview) e, estando certo, `vercel deploy --prod`;
+   conferir `/saude` na URL de produção (`status: ok`, `pseudonimizado: true`).
+4. Web (Root = `web/`): env `NEXT_PUBLIC_API_URL=<url de produção da API>`; publicar também em produção
+   (`--prod`, se for pela CLI).
 5. Testar em produção, no celular: busca → ficha → "Como sabemos disso?" → grafo → perguntar.
 
 Validado só localmente (Windows, 2026-11-24): base pública gerada, 0 CPF íntegro de terceiro, `deploy-check` ok em
@@ -77,7 +79,9 @@ sobrecarregada ou suspensa); com `--workers=1` restaram 3 falhas do mesmo tipo, 
 
 ## Fonte RFB indisponível
 Se a BrasilAPI responder 5xx ou timeout para um CNPJ mesmo após as tentativas, ele vai para a chave `indisponiveis`
-(com aviso no log) e o lote segue; a empresa fica sem dados da Receita. 429 persistente e 4xx continuam abortando.
+(com aviso no log e no relatório do pipeline, em `rfb.indisponiveis`) e o lote segue; a empresa fica sem dados da
+Receita. Com 3 CNPJs seguidos sem resposta a ingestão aborta (queda do serviço ou da rede). 429 persistente e 4xx
+continuam abortando.
 
 ## Regra de ouro
 Não alterar `contracts/` sem ADR (ver `docs/adr/`). Regras novas: YAML + predicado em `engine/predicates/`.
