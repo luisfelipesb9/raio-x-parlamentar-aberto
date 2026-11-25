@@ -33,5 +33,6 @@ Sal do hash: `SAL_ID` (a API aceita `RAIO_X_ID_SALT`); troque-o para que os ids 
   513 deputados × 150 votações em ~1 s; nunca O(n²) arestas.
 - `subgrafo(nodes, edges, centro, profundidade, relacoes=, max_nos=)` → `(nós, arestas, truncado)`;
   travessia não-direcionada, admissão por prioridade de relação (ver `RELACOES`) e depois peso.
-- `backlinks(node_id, nodes, edges)` → quem aponta para o nó (simétricas valem nos dois sentidos).
+- `backlinks(node_id, nodes, edges)` → todas as ligações do nó, as que chegam e as que saem; `no` é a outra ponta
+  e o sentido está em `aresta.origem`/`aresta.destino`.
 - Saída ordenada e determinística (independe da ordem dos fatos).

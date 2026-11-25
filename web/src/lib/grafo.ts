@@ -1,4 +1,6 @@
 import type { GrafoResposta } from "@/types/contracts";
+import { formataPercentual, formataReais } from "./formato";
+import { formataCf } from "./nivel";
 
 export const RELACOES = [
   "filiado_a",
@@ -36,6 +38,36 @@ export const ROTULOS_FILTRO: Record<(typeof RELACOES)[number], string> = {
 
 export function rotuloRelacao(relacao: string): string {
   return (ROTULOS_RELACAO as Record<string, string>)[relacao] ?? relacao.replaceAll("_", " ");
+}
+
+/** A ligação sai do nó selecionado? Então a frase começa por ele. Voto parecido é simétrico. */
+export function saiDoNo(noId: string, aresta: { origem: string; relacao: string }): boolean {
+  return aresta.origem === noId && aresta.relacao !== "votou_com";
+}
+
+/** Separa o que chega ao nó (inclui voto parecido) do que sai dele, mantendo a ordem da API. */
+export function separaLigacoes<T extends { aresta: { origem: string; relacao: string } }>(
+  noId: string,
+  ligacoes: readonly T[],
+): { chegam: T[]; saem: T[] } {
+  return {
+    chegam: ligacoes.filter((l) => !saiDoNo(noId, l.aresta)),
+    saem: ligacoes.filter((l) => saiDoNo(noId, l.aresta)),
+  };
+}
+
+export function valorDaAresta(relacao: string, peso: number): string | null {
+  if (["recebeu", "doou", "enviou_emenda"].includes(relacao)) {
+    // soma negativa = devoluções maiores que os pagamentos no período
+    return peso < 0 ? `${formataReais(peso)} (saldo de estornos)` : formataReais(peso);
+  }
+  if (relacao === "votou_com") return `${formataPercentual(peso)} dos votos iguais`;
+  return null;
+}
+
+/** Só quando há dúvida (CF < 1): sociedade sem identidade confirmada, poucas votações em comum. */
+export function certezaDaAresta(cf: number): string | null {
+  return cf < 1 ? `certeza (CF) ${formataCf(cf)}` : null;
 }
 
 export interface InfoTipoNo {

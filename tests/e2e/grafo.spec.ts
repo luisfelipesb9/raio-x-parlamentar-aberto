@@ -46,7 +46,14 @@ test.describe("grafo", () => {
     const primeiro = lista.getByRole("button").first();
     await primeiro.focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("complementary", { name: /detalhes do nó/i })).toBeVisible();
+    const painel = page.getByRole("complementary", { name: /detalhes do nó/i });
+    await expect(painel).toBeVisible();
+    await expect(painel.getByRole("heading", { level: 2 })).toBeInViewport();
+
+    // volta até a lista e escolhe o MESMO nó: o painel tem de voltar para a vista
+    await primeiro.scrollIntoViewIfNeeded();
+    await primeiro.click();
+    await expect(painel.getByRole("heading", { level: 2 })).toBeInViewport();
   });
 
   test("profundidade 2 e filtro de relação refazem a consulta e atualizam a contagem", async ({ page, request }) => {

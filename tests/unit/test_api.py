@@ -223,6 +223,16 @@ def test_backlinks_do_no(client):
     assert client.get("/grafo/backlinks/lixo").status_code == 422
 
 
+def test_backlinks_de_no_que_so_tem_ligacoes_de_saida(client):
+    """Empresa que recebeu da cota: nada aponta para ela, mas o painel precisa mostrar."""
+    no = "empresa:00000000000001"
+    body = client.get(f"/grafo/backlinks/{no}").json()
+    assert body["total"] >= 2
+    assert {b["aresta"]["origem"] for b in body["backlinks"]} == {no}
+    pesos = [b["aresta"]["peso"] for b in body["backlinks"] if b["aresta"]["relacao"] == "recebeu"]
+    assert pesos == sorted(pesos, reverse=True)
+
+
 # --------------------------------------------------------------------------- perguntar
 def test_perguntar_prova_objetivo_com_trilha(client):
     r = client.get("/perguntar", params={"deputado": "3", "objetivo": "risco_integridade"})
