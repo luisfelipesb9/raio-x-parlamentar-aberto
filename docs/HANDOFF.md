@@ -4,7 +4,7 @@
 
 ## Como rodar
 ```
-make setup && make test          # 472 testes Python (pytest); web: 50 unit + 45 e2e
+make setup && make test          # 499 testes Python (pytest); web: 50 unit + 45 e2e
 make sample                      # ingere 20 deputados de MG (2024) + roda o motor -> data/sample/raio_x_sample.duckdb
 RAIO_X_DB=data/sample/raio_x_sample.duckdb make dev    # API em http://localhost:8000 (/docs)
 cd web && pnpm install && pnpm dev                     # web em http://localhost:3000
@@ -46,7 +46,38 @@ Escopo da amostra: 2.083 emendas ligadas (o total global da CGU é 37.297 ligada
 ## Privacidade e deploy
 - `--pseudonimizar` troca CPF por HMAC-SHA256 (`hmac:<32 hex>`, sal em `RAIO_X_ID_SALT`); `doador_cpf_visivel` preserva a R06b; CPF de fornecedor PF dentro de `despesa_ceap.fornecedor` (36 casos) também é substituído. Ver ADR-006.
 - `make sample-publico` gera `data/sample/raio_x_publico.duckdb` e roda a varredura (`ingest.varredura`): 0 CPFs íntegros (controle positivo: 752). A varredura **não** cobre `data/raw`.
-- API: `/saude`, forward pré-calculado no `/perguntar`; `vercel.json` + `api/index.py` (deploy pelo Pedro).
+- API: `/saude`, forward pré-calculado no `/perguntar`; `vercel.json` + `api/index.py` (deploy pelo Luis, na conta Vercel dele).
+
+## Deploy (Luis) — depois do merge
+**O merge não publica a base**: `data/` é ignorado pelo git, então um deploy automático pelo GitHub sobe a API sem banco.
+O deploy da API é pela CLI, a partir de um clone limpo (detalhes em `api/README.md`):
+
+1. `RAIO_X_ID_SALT=<segredo> make sample-publico` (a varredura precisa sair 0). Guarde o sal fora do repositório
+   e use sempre o mesmo, senão os ids pseudonimizados mudam a cada atualização.
+2. Em um clone limpo, copie só `data/sample/raio_x_publico.duckdb` e rode `make deploy-check` (reprova se houver
+   outro `.duckdb` na árvore).
+3. API (Root = raiz): `vercel link`; envs `RAIO_X_DB=data/sample/raio_x_publico.duckdb`, `RAIO_X_ID_SALT`,
+   `RAIO_X_CORS_ORIGINS=<url do web>`; `vercel deploy`; conferir `/saude` (`status: ok`, `pseudonimizado: true`).
+4. Web (Root = `web/`): env `NEXT_PUBLIC_API_URL=<url da API>`.
+5. Testar em produção, no celular: busca → ficha → "Como sabemos disso?" → grafo → perguntar.
+
+Validado só localmente (Windows, 2026-11-24): base pública gerada, 0 CPF íntegro de terceiro, `deploy-check` ok em
+clone limpo e `/saude` com `pseudonimizado: true`. **Não validado na Vercel**: abertura read-only do DuckDB na função
+Python e tamanho do bundle. Os CPFs são pseudonimizados, mas os nomes continuam na base (ADR-006).
+
+## Windows
+- `make test` passa sem ajustes de encoding ou fuso (`tzdata` entrou como dependência só no Windows).
+- Sem `make` instalado, rode os comandos do `Makefile` direto com `uv run ...`.
+- Clone em um caminho curto (caminho longo falha com "Filename too long").
+
+E2E no Windows (2026-11-24), no Edge instalado (`channel: "msedge"`), com a amostra completa: 50 casos aprovados e
+2 pulados de propósito (desktop e 375px). Não foi uma única rodada limpa: em paralelo houve timeouts (máquina
+sobrecarregada ou suspensa); com `--workers=1` restaram 3 falhas do mesmo tipo, resolvidas com `--last-failed`
+(2 passaram, 1 é pulo intencional).
+
+## Fonte RFB indisponível
+Se a BrasilAPI responder 5xx ou timeout para um CNPJ mesmo após as tentativas, ele vai para a chave `indisponiveis`
+(com aviso no log) e o lote segue; a empresa fica sem dados da Receita. 429 persistente e 4xx continuam abortando.
 
 ## Regra de ouro
 Não alterar `contracts/` sem ADR (ver `docs/adr/`). Regras novas: YAML + predicado em `engine/predicates/`.
