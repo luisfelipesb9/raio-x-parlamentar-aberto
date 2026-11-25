@@ -478,7 +478,7 @@ def test_backlinks_incluem_ligacoes_que_saem_do_no(rede):
     nodes, edges = project(rede, [])
     bl = backlinks("empresa:11111111000111", nodes, edges)
     assert [(b.no.id, b.aresta.relacao, b.aresta.peso) for b in bl] == [
-        ("deputado:1", "recebeu", 10.0), ("deputado:2", "recebeu", 20.0)]
+        ("deputado:2", "recebeu", 20.0), ("deputado:1", "recebeu", 10.0)]  # maior valor primeiro
     assert {b.aresta.origem for b in bl} == {"empresa:11111111000111"}  # o sentido segue na aresta
 
 

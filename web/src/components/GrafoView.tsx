@@ -4,9 +4,8 @@ import type { Core } from "cytoscape";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { BacklinksResposta, GraphNode, GrafoResposta } from "@/types/contracts";
-import { RELACOES, ROTULOS_FILTRO, TIPOS_NO, distanciasDoCentro, paraElementos, rotuloRelacao, saiDoNo } from "@/lib/grafo";
-import { formataReais, formataPercentual } from "@/lib/formato";
+import type { Backlink, BacklinksResposta, GraphNode, GrafoResposta } from "@/types/contracts";
+import { RELACOES, ROTULOS_FILTRO, TIPOS_NO, certezaDaAresta, distanciasDoCentro, paraElementos, rotuloRelacao, saiDoNo, separaLigacoes, valorDaAresta } from "@/lib/grafo";
 import { useApi } from "@/lib/useApi";
 import { Carregando, ErroApi } from "./Estados";
 import { GrafoCanvas } from "./GrafoCanvas";
@@ -30,12 +29,6 @@ function Forma({ tipo }: { tipo: string }) {
   );
 }
 
-function valorDaAresta(relacao: string, peso: number): string | null {
-  if (["recebeu", "doou", "enviou_emenda"].includes(relacao)) return formataReais(peso);
-  if (relacao === "votou_com") return `${formataPercentual(peso)} dos votos iguais`;
-  return null;
-}
-
 export function GrafoView({ centro }: { centro: string }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -51,16 +44,22 @@ export function GrafoView({ centro }: { centro: string }) {
   const cyRef = useRef<Core | null>(null);
   const painelRef = useRef<HTMLDivElement | null>(null);
 
-  // Selecionar pela lista (ou no celular) abriria o painel fora da tela: traz o painel para a vista.
+  // Selecionar pela lista (ou pelo próprio painel) pode deixar o painel fora da tela: rola até ele.
+  // Toque no mapa não rola, para não tirar o mapa da vista. O contador faz repetir o mesmo nó valer.
+  const [pedidoRolagem, setPedidoRolagem] = useState(0);
+  function selecionarEMostrar(id: string) {
+    setSelecionado(id);
+    setPedidoRolagem((n) => n + 1);
+  }
   useEffect(() => {
     const painel = painelRef.current;
-    if (!selecionado || !painel) return;
-    const cabecalho = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+    if (pedidoRolagem === 0 || !painel) return;
+    const cabecalho = Math.max(document.querySelector("header")?.getBoundingClientRect().bottom ?? 0, 0);
     const { top } = painel.getBoundingClientRect();
-    if (top < Math.max(cabecalho, 0) || top > window.innerHeight * 0.6) {
-      window.scrollTo({ top: window.scrollY + top - Math.max(cabecalho, 0) - 12 });
+    if (top < cabecalho || top > window.innerHeight * 0.6) {
+      window.scrollTo({ top: window.scrollY + top - cabecalho - 12 });
     }
-  }, [selecionado]);
+  }, [pedidoRolagem]);
 
   const params = { centro, profundidade, relacoes: ativas.size === RELACOES.length ? undefined : [...ativas].join(",") };
   // sem nenhuma relação marcada não há o que consultar
@@ -189,7 +188,7 @@ export function GrafoView({ centro }: { centro: string }) {
 
             <div className="grafo-lateral" ref={painelRef}>
               {noSel ? (
-                <PainelNo no={noSel} centro={centro} nosPorId={nosPorId} onSelecionar={setSelecionado} onCentralizar={(id) => router.push(`/grafo?centro=${encodeURIComponent(id)}`)} />
+                <PainelNo key={noSel.id} no={noSel} centro={centro} nosPorId={nosPorId} onSelecionar={selecionarEMostrar}onCentralizar={(id) => router.push(`/grafo?centro=${encodeURIComponent(id)}`)} />
               ) : (
                 <p className="nota painel-vazio">Nenhum nó selecionado. Selecione um nó no mapa ou na lista para ver atributos e backlinks.</p>
               )}
@@ -204,7 +203,7 @@ export function GrafoView({ centro }: { centro: string }) {
               <ul id="lista-nos" className="lista-nos" aria-label="Nós do grafo">
                 {nosOrdenados.map((n) => (
                   <li key={n.id}>
-                    <button type="button" aria-pressed={selecionado === n.id} onClick={() => setSelecionado(n.id)}>
+                    <button type="button" aria-pressed={selecionado === n.id} onClick={() => selecionarEMostrar(n.id)}>
                       <Forma tipo={n.tipo} />
                       <span>{n.rotulo}</span>
                       <small>{TIPOS_NO[n.tipo]?.rotulo ?? n.tipo}</small>
@@ -232,8 +231,7 @@ function textoAtributo(k: string, v: unknown): string | null {
 
 function PainelNo({ no, centro, nosPorId, onSelecionar, onCentralizar }: { no: GraphNode; centro: string; nosPorId: Map<string, GraphNode>; onSelecionar: (id: string) => void; onCentralizar: (id: string) => void }) {
   const { estado, recarregar } = useApi<BacklinksResposta>(`/grafo/backlinks/${encodeURIComponent(no.id)}`);
-  const [todos, setTodos] = useState(false);
-  const sancoes = Array.isArray(no.atributos["sancoes"]) ? (no.atributos["sancoes"] as Record<string, unknown>[]) : [];
+  const sancoes =Array.isArray(no.atributos["sancoes"]) ? (no.atributos["sancoes"] as Record<string, unknown>[]) : [];
   const atributos = Object.entries(no.atributos)
     .map(([k, v]) => [k, textoAtributo(k, v)] as const)
     .filter((par): par is readonly [string, string] => par[1] !== null);
@@ -292,47 +290,71 @@ function PainelNo({ no, centro, nosPorId, onSelecionar, onCentralizar }: { no: G
       {estado.status === "ok" && estado.data.total > 0 && (
         <>
           <p className="nota">{estado.data.total} {estado.data.total === 1 ? "ligação" : "ligações"}.</p>
-          <ul className="backlinks" aria-label="Backlinks do nó">
-            {(todos ? estado.data.backlinks : estado.data.backlinks.slice(0, MAX_BACKLINKS)).map((b, i) => {
-              const noVisivel = nosPorId.has(b.no.id);
-              const valor = valorDaAresta(b.aresta.relacao, b.aresta.peso);
-              const outro = noVisivel ? (
-                <button type="button" className="link-botao" onClick={() => onSelecionar(b.no.id)}>
-                  {b.no.rotulo}
-                </button>
-              ) : (
-                <Link href={`/grafo?centro=${encodeURIComponent(b.no.id)}`}>{b.no.rotulo}</Link>
-              );
-              return (
-                <li key={`${b.no.id}-${b.aresta.relacao}-${i}`}>
-                  {saiDoNo(no.id, b.aresta) ? (
-                    <>
-                      <span className="rel">
-                        <em>{no.rotulo}</em> {rotuloRelacao(b.aresta.relacao)}
-                      </span>{" "}
-                      {outro}
-                    </>
-                  ) : (
-                    <>
-                      {outro}{" "}
-                      <span className="rel">
-                        {rotuloRelacao(b.aresta.relacao)} <em>{no.rotulo}</em>
-                      </span>
-                    </>
-                  )}
-                  {valor && <span className="rel-valor"> · {valor}</span>}
-                  <span className="rel-tipo"> · {TIPOS_NO[b.no.tipo]?.rotulo ?? b.no.tipo}</span>
-                </li>
-              );
-            })}
-          </ul>
-          {estado.data.backlinks.length > MAX_BACKLINKS && (
-            <button type="button" className="btn btn-sec btn-mini" onClick={() => setTodos((t) => !t)}>
-              {todos ? "Mostrar menos" : `Mostrar todas as ${estado.data.backlinks.length}`}
-            </button>
-          )}
+          {/* duas listas, cada uma com o seu limite: o que sai não fica escondido atrás do que chega */}
+          {(() => {
+            const { chegam, saem } = separaLigacoes(no.id, estado.data.backlinks);
+            const comuns = { no, nosPorId, onSelecionar };
+            return (
+              <>
+                <ListaLigacoes titulo="Chegam a este nó" curto="chegam" itens={chegam} {...comuns} />
+                <ListaLigacoes titulo="Saem deste nó" curto="saem" itens={saem} {...comuns} />
+              </>
+            );
+          })()}
         </>
       )}
     </aside>
+  );
+}
+
+function ListaLigacoes({ titulo, curto, itens, no, nosPorId, onSelecionar }: { titulo: string; curto: string; itens: Backlink[]; no: GraphNode; nosPorId: Map<string, GraphNode>; onSelecionar: (id: string) => void }) {
+  const [todos, setTodos] = useState(false);
+  if (itens.length === 0) return null;
+  return (
+    <>
+      <h4>
+        {titulo} ({itens.length})
+      </h4>
+      <ul className="backlinks" aria-label={`Backlinks do nó: ${curto}`}>
+        {(todos ? itens : itens.slice(0, MAX_BACKLINKS)).map((b, i) => {
+          const valor = valorDaAresta(b.aresta.relacao, b.aresta.peso);
+          const certeza = certezaDaAresta(b.aresta.cf);
+          const outro = nosPorId.has(b.no.id) ? (
+            <button type="button" className="link-botao" onClick={() => onSelecionar(b.no.id)}>
+              {b.no.rotulo}
+            </button>
+          ) : (
+            <Link href={`/grafo?centro=${encodeURIComponent(b.no.id)}`}>{b.no.rotulo}</Link>
+          );
+          return (
+            <li key={`${b.no.id}-${b.aresta.relacao}-${i}`}>
+              {saiDoNo(no.id, b.aresta) ? (
+                <>
+                  <span className="rel">
+                    <em>{no.rotulo}</em> {rotuloRelacao(b.aresta.relacao)}
+                  </span>{" "}
+                  {outro}
+                </>
+              ) : (
+                <>
+                  {outro}{" "}
+                  <span className="rel">
+                    {rotuloRelacao(b.aresta.relacao)} <em>{no.rotulo}</em>
+                  </span>
+                </>
+              )}
+              {valor && <span className="rel-valor"> · {valor}</span>}
+              {certeza && <span className="rel-tipo"> · {certeza}</span>}
+              <span className="rel-tipo"> · {TIPOS_NO[b.no.tipo]?.rotulo ?? b.no.tipo}</span>
+            </li>
+          );
+        })}
+      </ul>
+      {itens.length > MAX_BACKLINKS && (
+        <button type="button" className="btn btn-sec btn-mini" onClick={() => setTodos((t) => !t)}>
+          {todos ? "Mostrar menos" : `Mostrar todas as ${itens.length} que ${curto}`}
+        </button>
+      )}
+    </>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RELACOES, TIPOS_NO, distanciasDoCentro, paraElementos, rotuloRelacao, saiDoNo, type ElementoNo } from "./grafo";
+import { RELACOES, TIPOS_NO, certezaDaAresta, distanciasDoCentro, paraElementos, rotuloRelacao, saiDoNo, separaLigacoes, valorDaAresta, type ElementoNo } from "./grafo";
 import type { GrafoResposta } from "@/types/contracts";
 
 const grafo: GrafoResposta = {
@@ -45,6 +45,28 @@ describe("saiDoNo", () => {
     expect(saiDoNo("pessoa:a", { origem: "pessoa:a", relacao: "doou" })).toBe(true);
     expect(saiDoNo("deputado:1", { origem: "pessoa:a", relacao: "doou" })).toBe(false);
     expect(saiDoNo("deputado:1", { origem: "deputado:1", relacao: "votou_com" })).toBe(false);
+  });
+});
+
+describe("painel de ligações", () => {
+  const l = (origem: string, relacao: string) => ({ aresta: { origem, relacao } });
+
+  it("separa o que chega (e voto parecido) do que sai, na ordem recebida", () => {
+    const itens = [l("empresa:a", "recebeu"), l("deputado:1", "votou_com"), l("deputado:1", "enviou_emenda")];
+    const { chegam, saem } = separaLigacoes("deputado:1", itens);
+    expect(chegam).toEqual([itens[0], itens[1]]);
+    expect(saem).toEqual([itens[2]]);
+  });
+
+  it("soma negativa é dita como estorno, não como dinheiro recebido", () => {
+    expect(valorDaAresta("recebeu", -30)).toContain("saldo de estornos");
+    expect(valorDaAresta("recebeu", 30)).not.toContain("estorno");
+    expect(valorDaAresta("filiado_a", 1)).toBeNull();
+  });
+
+  it("mostra a certeza só quando há dúvida", () => {
+    expect(certezaDaAresta(0.4)).toBe("certeza (CF) 0,40");
+    expect(certezaDaAresta(1)).toBeNull();
   });
 });
 

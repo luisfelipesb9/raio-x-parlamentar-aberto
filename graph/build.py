@@ -438,8 +438,9 @@ def backlinks(node_id: str, nodes: list[GraphNode], edges: list[GraphEdge]) -> l
     """Todas as ligações do nó (estilo Obsidian): as que chegam e as que saem dele.
 
     `no` é sempre a outra ponta; o sentido está em `aresta.origem`/`aresta.destino`. Vêm primeiro as
-    que chegam (e as simétricas), depois as que saem. Sem as que saem, doadores, sócios e a maioria
-    das empresas apareceriam sem ligação nenhuma."""
+    que chegam (e as simétricas), depois as que saem; dentro de cada relação, o maior peso primeiro
+    (a tela mostra só o começo da lista). Sem as que saem, doadores, sócios e a maioria das empresas
+    apareceriam sem ligação nenhuma."""
     por_id = {n.id: n for n in nodes}
     if node_id not in por_id:
         raise KeyError(node_id)
@@ -450,8 +451,8 @@ def backlinks(node_id: str, nodes: list[GraphNode], edges: list[GraphEdge]) -> l
         elif e.origem == node_id:
             out.append(Backlink(no=por_id[e.destino], aresta=e))
 
-    def ordem(b: Backlink) -> tuple[bool, str, str]:
+    def ordem(b: Backlink) -> tuple[bool, str, float, str]:
         sai = b.aresta.destino != node_id and b.aresta.relacao not in SIMETRICAS
-        return sai, b.aresta.relacao, b.no.id
+        return sai, b.aresta.relacao, -b.aresta.peso, b.no.id
 
     return sorted(out, key=ordem)
