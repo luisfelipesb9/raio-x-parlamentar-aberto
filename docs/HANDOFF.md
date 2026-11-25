@@ -31,7 +31,8 @@ cd web && pnpm install && pnpm dev                     # web em http://localhost
 3. **CPF do deputado**: resolvido. `CamaraSource.fetch(detalhar_deputados=...)` (flag `--detalhar-deputados`, já em `make sample`) busca `GET /deputados/{id}`; na amostra 20/20 candidaturas ligam por CPF (cf 1,0) e 20/20 PEP por CPF (0,95).
 4. **Calibração**: CFs das regras e limiares (z=3,5; razão 3; etc.) são escolhas do especialista, **não** calibradas
    com dados rotulados (ver relatório, seção de limitações).
-5. Validação com leigos e comparação com Basômetro/Radar do Voto/Serenata (plano, passo 9): não feita.
+5. Validação com leigos (plano, passo 9): não feita. Comparação externa: parcial, só a R01
+   (`docs/relatorio/comparacao-externa.md`).
 6. Fato `processo` (guardrail R08) ainda sem fonte: o guardrail existe, mas nenhum plugin produz `processo`.
 7. Divisão R05–R09 e R06b com o Pedro: suposição, a confirmar com o Pedro.
 
@@ -71,8 +72,8 @@ arquivos da árvore como estáticos (código-fonte baixável) e não monta as ro
 5. Conferir: `/saude` (`status: ok`, `pseudonimizado: true`); `<url da API>/pyproject.toml` deve dar 404.
 
 Validado em produção (2026-11-25): `/saude` ok (20 deputados, 40 findings), DuckDB read-only na função Python,
-CORS do site, ficha com "Como sabemos disso?" e grafo no navegador. **Falta** o teste no celular e a página
-"perguntar" com uso real. Os CPFs são pseudonimizados, mas os nomes continuam na base (ADR-006). Observado e não
+CORS do site, ficha com "Como sabemos disso?", grafo e "perguntar" no navegador, também em emulação de celular
+(375 px, sem rolagem horizontal). **Falta** o teste em um celular de verdade. Os CPFs são pseudonimizados, mas os nomes continuam na base (ADR-006). Observado e não
 investigado: municípios das emendas aparecem como código (ex.: "Município 3162500").
 
 ## Windows
