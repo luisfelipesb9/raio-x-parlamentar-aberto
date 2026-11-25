@@ -215,8 +215,9 @@ Guardrails na amostra: R02 removeu 121 votações simbólicas; R08 removeu 0 pro
 
 **Aviso metodológico.** Os CFs das regras (0,95; 0,9; 0,5; 0,6; 0,85; 0,8), as penalidades e os limiares (z > 3,5; razão ≥ 3; taxa ≥ 0,7; mínimo de votações) são **estimativas do
 especialista, baseadas nas metodologias citadas, e não foram calibrados empiricamente** contra casos rotulados. Os CFs devem ser lidos como graus ordinais de confiança, não como
-probabilidades. Os achados também não foram comparados sistematicamente com Basômetro, Radar do Voto ou Serenata, nem validados com leigos. Os 40 findings são conclusões do sistema,
-não afirmações sobre irregularidade.
+probabilidades. A comparação externa é parcial (`comparacao-externa.md`): só a R01 foi comparada, com o Radar do Congresso
+(mesma classificação em 13 de 14 deputados; diferença média de 12,6 pontos). As demais regras não têm validação externa, e os
+achados ainda não foram validados com leigos. Os 40 findings são conclusões do sistema, não afirmações sobre irregularidade.
 
 ## 9. Limitações e trabalhos futuros
 Limitações: amostra pequena (20 deputados, um estado, um ano); CFs sem calibração; **R06 confirmado não dispara com dados reais da RFB**: o QSA vem sempre mascarado (617 sócios mascarados, 96 sem CPF, 0 íntegros), logo só a R06b (indício) é alcançável, e o zero de R06/R06b com 50 CNPJs era cobertura (com 300 surge 1 R06b); 
