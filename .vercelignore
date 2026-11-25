@@ -13,6 +13,10 @@ __pycache__/
 # Segredos locais (ex.: RAIO_X_ID_SALT) nunca vão para o deploy.
 .env
 .env.*
+.claude/
+# Nenhum banco vai para o deploy, esteja onde estiver (a base pública é reaberta no fim).
+*.duckdb
+*.duckdb.wal
 # Os diretórios precisam ser reabertos com `!data` e `!data/sample` (sem barra no fim); sem isso a
 # CLI não envia a base. Confira com `vercel deploy --dry --json` antes de publicar.
 data/*

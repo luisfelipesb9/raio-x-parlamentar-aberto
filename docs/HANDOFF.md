@@ -64,7 +64,8 @@ arquivos da árvore como estáticos (código-fonte baixável) e não monta as ro
    outro `.duckdb` na árvore).
 3. API (raiz): `vercel link`; envs `RAIO_X_DB=data/sample/raio_x_publico.duckdb`, `RAIO_X_ID_SALT`,
    `RAIO_X_CORS_ORIGINS=<url do web>`. `vercel deploy --dry --json` deve listar a base e nenhum outro arquivo de
-   `data/`. Depois `vercel deploy --prod` (o primeiro deploy de um projeto só pode ser de produção).
+   `data/`. No primeiro deploy do projeto, `vercel deploy --prod` (só pode ser de produção). **Nas atualizações**,
+   `vercel deploy` (preview, abre logado na Vercel), conferir `/saude` e só então `vercel deploy --prod`.
 4. Web (`cd web`): `vercel link`; envs `NEXT_PUBLIC_API_URL=<url da API>` e `NEXT_PUBLIC_SITE_URL=<url do site>`;
    `vercel deploy --prod`. Se a URL do site só for conhecida agora, grave-a em `RAIO_X_CORS_ORIGINS` e republique a API.
 5. Conferir: `/saude` (`status: ok`, `pseudonimizado: true`); `<url da API>/pyproject.toml` deve dar 404.

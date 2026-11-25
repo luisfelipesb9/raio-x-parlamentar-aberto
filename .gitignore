@@ -6,5 +6,5 @@ node_modules/
 .next/
 .claude/
 .vercel
-.env
-.env*.local
+.env*
+!.env.example
