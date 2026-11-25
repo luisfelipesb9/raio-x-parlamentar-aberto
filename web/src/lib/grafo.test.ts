@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RELACOES, TIPOS_NO, distanciasDoCentro, paraElementos, rotuloRelacao, type ElementoNo } from "./grafo";
+import { RELACOES, TIPOS_NO, distanciasDoCentro, paraElementos, rotuloRelacao, saiDoNo, type ElementoNo } from "./grafo";
 import type { GrafoResposta } from "@/types/contracts";
 
 const grafo: GrafoResposta = {
@@ -37,6 +37,14 @@ describe("paraElementos", () => {
     expect(arestas).toHaveLength(2);
     expect(nos.find((n) => n.data.id === "deputado:1")!.data.dist).toBe(0);
     expect(nos.find((n) => n.data.id === "deputado:3")!.data.dist).toBe(3);
+  });
+});
+
+describe("saiDoNo", () => {
+  it("diz o sentido da frase no painel; voto parecido não tem sentido", () => {
+    expect(saiDoNo("pessoa:a", { origem: "pessoa:a", relacao: "doou" })).toBe(true);
+    expect(saiDoNo("deputado:1", { origem: "pessoa:a", relacao: "doou" })).toBe(false);
+    expect(saiDoNo("deputado:1", { origem: "deputado:1", relacao: "votou_com" })).toBe(false);
   });
 });
 

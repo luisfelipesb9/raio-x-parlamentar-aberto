@@ -73,8 +73,9 @@ arquivos da árvore como estáticos (código-fonte baixável) e não monta as ro
 
 Validado em produção (2026-11-25): `/saude` ok (20 deputados, 40 findings), DuckDB read-only na função Python,
 CORS do site, ficha com "Como sabemos disso?", grafo e "perguntar" no navegador, também em emulação de celular
-(375 px, sem rolagem horizontal). **Falta** o teste em um celular de verdade. Os CPFs são pseudonimizados, mas os nomes continuam na base (ADR-006). Observado e não
-investigado: municípios das emendas aparecem como código (ex.: "Município 3162500").
+(375 px, sem rolagem horizontal). **Falta** o teste em um celular de verdade. Os CPFs são pseudonimizados, mas os nomes continuam na base (ADR-006). Mapa de
+relações: o painel mostra as ligações nos dois sentidos e os municípios usam o nome da votação do TSE (2 de 185
+seguem como código). Falta: cadastro da Receita no painel (só 36 das 1.598 empresas o têm) e link para a fonte oficial.
 
 ## Windows
 - `make test` passa sem ajustes de encoding ou fuso (`tzdata` entrou como dependência só no Windows).

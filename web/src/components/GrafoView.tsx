@@ -3,9 +3,9 @@
 import type { Core } from "cytoscape";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { BacklinksResposta, GraphNode, GrafoResposta } from "@/types/contracts";
-import { RELACOES, ROTULOS_FILTRO, TIPOS_NO, distanciasDoCentro, paraElementos, rotuloRelacao } from "@/lib/grafo";
+import { RELACOES, ROTULOS_FILTRO, TIPOS_NO, distanciasDoCentro, paraElementos, rotuloRelacao, saiDoNo } from "@/lib/grafo";
 import { formataReais, formataPercentual } from "@/lib/formato";
 import { useApi } from "@/lib/useApi";
 import { Carregando, ErroApi } from "./Estados";
@@ -49,6 +49,18 @@ export function GrafoView({ centro }: { centro: string }) {
   const [selecionado, setSelecionado] = useState<string | null>(null);
   const [lista, setLista] = useState(false);
   const cyRef = useRef<Core | null>(null);
+  const painelRef = useRef<HTMLDivElement | null>(null);
+
+  // Selecionar pela lista (ou no celular) abriria o painel fora da tela: traz o painel para a vista.
+  useEffect(() => {
+    const painel = painelRef.current;
+    if (!selecionado || !painel) return;
+    const cabecalho = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+    const { top } = painel.getBoundingClientRect();
+    if (top < Math.max(cabecalho, 0) || top > window.innerHeight * 0.6) {
+      window.scrollTo({ top: window.scrollY + top - Math.max(cabecalho, 0) - 12 });
+    }
+  }, [selecionado]);
 
   const params = { centro, profundidade, relacoes: ativas.size === RELACOES.length ? undefined : [...ativas].join(",") };
   // sem nenhuma relação marcada não há o que consultar
@@ -175,7 +187,7 @@ export function GrafoView({ centro }: { centro: string }) {
               <p className="nota">Clique (ou toque) num nó para ver seus detalhes. Linhas tracejadas = votos parecidos.</p>
             </div>
 
-            <div className="grafo-lateral">
+            <div className="grafo-lateral" ref={painelRef}>
               {noSel ? (
                 <PainelNo no={noSel} centro={centro} nosPorId={nosPorId} onSelecionar={setSelecionado} onCentralizar={(id) => router.push(`/grafo?centro=${encodeURIComponent(id)}`)} />
               ) : (
@@ -272,11 +284,11 @@ function PainelNo({ no, centro, nosPorId, onSelecionar, onCentralizar }: { no: G
       </div>
 
       <h3>
-        <Termo id="backlink">Backlinks</Termo>: quem aponta para este nó
+        <Termo id="backlink">Backlinks</Termo>: todas as ligações deste nó
       </h3>
       {estado.status === "carregando" && <Carregando texto="Buscando ligações…" />}
       {estado.status === "erro" && <ErroApi erro={estado.erro} onTentarDeNovo={recarregar} />}
-      {estado.status === "ok" && estado.data.total === 0 && <p className="nota">Nada aponta para este nó nos dados carregados.</p>}
+      {estado.status === "ok" && estado.data.total === 0 && <p className="nota">Este nó não tem ligações nos dados carregados.</p>}
       {estado.status === "ok" && estado.data.total > 0 && (
         <>
           <p className="nota">{estado.data.total} {estado.data.total === 1 ? "ligação" : "ligações"}.</p>
@@ -284,19 +296,30 @@ function PainelNo({ no, centro, nosPorId, onSelecionar, onCentralizar }: { no: G
             {(todos ? estado.data.backlinks : estado.data.backlinks.slice(0, MAX_BACKLINKS)).map((b, i) => {
               const noVisivel = nosPorId.has(b.no.id);
               const valor = valorDaAresta(b.aresta.relacao, b.aresta.peso);
+              const outro = noVisivel ? (
+                <button type="button" className="link-botao" onClick={() => onSelecionar(b.no.id)}>
+                  {b.no.rotulo}
+                </button>
+              ) : (
+                <Link href={`/grafo?centro=${encodeURIComponent(b.no.id)}`}>{b.no.rotulo}</Link>
+              );
               return (
                 <li key={`${b.no.id}-${b.aresta.relacao}-${i}`}>
-                  {noVisivel ? (
-                    <button type="button" className="link-botao" onClick={() => onSelecionar(b.no.id)}>
-                      {b.no.rotulo}
-                    </button>
+                  {saiDoNo(no.id, b.aresta) ? (
+                    <>
+                      <span className="rel">
+                        <em>{no.rotulo}</em> {rotuloRelacao(b.aresta.relacao)}
+                      </span>{" "}
+                      {outro}
+                    </>
                   ) : (
-                    <Link href={`/grafo?centro=${encodeURIComponent(b.no.id)}`}>{b.no.rotulo}</Link>
-                  )}{" "}
-                  <span className="rel">
-                    {rotuloRelacao(b.aresta.relacao)}{" "}
-                    <em>{no.rotulo}</em>
-                  </span>
+                    <>
+                      {outro}{" "}
+                      <span className="rel">
+                        {rotuloRelacao(b.aresta.relacao)} <em>{no.rotulo}</em>
+                      </span>
+                    </>
+                  )}
                   {valor && <span className="rel-valor"> · {valor}</span>}
                   <span className="rel-tipo"> · {TIPOS_NO[b.no.tipo]?.rotulo ?? b.no.tipo}</span>
                 </li>

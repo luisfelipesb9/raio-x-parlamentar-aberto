@@ -473,10 +473,13 @@ def test_saida_e_deterministica(rede):
 
 
 # --------------------------------------------------------------------------- backlinks
-def test_backlinks_respeitam_a_direcao_da_aresta(rede):
-    """empresa --recebeu--> deputado: ninguém aponta para a empresa nesta rede."""
+def test_backlinks_incluem_ligacoes_que_saem_do_no(rede):
+    """empresa --recebeu--> deputado: a ligação aparece também no painel da empresa."""
     nodes, edges = project(rede, [])
-    assert backlinks("empresa:11111111000111", nodes, edges) == []
+    bl = backlinks("empresa:11111111000111", nodes, edges)
+    assert [(b.no.id, b.aresta.relacao, b.aresta.peso) for b in bl] == [
+        ("deputado:1", "recebeu", 10.0), ("deputado:2", "recebeu", 20.0)]
+    assert {b.aresta.origem for b in bl} == {"empresa:11111111000111"}  # o sentido segue na aresta
 
 
 def test_backlinks_de_empresa_incluem_socios_e_doadores(rede):
@@ -484,8 +487,13 @@ def test_backlinks_de_empresa_incluem_socios_e_doadores(rede):
                   qualificacao="Sócio"))
     nodes, edges = project(rede, [])
     bl = backlinks("empresa:11111111000111", nodes, edges)
-    assert [(b.no.tipo, b.no.rotulo, b.aresta.relacao) for b in bl] == [
-        ("pessoa", "Maria", "socio_de")]
+    assert [(b.no.tipo, b.aresta.relacao) for b in bl] == [
+        ("pessoa", "socio_de"), ("deputado", "recebeu"),
+        ("deputado", "recebeu")]  # primeiro as que chegam
+    assert bl[0].no.rotulo == "Maria"
+    pessoa = backlinks(bl[0].no.id, nodes, edges)
+    assert [(b.no.id, b.aresta.relacao) for b in pessoa] == [
+        ("empresa:11111111000111", "socio_de")]
 
 
 def test_backlinks_do_partido_sao_os_deputados_filiados(rede):
@@ -496,10 +504,21 @@ def test_backlinks_do_partido_sao_os_deputados_filiados(rede):
     assert all(b.no.tipo == "deputado" for b in bl)
 
 
-def test_backlinks_do_deputado_incluem_empresas_que_o_receberam(rede):
+def test_backlinks_do_deputado_incluem_o_que_chega_e_o_que_sai(rede):
     nodes, edges = project(rede, [])
     bl = backlinks("deputado:1", nodes, edges)
-    assert [(b.no.id, b.aresta.relacao) for b in bl] == [("empresa:11111111000111", "recebeu")]
+    assert [(b.no.id, b.aresta.relacao) for b in bl] == [
+        ("empresa:11111111000111", "recebeu"), ("partido:ABC", "filiado_a")]
+
+
+def test_municipio_da_emenda_usa_o_nome_da_votacao_por_municipio():
+    fs = [F("deputado", "1", nome="A", partido="P", uf="MG"),
+          F("emenda", "e1", deputado_id="1", municipio_ibge="3162500", valor_empenhado=10.0),
+          F("emenda", "e2", deputado_id="1", municipio_ibge="3100000", valor_empenhado=5.0),
+          F("votos_municipio", "v", municipio_ibge="3162500", municipio_nome="SÃO JOÃO DEL REI")]
+    rotulos = {n.id: n.rotulo for n in project(fs, [])[0] if n.tipo == "municipio"}
+    assert rotulos == {"municipio:3162500": "SÃO JOÃO DEL REI",
+                       "municipio:3100000": "Município 3100000"}  # sem nome na base: o código
 
 
 def test_backlinks_de_relacao_simetrica_valem_nos_dois_sentidos():

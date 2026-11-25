@@ -327,14 +327,16 @@ def project(facts: list[Fact], findings: list[Finding], *, votou_com_k: int = 5,
         no(f"proposicao:{prop}", "proposicao", f"Proposição {prop}")
         liga(f"deputado:{dep}", f"proposicao:{prop}", rel, 1.0, f"autoria:{f.chave}")
 
-    # emendas → município
+    # emendas → município (a CGU só traz o código IBGE; o nome vem da votação por município do TSE)
+    nomes_municipio = {str(f.atributos.get("municipio_ibge")): f.atributos["municipio_nome"]
+                       for f in por_tipo["votos_municipio"] if f.atributos.get("municipio_nome")}
     for f in por_tipo["emenda"]:
         at = f.atributos
         dep, ibge = str(at.get("deputado_id")), str(at.get("municipio_ibge") or "")
         if dep not in deputados or not ibge:
             continue
-        no(f"municipio:{ibge}", "municipio", at.get("municipio_nome") or f"Município {ibge}",
-           municipio_ibge=ibge)
+        nome = at.get("municipio_nome") or nomes_municipio.get(ibge) or f"Município {ibge}"
+        no(f"municipio:{ibge}", "municipio", nome, municipio_ibge=ibge)
         liga(f"deputado:{dep}", f"municipio:{ibge}", "enviou_emenda",
              _num(at.get("valor_empenhado")), f"emenda:{f.chave}")
 
@@ -433,7 +435,11 @@ def build_graph(facts: list[Fact], findings: list[Finding], centro: str | None =
 
 
 def backlinks(node_id: str, nodes: list[GraphNode], edges: list[GraphEdge]) -> list[Backlink]:
-    """Tudo que aponta para o nó (estilo Obsidian). Relação simétrica vale nos dois sentidos."""
+    """Todas as ligações do nó (estilo Obsidian): as que chegam e as que saem dele.
+
+    `no` é sempre a outra ponta; o sentido está em `aresta.origem`/`aresta.destino`. Vêm primeiro as
+    que chegam (e as simétricas), depois as que saem. Sem as que saem, doadores, sócios e a maioria
+    das empresas apareceriam sem ligação nenhuma."""
     por_id = {n.id: n for n in nodes}
     if node_id not in por_id:
         raise KeyError(node_id)
@@ -441,6 +447,11 @@ def backlinks(node_id: str, nodes: list[GraphNode], edges: list[GraphEdge]) -> l
     for e in edges:
         if e.destino == node_id:
             out.append(Backlink(no=por_id[e.origem], aresta=e))
-        elif e.origem == node_id and e.relacao in SIMETRICAS:
+        elif e.origem == node_id:
             out.append(Backlink(no=por_id[e.destino], aresta=e))
-    return sorted(out, key=lambda b: (b.aresta.relacao, b.no.id))
+
+    def ordem(b: Backlink) -> tuple[bool, str, str]:
+        sai = b.aresta.destino != node_id and b.aresta.relacao not in SIMETRICAS
+        return sai, b.aresta.relacao, b.no.id
+
+    return sorted(out, key=ordem)

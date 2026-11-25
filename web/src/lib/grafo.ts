@@ -38,6 +38,11 @@ export function rotuloRelacao(relacao: string): string {
   return (ROTULOS_RELACAO as Record<string, string>)[relacao] ?? relacao.replaceAll("_", " ");
 }
 
+/** A ligação sai do nó selecionado? Então a frase começa por ele. Voto parecido é simétrico. */
+export function saiDoNo(noId: string, aresta: { origem: string; relacao: string }): boolean {
+  return aresta.origem === noId && aresta.relacao !== "votou_com";
+}
+
 export interface InfoTipoNo {
   rotulo: string;
   plural: string;

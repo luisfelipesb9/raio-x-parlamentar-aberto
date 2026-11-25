@@ -76,7 +76,7 @@ export const GLOSSARIO: readonly Termo[] = [
   {
     id: "backlink",
     termo: "Backlink",
-    definicao: "Quem aponta para este item no mapa de relações, ou seja, todas as ligações que chegam até ele.",
+    definicao: "Todas as ligações deste item no mapa de relações: as que chegam até ele e as que saem dele.",
   },
 ];
 
