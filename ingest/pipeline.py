@@ -383,12 +383,18 @@ class Pipeline:
         if not cnpjs:
             self.relatorio["rfb"] = {"consultados": 0}
             return
-        fatos = src.normalize(chamar_fetch(src, cnpjs=cnpjs))
+        raw = chamar_fetch(src, cnpjs=cnpjs)
+        fatos = src.normalize(raw)
         self.store.delete_facts("socio", onde={"cnpj": cnpjs})
         self._gravar(fatos)
+        indisponiveis = raw.get("indisponiveis", [])
+        if indisponiveis:
+            self.log(f"    ATENÇÃO: {len(indisponiveis)} CNPJ(s) sem dados da Receita (BrasilAPI "
+                     f"indisponível): {', '.join(indisponiveis)}")
         self.relatorio["rfb"] = {"consultados": len(cnpjs),
                                  "empresas": sum(1 for f in fatos if f.tipo == "empresa"),
-                                 "socios": sum(1 for f in fatos if f.tipo == "socio")}
+                                 "socios": sum(1 for f in fatos if f.tipo == "socio"),
+                                 "indisponiveis": indisponiveis}
 
     def _cnpjs_para_rfb(self, limite: int) -> list[str]:
         """Os `limite` CNPJs válidos de maior valor vistos em despesa_ceap/doacao (PJ), menos os

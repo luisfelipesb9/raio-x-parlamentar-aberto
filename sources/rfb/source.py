@@ -27,7 +27,6 @@ BASE = "https://brasilapi.com.br/api/cnpj/v1"
 FONTE = "brasilapi_cnpj"
 _TIPO_SOCIO = {1: "PJ", 2: "PF", 3: "estrangeiro"}  # identificador_de_socio
 _ESPERA_MAX = 60.0
-_INDISPONIVEL: Any = object()  # sentinela: CNPJ com 5xx/timeout persistente
 _log = logging.getLogger(__name__)
 
 
@@ -64,10 +63,12 @@ class RfbSource(Source):
 
     def __init__(self, client: httpx.Client | None = None, pausa: float = 0.5,
                  max_tentativas: int = 5, espera_base: float = 2.0,
-                 dormir: Callable[[float], None] = time.sleep):
+                 dormir: Callable[[float], None] = time.sleep,
+                 max_indisponiveis_seguidos: int = 3):
         self.client = client or httpx.Client(timeout=30, headers={"Accept": "application/json"})
         self.pausa, self.max_tentativas, self.espera_base = pausa, max_tentativas, espera_base
         self._dormir = dormir
+        self.max_indisponiveis_seguidos = max_indisponiveis_seguidos
 
     # ---------- fetch ----------
 
@@ -103,8 +104,10 @@ class RfbSource(Source):
         data/raw/rfb/<cnpj>.json. Devolve {"cnpjs": [respostas], "nao_encontrados": [cnpj], "invalidos": [texto recebido],
         "indisponiveis": [cnpj]}. CNPJ inválido é só registrado em "invalidos" e o resto do lote segue.
         CNPJ que continua com erro 5xx/timeout depois de todas as tentativas vai para "indisponiveis"
-        (a empresa fica sem dados da Receita; nada é inventado) e o lote segue. 429 persistente e
-        erros 4xx continuam abortando: indicam limite de uso ou requisição errada, não falha pontual."""
+        (a empresa fica sem dados da Receita; nada é inventado) e o lote segue. Com
+        `max_indisponiveis_seguidos` falhas seguidas, levanta RuntimeError: é queda do serviço ou da
+        rede, e terminar "com sucesso" geraria uma base sem empresas. 429 persistente e erros 4xx
+        continuam abortando: indicam limite de uso ou requisição errada, não falha pontual."""
         lista: dict[str, None] = {}
         invalidos: list[str] = []
         for c in cnpjs:  # inválido (formato ou DV) não gasta requisição nem aborta o lote
@@ -115,22 +118,25 @@ class RfbSource(Source):
                 invalidos.append(str(c))
         raw: dict[str, list] = {"cnpjs": [], "nao_encontrados": [], "invalidos": invalidos,
                                 "indisponiveis": []}
+        seguidos = 0
         for i, cnpj in enumerate(lista):
             if i:
                 self._dormir(self.pausa)
             try:
                 dados = self._consultar(cnpj)
-            except httpx.TransportError:
-                dados = _INDISPONIVEL
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code < 500:
+            except (httpx.TransportError, httpx.HTTPStatusError) as e:
+                if isinstance(e, httpx.HTTPStatusError) and e.response.status_code < 500:
                     raise
-                dados = _INDISPONIVEL
-            if dados is _INDISPONIVEL:
+                seguidos += 1
+                if seguidos >= self.max_indisponiveis_seguidos:
+                    raise RuntimeError(
+                        f"rfb: {seguidos} CNPJs seguidos sem resposta da BrasilAPI; serviço ou "
+                        "rede fora do ar. Tente de novo mais tarde.") from e
                 _log.warning("rfb: CNPJ %s indisponível na BrasilAPI após %d tentativas; seguindo",
                              cnpj, self.max_tentativas)
                 raw["indisponiveis"].append(cnpj)
                 continue
+            seguidos = 0
             if dados is None:
                 raw["nao_encontrados"].append(cnpj)
                 continue
