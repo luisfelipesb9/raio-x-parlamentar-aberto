@@ -28,7 +28,7 @@ Dependências: `fastapi`, `uvicorn` (e `httpx` para testes) — ver `pyproject.t
 `/perguntar`: um único `forward.run` (todas as regras, guardrails aplicados) por processo, passado a
 `backward.prove(..., resultado=)`.
 
-## Deploy na Vercel (preparado, NÃO publicado)
+## Deploy na Vercel (publicado; ver "Deploy" em `docs/HANDOFF.md`)
 Dois projetos Vercel a partir deste repositório:
 
 | projeto | Root Directory | framework |
@@ -37,8 +37,8 @@ Dois projetos Vercel a partir deste repositório:
 | Web | `web/` | Next.js |
 
 A raiz não tem `package.json`, então não conflita com o `web/`. Arquivos: `api/index.py` (exporta `app`),
-`vercel.json` (só `functions` com `maxDuration` e `excludeFiles`), `.vercelignore` (tira web/tests/docs/
-data/raw do bundle e **mantém `data/*.duckdb`**). Dependências vêm do `pyproject.toml`/`uv.lock`
+`vercel.json` (`framework: fastapi`, obrigatório, e `functions` com `maxDuration` e `excludeFiles`),
+`.vercelignore` (tira web/tests/docs/ e tudo de `data/`, **exceto `data/sample/raio_x_publico.duckdb`**). Dependências vêm do `pyproject.toml`/`uv.lock`
 (grupo `dev` não entra); não precisa de `requirements.txt`.
 
 Passo a passo:
@@ -51,12 +51,12 @@ Passo a passo:
 3. Variáveis de ambiente (Production/Preview), via dashboard ou `vercel env add`:
    - `RAIO_X_DB`: caminho do banco no bundle, relativo à raiz do projeto (`data/sample/raio_x_publico.duckdb`).
    - `RAIO_X_ID_SALT`: sal dos ids de pessoa (segredo; qualquer string longa e fixa).
-   - `RAIO_X_CORS_ORIGINS`: origem do web, ex. `https://raio-x-web.vercel.app` (vírgulas; sem `*`).
-4. `vercel deploy`, conferir `GET <url>/saude` (`banco: ok`) e `/docs`.
+   - `RAIO_X_CORS_ORIGINS`: origem do web, ex. `https://raio-x-web-delta.vercel.app` (vírgulas; sem `*`).
+4. `vercel deploy --prod` (o primeiro deploy de um projeto só pode ser de produção), conferir
+   `GET <url>/saude` (`banco: ok`) e `/docs`.
 5. Projeto web: Root Directory `web/`, apontar a variável de URL da API para o domínio do passo 4.
 
 Local equivalente: `uv run uvicorn api.index:app`.
 Limites/riscos: banco é aberto read-only (o filesystem da função é somente leitura), sem
 atualização em tempo de execução: dado novo = novo deploy. Bundle < 500 MB (DuckDB ~40 MB + banco).
-Não validado numa implantação real (nenhum deploy foi feito). Se a Vercel não detectar `api/index.py`,
-adicione `[tool.vercel] entrypoint = "api.index:app"` ao `pyproject.toml`.
+Validado em produção em 2026-11-25. A entrada é declarada em `[tool.vercel]` no `pyproject.toml`.

@@ -16,6 +16,9 @@ dependencies = [
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.5"]
 
+[tool.vercel]
+entrypoint = "api.index:app"
+
 [tool.pytest.ini_options]
 testpaths = ["tests/unit"]
 pythonpath = ["."]

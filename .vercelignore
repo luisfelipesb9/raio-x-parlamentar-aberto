@@ -10,7 +10,13 @@ node_modules/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+# Segredos locais (ex.: RAIO_X_ID_SALT) nunca vão para o deploy.
+.env
+.env.*
+# Os diretórios precisam ser reabertos com `!data` e `!data/sample` (sem barra no fim); sem isso a
+# CLI não envia a base. Confira com `vercel deploy --dry --json` antes de publicar.
 data/*
-!data/sample/
+!data
+!data/sample
 data/sample/*
 !data/sample/raio_x_publico.duckdb

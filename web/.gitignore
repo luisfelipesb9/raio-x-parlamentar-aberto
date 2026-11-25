@@ -4,3 +4,6 @@ next-env.d.ts
 playwright-report/
 test-results/
 *.tsbuildinfo
+.vercel
+.env
+.env*.local
