@@ -1,0 +1,8 @@
+# Projeto Vercel do site (rode a CLI de dentro de web/).
+# Variáveis de ambiente são cadastradas na Vercel; arquivos .env locais não são enviados.
+.env
+.env.*
+node_modules/
+.next/
+playwright-report/
+test-results/

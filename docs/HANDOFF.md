@@ -46,26 +46,34 @@ Escopo da amostra: 2.083 emendas ligadas (o total global da CGU é 37.297 ligada
 ## Privacidade e deploy
 - `--pseudonimizar` troca CPF por HMAC-SHA256 (`hmac:<32 hex>`, sal em `RAIO_X_ID_SALT`); `doador_cpf_visivel` preserva a R06b; CPF de fornecedor PF dentro de `despesa_ceap.fornecedor` (36 casos) também é substituído. Ver ADR-006.
 - `make sample-publico` gera `data/sample/raio_x_publico.duckdb` e roda a varredura (`ingest.varredura`): 0 CPFs íntegros (controle positivo: 752). A varredura **não** cobre `data/raw`.
-- API: `/saude`, forward pré-calculado no `/perguntar`; `vercel.json` + `api/index.py` (deploy pelo Luis, na conta Vercel dele).
+- API: `/saude`, forward pré-calculado no `/perguntar`; `vercel.json` + `api/index.py` (publicado pelo Pedro).
 
-## Deploy (Luis) — depois do merge
-**O merge não publica a base**: `data/` é ignorado pelo git, então um deploy automático pelo GitHub sobe a API sem banco.
-O deploy da API é pela CLI, a partir de um clone limpo (detalhes em `api/README.md`):
+## Deploy (publicado em 2026-11-25, Vercel Hobby)
+- Site: https://raio-x-web-delta.vercel.app (atenção: `raio-x-web.vercel.app` é de terceiros)
+- API: https://raio-x-api.vercel.app/saude
+
+**O git não leva a base** (`data/` é ignorado): deploy automático pelo GitHub sobe a API sem banco. Publique pela
+CLI, **de dentro da pasta que está sendo publicada** (rodando de outra pasta, a CLI lê o `vercel.json` errado).
+
+**Nunca remova `"framework"` dos `vercel.json`.** Sem ele, um projeto novo cai no preset "Other", que serve os
+arquivos da árvore como estáticos (código-fonte baixável) e não monta as rotas da API.
 
 1. `RAIO_X_ID_SALT=<segredo> make sample-publico` (a varredura precisa sair 0). Guarde o sal fora do repositório
    e use sempre o mesmo, senão os ids pseudonimizados mudam a cada atualização.
 2. Em um clone limpo, copie só `data/sample/raio_x_publico.duckdb` e rode `make deploy-check` (reprova se houver
    outro `.duckdb` na árvore).
-3. API (Root = raiz): `vercel link`; envs `RAIO_X_DB=data/sample/raio_x_publico.duckdb`, `RAIO_X_ID_SALT`,
-   `RAIO_X_CORS_ORIGINS=<url do web>`; `vercel deploy` (preview) e, estando certo, `vercel deploy --prod`;
-   conferir `/saude` na URL de produção (`status: ok`, `pseudonimizado: true`).
-4. Web (Root = `web/`): env `NEXT_PUBLIC_API_URL=<url de produção da API>`; publicar também em produção
-   (`--prod`, se for pela CLI).
-5. Testar em produção, no celular: busca → ficha → "Como sabemos disso?" → grafo → perguntar.
+3. API (raiz): `vercel link`; envs `RAIO_X_DB=data/sample/raio_x_publico.duckdb`, `RAIO_X_ID_SALT`,
+   `RAIO_X_CORS_ORIGINS=<url do web>`. `vercel deploy --dry --json` deve listar a base e nenhum outro arquivo de
+   `data/`. No primeiro deploy do projeto, `vercel deploy --prod` (só pode ser de produção). **Nas atualizações**,
+   `vercel deploy` (preview, abre logado na Vercel), conferir `/saude` e só então `vercel deploy --prod`.
+4. Web (`cd web`): `vercel link`; envs `NEXT_PUBLIC_API_URL=<url da API>` e `NEXT_PUBLIC_SITE_URL=<url do site>`;
+   `vercel deploy --prod`. Se a URL do site só for conhecida agora, grave-a em `RAIO_X_CORS_ORIGINS` e republique a API.
+5. Conferir: `/saude` (`status: ok`, `pseudonimizado: true`); `<url da API>/pyproject.toml` deve dar 404.
 
-Validado só localmente (Windows, 2026-11-24): base pública gerada, 0 CPF íntegro de terceiro, `deploy-check` ok em
-clone limpo e `/saude` com `pseudonimizado: true`. **Não validado na Vercel**: abertura read-only do DuckDB na função
-Python e tamanho do bundle. Os CPFs são pseudonimizados, mas os nomes continuam na base (ADR-006).
+Validado em produção (2026-11-25): `/saude` ok (20 deputados, 40 findings), DuckDB read-only na função Python,
+CORS do site, ficha com "Como sabemos disso?" e grafo no navegador. **Falta** o teste no celular e a página
+"perguntar" com uso real. Os CPFs são pseudonimizados, mas os nomes continuam na base (ADR-006). Observado e não
+investigado: municípios das emendas aparecem como código (ex.: "Município 3162500").
 
 ## Windows
 - `make test` passa sem ajustes de encoding ou fuso (`tzdata` entrou como dependência só no Windows).
