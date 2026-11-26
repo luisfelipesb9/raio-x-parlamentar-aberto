@@ -5,8 +5,9 @@ import json
 import os
 import tempfile
 from collections.abc import Collection, Iterable, Mapping, Sequence
+from datetime import date, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import duckdb
 
@@ -20,6 +21,29 @@ SCHEMA = "\n".join(p.read_text(encoding="utf-8") for p in MIGRATIONS)  # todas i
 
 _COLUNAS_NDJSON = ("{tipo:'VARCHAR',chave:'VARCHAR',atributos:'VARCHAR',fonte:'VARCHAR',"
                    "id_oficial:'VARCHAR',url:'VARCHAR',coletado_em:'VARCHAR'}")
+
+
+class JanelaVotosDb(NamedTuple):
+    inicio: date | None
+    fim: date | None
+    n_votacoes: int
+    n_votacoes_nominais: int
+    n_votacoes_com_orientacao: int
+
+
+class FonteDb(NamedTuple):
+    fonte: str
+    tipos: list[str]
+    n_fatos: int
+    coletado_em_min: datetime | None
+    coletado_em_max: datetime | None
+
+
+def _data(texto: str | None) -> date | None:
+    try:
+        return date.fromisoformat(texto) if texto else None
+    except ValueError:
+        return None
 
 
 def _caminho(path: Path | str | None) -> Path | str:
@@ -117,6 +141,46 @@ class Store:
         self.con.execute(sql, args)
         depois = self.con.execute("SELECT count(*) FROM fact WHERE tipo = ?", [tipo]).fetchone()[0]
         return antes - depois
+
+    # ---------- cobertura (consultas só de leitura) ----------
+
+    def janela_votos(self) -> JanelaVotosDb:
+        """Período e volume das votações: datas (`data`), nominais e com orientação do governo.
+
+        Com orientação = Sim ou Não, as únicas que a R01 usa ("Liberado", vazio e ausente não)."""
+        ini, fim, n, nominais, orientadas = self.con.execute(
+            "SELECT min(d), max(d), count(*), "
+            "count(*) FILTER (WHERE nominal = 'true'), "
+            "count(*) FILTER (WHERE orientacao IN ('Sim', 'Não')) "
+            "FROM (SELECT substr(json_extract_string(atributos, '$.data'), 1, 10) AS d, "
+            "json_extract_string(atributos, '$.nominal') AS nominal, "
+            "json_extract_string(atributos, '$.orientacao_governo') AS orientacao "
+            "FROM fact WHERE tipo = 'votacao')").fetchone()
+        return JanelaVotosDb(_data(ini), _data(fim), int(n), int(nominais), int(orientadas))
+
+    def cobertura_fontes(self) -> list[FonteDb]:
+        """Por `fonte`: tipos de fato, quantidade e menor/maior `coletado_em` (ordem alfabética)."""
+        rows = self.con.execute(
+            "SELECT fonte, list(DISTINCT tipo ORDER BY tipo), count(*), min(coletado_em), "
+            "max(coletado_em) FROM fact GROUP BY fonte ORDER BY fonte").fetchall()
+        return [FonteDb(r[0], list(r[1]), int(r[2]), r[3], r[4]) for r in rows]
+
+    def contagem_votos(self, deputado_id: str) -> tuple[int, int]:
+        """(n_votos, n_votos_validos) do deputado, com as mesmas regras do motor.
+
+        n_votos: votos em votação nominal (a R02 descarta o voto de votação simbólica).
+        n_votos_validos: dentre eles, Sim/Não em votação em que o governo orientou Sim/Não, o
+        denominador da R01 (`engine.predicates.core._votos_validos`; um teste mantém os dois iguais)."""
+        n, validos = self.con.execute(
+            "SELECT count(*), "
+            "count(*) FILTER (WHERE json_extract_string(v.atributos, '$.voto') IN ('Sim', 'Não') "
+            "AND json_extract_string(o.atributos, '$.orientacao_governo') IN ('Sim', 'Não')) "
+            "FROM fact v LEFT JOIN fact o ON o.tipo = 'votacao' "
+            "AND o.chave = json_extract_string(v.atributos, '$.votacao_id') "
+            "WHERE v.tipo = 'voto' AND json_extract_string(v.atributos, '$.deputado_id') = ? "
+            "AND (o.chave IS NULL OR json_extract_string(o.atributos, '$.nominal') = 'true')",
+            [str(deputado_id)]).fetchone()
+        return int(n), int(validos)
 
     # ---------- entity_link / ambiguidade ----------
 

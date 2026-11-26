@@ -19,10 +19,12 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.schemas import (
     BacklinksResposta,
+    CoberturaResposta,
     ComparacaoCategoria,
     ComparacaoResposta,
     Diagnostico,
     GrafoResposta,
+    MetricasDeputadoResposta,
     PaginaDeputados,
     PassoProva,
     PerfilDeputado,
@@ -46,7 +48,8 @@ MAX_NOS_GRAFO = 300
 MAX_EM_COMUM = 50
 
 ID_DEPUTADO = r"^[A-Za-z0-9_\-]{1,32}$"
-ID_FINDING = r"^[A-Za-z0-9_.:\-]{1,128}$"
+ID_DEPUTADO_NUMERICO = r"^[0-9]{1,12}$"  # /metricas devolve o id como inteiro
+ID_FINDING =r"^[A-Za-z0-9_.:\-]{1,128}$"
 ID_NO = r"^(deputado|partido|empresa|municipio|proposicao|pessoa):[\w .'\-:]{1,120}$"
 OBJETIVO = r"^[a-z0-9_]{1,64}$"
 
@@ -172,6 +175,19 @@ def create_app(db_path: str | Path | None = None, *, store: Store | None = None,
         if deputado_id not in snap.deputados:
             raise HTTPException(404, f"Deputado {deputado_id} não encontrado.")
         return snap.findings.get(deputado_id, [])
+
+    @app.get("/deputados/{deputado_id}/metricas", response_model=MetricasDeputadoResposta,
+             responses=NAO_ENCONTRADO)
+    def metricas(deputado_id: str = PathParam(pattern=ID_DEPUTADO_NUMERICO)
+                 ) -> MetricasDeputadoResposta:
+        snap = state.snapshot()
+        if deputado_id not in snap.deputados:
+            raise HTTPException(404, f"Deputado {deputado_id} não encontrado.")
+        return state.metricas(snap, deputado_id)
+
+    @app.get("/cobertura", response_model=CoberturaResposta)
+    def cobertura() -> CoberturaResposta:
+        return state.cobertura()
 
     @app.get("/findings/{finding_id}/explicar", response_model=Explanation,
              responses=NAO_ENCONTRADO)

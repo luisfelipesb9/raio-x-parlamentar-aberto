@@ -444,9 +444,11 @@ def test_nenhuma_resposta_expoe_cpf_nem_chave_cpf(client_lgpd):
 
     deps = [d["id"] for d in pega("/deputados", page_size=100)["items"]]
     assert "1" in deps
+    pega("/cobertura")
     nos: set[str] = set()
     for d in deps:
         pega(f"/deputados/{d}")
+        pega(f"/deputados/{d}/metricas")
         for f in pega(f"/deputados/{d}/findings"):
             pega(f"/findings/{f['id']}/explicar")
         g = pega("/grafo", centro=f"deputado:{d}", profundidade=2)

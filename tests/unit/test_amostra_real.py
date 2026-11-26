@@ -61,3 +61,35 @@ def test_deputados_que_disparam_a_r01_nao_tem_diagnostico(client):
             assert diag is None
             disparam.append(dep)
     assert len(disparam) == 14
+
+
+# --------------------------------------------------------------------------- cobertura e métricas
+def test_cobertura_da_amostra(client):
+    c = client.get("/cobertura").json()
+    assert c["janela_votos"] == {"inicio": "2025-02-04", "fim": "2025-03-27", "n_votacoes": 145,
+                                 "n_votacoes_nominais": 24, "n_votacoes_com_orientacao": 22}
+    assert c["n_deputados"] == 20 and c["n_findings"] == 40
+    por_fonte = {f["fonte"]: f for f in c["fontes"]}
+    assert por_fonte["camara_ceap"]["n_fatos"] == 10950
+    assert por_fonte["camara_api_v2"]["tipos"] == [
+        "autoria", "deputado", "proposicao", "votacao", "voto"]
+
+
+def test_metricas_da_amostra_batem_com_o_diagnostico(client):
+    for dep, n_validos in (("74581", 0), ("74646", 9), ("74585", 17)):
+        m = client.get(f"/deputados/{dep}/metricas").json()
+        assert m["n_votos_validos"] == n_validos and m["n_votos"] >= n_validos
+        _, diag = diagnostico_r01(client, dep)
+        assert diag["detalhes"]["n_votos_validos"] == m["n_votos_validos"]
+
+
+def test_n_votos_validos_e_igual_a_n_votacoes_da_r01_quando_ela_dispara(client):
+    deps = [d["id"] for d in client.get("/deputados", params={"page_size": 100}).json()["items"]]
+    conferidos = 0
+    for dep in deps:
+        m = client.get(f"/deputados/{dep}/metricas").json()
+        r01 = next(x for x in m["metricas_por_regra"] if x["regra"] == "R01")
+        if r01["finding_id"]:
+            assert r01["valores"]["n_votacoes"] == m["n_votos_validos"]
+            conferidos += 1
+    assert conferidos == 14

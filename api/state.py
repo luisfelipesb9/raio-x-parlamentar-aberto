@@ -11,13 +11,21 @@ import os
 import threading
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
 
-from api.schemas import DeputadoResumo
-from contracts import Explanation, Fact, Finding, GraphEdge, GraphNode
+from api.schemas import (
+    CoberturaResposta,
+    DeputadoResumo,
+    FonteCobertura,
+    JanelaVotos,
+    MetricaRegra,
+    MetricasDeputadoResposta,
+)
+from contracts import CONTRACT_VERSION, Explanation, Fact, Finding, GraphEdge, GraphNode
 from engine import backward, forward
 from engine.factbase import FactBase
 from engine.rules import Rule, load_rules
@@ -29,6 +37,27 @@ log = logging.getLogger("raio_x.api")
 CAMPOS_CPF_TERCEIROS = (("doacao", "$.doador_cpf_cnpj"), ("socio", "$.cpf_cnpj"), ("pep", "$.cpf"),
                         ("despesa_ceap", "$.cpf"))
 RAIZ = Path(__file__).resolve().parent.parent  # raiz do projeto (caminhos relativos partem daqui)
+
+
+def _utc(momento: datetime | None) -> datetime | None:
+    return momento.astimezone(UTC) if momento else None
+
+
+def _escalares(valores: dict[str, Any]) -> dict[str, float | int | str]:
+    """Reduz os `valores` de um finding ao que MetricaRegra aceita (número ou texto).
+
+    Lista vira `n_<chave>` (quantidade de itens). Ficam de fora: ausente (None), dict e booleano
+    (o schema converteria `True` em número, e a flag `confirmado_por_cpf` da R06 viraria um campo
+    de nome `cpf*` com valor numérico; as flags continuam em `/deputados/{id}/findings`)."""
+    out: dict[str, float | int | str] = {}
+    for k, v in valores.items():
+        if isinstance(v, bool):
+            continue
+        if isinstance(v, (int, float, str)):
+            out[k] = v
+        elif isinstance(v, list):
+            out[f"n_{k}"] = len(v)
+    return out
 
 
 @dataclass
@@ -52,6 +81,8 @@ class AppState:
         self._lock = threading.RLock()  # DuckDB: uma conexão, acesso serializado
         self._snap: Snapshot | None = None
         self._rules: list[Rule] | None = None
+        self._janela: JanelaVotos | None = None
+        self._cobertura: CoberturaResposta | None = None
 
     # ---- conexão ----
     def _get_store(self) -> Store:
@@ -141,6 +172,39 @@ class AppState:
                 "AND length(regexp_replace(v, '[^0-9]', '', 'g')) = 11",
                 [campo, tipo]).fetchone()[0] for tipo, campo in CAMPOS_CPF_TERCEIROS)
         return int(n_dep), int(n_fin), n_cpf == 0
+
+    # ---- cobertura e métricas (consultas parametrizadas; cache por processo, como o snapshot) ----
+    def janela_votos(self) -> JanelaVotos:
+        with self._lock:
+            if self._janela is None:
+                self._janela = JanelaVotos(**self._get_store().janela_votos()._asdict())
+            return self._janela
+
+    def cobertura(self) -> CoberturaResposta:
+        with self._lock:
+            if self._cobertura is None:
+                n_dep, n_fin, _ = self.contagens()
+                fontes = [FonteCobertura(
+                    fonte=f.fonte, tipos=f.tipos, n_fatos=f.n_fatos,
+                    coletado_em_min=_utc(f.coletado_em_min), coletado_em_max=_utc(f.coletado_em_max))
+                    for f in self._get_store().cobertura_fontes()]
+                self._cobertura = CoberturaResposta(
+                    contract_version=CONTRACT_VERSION, janela_votos=self.janela_votos(),
+                    fontes=fontes, n_deputados=n_dep, n_findings=n_fin)
+            return self._cobertura
+
+    def metricas(self, snap: Snapshot, deputado_id: str) -> MetricasDeputadoResposta:
+        """Contagem de votos + os `valores` dos findings do deputado, uma entrada por regra de
+        inferência (`finding_id` None quando a regra não gerou finding)."""
+        with self._lock:
+            n_votos, n_validos = self._get_store().contagem_votos(deputado_id)
+        por_regra = {f.regra: f for f in snap.findings.get(deputado_id, [])}
+        metricas = [MetricaRegra(regra=r.id, finding_id=(f.id if (f := por_regra.get(r.id)) else None),
+                                 valores=_escalares(f.valores) if f else {})
+                    for r in self.regras() if r.tipo == "inferencia"]
+        return MetricasDeputadoResposta(
+            deputado_id=int(deputado_id), n_votos=n_votos, n_votos_validos=n_validos,
+            janela_votos=self.janela_votos(), metricas_por_regra=metricas)
 
     # ---- consultas pontuais (parametrizadas) ----
     def explicacao(self, finding_id: str) -> Explanation | None:

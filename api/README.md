@@ -13,6 +13,8 @@ Erros: RFC 7807 (`application/problem+json`); 404 claros; 422 para parâmetro in
 | `GET /deputados?q=&uf=&partido=&page=&page_size=` (≤100) | `PaginaDeputados` (ordem alfabética sem acento) |
 | `GET /deputados/{id}` | `PerfilDeputado` (+ resumo por categoria) |
 | `GET /deputados/{id}/findings` | `list[Finding]` (cf desc) |
+| `GET /deputados/{id}/metricas` | `MetricasDeputadoResposta`: `n_votos`, `n_votos_validos`, janela de votos e os `valores` do finding de cada regra de inferência (`finding_id: null` quando a regra não gerou finding); 404 se o deputado não existe |
+| `GET /cobertura` | `CoberturaResposta`: janela das votações, agregado por fonte (tipos, nº de fatos, menor/maior `coletado_em`), nº de deputados e de findings |
 | `GET /findings/{id}/explicar` | `Explanation` |
 | `GET /grafo?centro=deputado:ID&profundidade=0..2&relacoes=a,b` | `GrafoResposta` (≤300 nós, `truncado`) |
 | `GET /grafo/backlinks/{node_id}` | `BacklinksResposta` |
@@ -26,7 +28,27 @@ com CPF mascarado não carregam nome. `RAIO_X_ID_SALT` troca o sal dos ids de pe
 Dependências: `fastapi`, `uvicorn` (e `httpx` para testes) — ver `pyproject.toml`.
 
 `/perguntar`: um único `forward.run` (todas as regras, guardrails aplicados) por processo, passado a
-`backward.prove(..., resultado=)`.
+`backward.prove(..., resultado=)`. Cada passo da trilha sem conclusão (`cf = 0`) traz `diagnostico`
+`{motivo, detalhes}`: `dados_insuficientes` (menos votos válidos que o mínimo; `n_votos_validos`,
+`minimo_votos`, `taxa` se calculável), `abaixo_do_limiar` (`n_votos_validos`, `minimo_votos`, `taxa`,
+`limiar`) ou `sem_regra_aplicavel` (qualquer outro caso, inclusive regras sem diagnosticador). Só a R01
+tem diagnosticador; para outra regra, registre um com `@diagnostico("<predicado>")`. O campo `nota`
+(texto) não mudou.
+
+### Cobertura e métricas
+- **Janela de votos** (`JanelaVotos`): `inicio`/`fim` = menor e maior `data` dos fatos `votacao`;
+  `n_votacoes_nominais` = votações com `nominal = true` (as que têm voto individual);
+  `n_votacoes_com_orientacao` = votações em que o governo orientou **Sim ou Não** (a única orientação que a
+  R01 usa; "Liberado", vazio e ausente não contam).
+- **Fontes** (`FonteCobertura`): agregado dos fatos por `fonte`. `coletado_em_*` é o momento em que o dado
+  entrou na base (não a data do dado), em UTC.
+- **Votos do deputado**: `n_votos` = votos em votação nominal; `n_votos_validos` = os que a R01 conta
+  (Sim/Não numa votação com orientação Sim/Não). É a mesma regra de `engine.predicates.core._votos_validos`,
+  escrita em SQL em `Store.contagem_votos`; um teste confere que as duas dão o mesmo número.
+- **`metricas_por_regra`**: os `valores` do finding da regra. Só vão números e textos; listas viram a
+  quantidade (`cnpjs` → `n_cnpjs`); valores nulos, objetos e booleanos (flags do motor, como `confirmado_por_cpf`
+da R06) ficam de fora e continuam em `/deputados/{id}/findings`.
+- Uma consulta por processo (como o snapshot): dado novo exige reiniciar a API.
 
 ## Deploy na Vercel (publicado; ver "Deploy" em `docs/HANDOFF.md`)
 Dois projetos Vercel a partir deste repositório:
