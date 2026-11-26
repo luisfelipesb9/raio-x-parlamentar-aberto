@@ -383,7 +383,7 @@ class Pipeline:
         if not cnpjs:
             self.relatorio["rfb"] = {"consultados": 0}
             return
-        raw = chamar_fetch(src, cnpjs=cnpjs)
+        raw = chamar_fetch(src, cnpjs=cnpjs, reusar_raw=o.reusar_raw)
         fatos = src.normalize(raw)
         self.store.delete_facts("socio", onde={"cnpj": cnpjs})
         self._gravar(fatos)
