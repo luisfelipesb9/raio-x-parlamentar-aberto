@@ -24,7 +24,7 @@ Erros: RFC 7807 (`application/problem+json`); 404 claros; 422 para parâmetro in
 Cache: grafo/índices são montados uma vez por processo. **Pare a API antes de `make ingest` /
 `make infer`** (o DuckDB não deixa outro processo escrever com a API aberta) e suba de novo depois.
 LGPD: nenhuma resposta traz CPF nem campo `cpf*` (testado varrendo todos os endpoints); nós `pessoa`
-com CPF mascarado não carregam nome. `RAIO_X_ID_SALT` troca o sal dos ids de pessoa.
+com CPF mascarado não carregam nome. `RAIO_X_ID_SALT` é o sal dos ids de pessoa e é obrigatório: a API não sobe sem ele (não há sal padrão).
 Dependências: `fastapi`, `uvicorn` (e `httpx` para testes) — ver `pyproject.toml`.
 
 `/perguntar`: um único `forward.run` (todas as regras, guardrails aplicados) por processo, passado a
@@ -77,7 +77,7 @@ Passo a passo:
 2. `vercel link` na raiz (projeto novo "raio-x-api", Root Directory `.`).
 3. Variáveis de ambiente (Production/Preview), via dashboard ou `vercel env add`:
    - `RAIO_X_DB`: caminho do banco no bundle, relativo à raiz do projeto (`data/sample/raio_x_publico.duckdb`).
-   - `RAIO_X_ID_SALT`: sal dos ids de pessoa (segredo; qualquer string longa e fixa).
+   - `RAIO_X_ID_SALT`: sal dos ids de pessoa (segredo; qualquer string longa e fixa). **Obrigatório**: sem ele a API falha na subida.
    - `RAIO_X_CORS_ORIGINS`: origem do web, ex. `https://raio-x-web-delta.vercel.app` (vírgulas; sem `*`).
 4. Primeiro deploy de um projeto: `vercel deploy --prod` (só pode ser de produção). Nos seguintes: `vercel deploy`
    (preview, abre logado na Vercel), conferir `/saude` e só então `--prod`.

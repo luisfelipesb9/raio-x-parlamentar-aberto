@@ -25,7 +25,11 @@ export default defineConfig({
     {
       command: "uv run uvicorn api.main:app --port 8000",
       cwd: raiz,
-      env: { RAIO_X_DB: process.env.RAIO_X_DB ?? "data/sample/raio_x_sample.duckdb" },
+      env: {
+        RAIO_X_DB: process.env.RAIO_X_DB ?? "data/sample/raio_x_sample.duckdb",
+        // Sal de TESTE dos ids de pessoa (a API não tem sal padrão e não sobe sem ele).
+        RAIO_X_ID_SALT: process.env.RAIO_X_ID_SALT ?? "sal-somente-para-testes",
+      },
       url: `${API}/deputados?page_size=1`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

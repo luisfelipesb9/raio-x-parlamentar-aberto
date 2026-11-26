@@ -6,7 +6,7 @@ perguntar ao sistema (trilha da prova em árvore), comparar dois deputados e glo
 ## Rodar
 ```
 pnpm install
-RAIO_X_DB=data/sample/raio_x_sample.duckdb uv run uvicorn api.main:app --port 8000   # na raiz do repo
+RAIO_X_ID_SALT=<qualquer-string> RAIO_X_DB=data/sample/raio_x_sample.duckdb uv run uvicorn api.main:app --port 8000   # na raiz do repo
 pnpm dev                                                                               # http://localhost:3000
 ```
 `NEXT_PUBLIC_API_URL` (padrão `http://localhost:8000`; ver `.env.example`). A API só libera CORS para `http://localhost:3000`.

@@ -1,6 +1,13 @@
+import os
+
 import pytest
 
 from contracts import Fact
+
+# Sal de TESTE (não é segredo): o sistema não tem sal padrão e `api.main` cria o app na importação,
+# então a variável precisa existir antes da coleta dos testes. Teste que exercita a falta do sal
+# a remove (monkeypatch.delenv).
+os.environ["RAIO_X_ID_SALT"] = "sal-somente-para-testes"
 
 
 @pytest.fixture(autouse=True)

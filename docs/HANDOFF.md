@@ -91,6 +91,8 @@ arquivos da árvore como estáticos (código-fonte baixável) e não monta as ro
    `vercel deploy` (preview, abre logado na Vercel), conferir `/saude` e só então `vercel deploy --prod`.
 4. Web (`cd web`): `vercel link`; envs `NEXT_PUBLIC_API_URL=<url da API>` e `NEXT_PUBLIC_SITE_URL=<url do site>`;
    `vercel deploy --prod`. Se a URL do site só for conhecida agora, grave-a em `RAIO_X_CORS_ORIGINS` e republique a API.
+   **`RAIO_X_ID_SALT` é obrigatório na API** (sem valor padrão): sem a env a função falha na subida com mensagem
+   explicando como defini-la. Confira que ela existe nos ambientes Production e Preview antes de qualquer deploy.
 5. Conferir: `/saude` (`status: ok`, `pseudonimizado: true`); `<url da API>/pyproject.toml` deve dar 404.
 
 Validado em produção (2026-11-25): `/saude` ok (20 deputados, 40 findings), DuckDB read-only na função Python,

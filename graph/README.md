@@ -22,7 +22,7 @@ nodes, edges = build_graph(facts, findings, centro="deputado:204554", profundida
 | `enviou_emenda` deputado → município | R$ empenhado | 1 |
 | `socio_de` pessoa → empresa (só empresas já no grafo) | 1 | 1 com CPF íntegro, **0,4** com CPF mascarado |
 
-Sal do hash: `SAL_ID` (a API aceita `RAIO_X_ID_SALT`); troque-o para que os ids não sejam reversíveis por força bruta do CPF. Muitas doações mascaradas viram muitos nós `pessoa` (o corte `max_nos` da API protege).
+Sal do hash: `RAIO_X_ID_SALT` (obrigatório, sem valor padrão: `project`/`build_graph` levantam `SalAusenteError` se ele faltar e `sal_id` não for passado), para que os ids não sejam reversíveis por força bruta do CPF. Muitas doações mascaradas viram muitos nós `pessoa` (o corte `max_nos` da API protege).
 | `votou_com` deputado ↔ deputado (simétrica, só top-k por deputado) | % votos iguais | `min(1, n_comuns/30)` |
 
 - **Sanção não é aresta**: a empresa recebe `atributos.sancionada`, `sancao_vigente` e `sancoes[]`.

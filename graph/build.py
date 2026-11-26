@@ -20,10 +20,11 @@ from __future__ import annotations
 
 import hashlib
 import heapq
+import os
 import re
 import unicodedata
 from collections import Counter, defaultdict, deque
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
@@ -42,8 +43,25 @@ VOTOS_VALIDOS = {"sim": "Sim", "nao": "Não", "abstencao": "Abstenção", "obstr
 CF_NOME_MASCARADO = 0.4  # igual à penalidade do R06: CPF mascarado ⇒ identidade não confirmada
 VOTACOES_PARA_CF_PLENO = 30
 MAX_EVIDENCIAS = 20
-SAL_ID = "raio-x-v1"  # sal do hash dos ids de pessoa (a API aceita RAIO_X_ID_SALT)
+ENV_SAL_ID = "RAIO_X_ID_SALT"  # sal secreto do hash dos ids de pessoa (o mesmo da pseudonimização)
 ROTULO_DOADOR_ANONIMO = "Doador(a) pessoa física"
+
+
+class SalAusenteError(RuntimeError):
+    """`RAIO_X_ID_SALT` ausente ou vazio. Não há sal padrão: um sal público tornaria os ids de
+    pessoa reversíveis por força bruta do CPF."""
+
+
+def sal_do_ambiente(env: Mapping[str, str] | None = None) -> str:
+    sal = (os.environ if env is None else env).get(ENV_SAL_ID, "").strip()
+    if not sal:
+        raise SalAusenteError(
+            f"A variável de ambiente {ENV_SAL_ID} não está definida. Ela é o sal secreto dos ids de "
+            "pessoa do grafo (sem ele, os ids poderiam ser revertidos por força bruta). Defina-a "
+            f"com uma string longa e fixa, fora do repositório: `export {ENV_SAL_ID}=<segredo>` no "
+            "terminal local, ou em Settings > Environment Variables no projeto da API na Vercel. "
+            "Use sempre o mesmo valor da base pseudonimizada (ver docs/adr/ADR-006).")
+    return sal
 
 
 class Afinidade(BaseModel):
@@ -197,7 +215,7 @@ def _arestas_votou_com(facts: list[Fact], deputados: set[str], k: int,
 
 # ---------------------------------------------------------------------------------- projeção
 def project(facts: list[Fact], findings: list[Finding], *, votou_com_k: int = 5,
-            min_votacoes_comuns: int = 5, hoje: date | None = None, sal_id: str = SAL_ID
+            min_votacoes_comuns: int = 5, hoje: date | None = None, sal_id: str | None = None
             ) -> tuple[list[GraphNode], list[GraphEdge]]:
     """Grafo COMPLETO. Para um recorte navegável use `subgrafo`/`build_graph(centro=...)`.
 
@@ -205,6 +223,7 @@ def project(facts: list[Fact], findings: list[Finding], *, votou_com_k: int = 5,
     mesmo CPF íntegro viram um nó, rótulo = nome). CPF mascarado/ausente: um nó por doação/sócio,
     sem nome em id, rótulo ou atributos — nunca funde homônimos."""
     hoje = hoje or date.today()
+    sal_id = sal_id if sal_id is not None else sal_do_ambiente()  # sem valor padrão (falha fechado)
     facts = sorted(facts, key=lambda f: (f.tipo, f.chave))  # determinismo
     por_tipo: dict[str, list[Fact]] = defaultdict(list)
     for f in facts:
@@ -531,7 +550,7 @@ def subgrafo(nodes: list[GraphNode], edges: list[GraphEdge], centro: str, profun
 def build_graph(facts: list[Fact], findings: list[Finding], centro: str | None = None,
                 profundidade: int = 1, *, relacoes: Iterable[str] | None = None,
                 max_nos: int | None = None, votou_com_k: int = 5, min_votacoes_comuns: int = 5,
-                hoje: date | None = None, sal_id: str = SAL_ID
+                hoje: date | None = None, sal_id: str | None = None
                 ) -> tuple[list[GraphNode], list[GraphEdge]]:
     """Projeta o grafo; com `centro` ("deputado:ID") devolve só a vizinhança até `profundidade`."""
     nodes, edges = project(facts, findings, votou_com_k=votou_com_k,

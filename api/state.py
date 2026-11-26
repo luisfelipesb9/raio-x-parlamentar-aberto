@@ -29,7 +29,7 @@ from contracts import CONTRACT_VERSION, Explanation, Fact, Finding, GraphEdge, G
 from engine import backward, forward, proveniencia
 from engine.factbase import FactBase
 from engine.rules import Rule, load_rules
-from graph import SAL_ID, normaliza_nome, project
+from graph import normaliza_nome, project, sal_do_ambiente
 from repo import proveniencia as manifesto
 from repo.store import DB_PATH, Store
 
@@ -78,6 +78,7 @@ class Snapshot:
 class AppState:
     def __init__(self, store: Store | None, db_path: str | Path | None,
                  raw_dir: str | Path | None = None) -> None:
+        self.sal_id = sal_do_ambiente()  # falha na subida da API se RAIO_X_ID_SALT não existir
         self._store = store
         self._db_path = db_path
         self._raw_dir = raw_dir
@@ -127,7 +128,7 @@ class AppState:
             [Finding.model_validate_json(r[0]) for r in
              store.con.execute("SELECT payload FROM finding").fetchall()], facts)
         nodes, edges = project(facts, findings,
-                               sal_id=os.environ.get("RAIO_X_ID_SALT") or SAL_ID)
+                               sal_id=self.sal_id)
         deputados = {
             f.chave: DeputadoResumo(
                 id=f.chave, nome=f.atributos.get("nome") or f"Deputado {f.chave}",
