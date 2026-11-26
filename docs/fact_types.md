@@ -31,3 +31,9 @@ Mudar este arquivo = ADR.
 - `autoria` coautor só com `proponente==1` (apoiadores de PEC não contam).
 - Atributo `deputado_cf` (float 0–1) acompanha todo `deputado_id` preenchido pela resolução (candidatura, emenda); ausente = 1.0 (id vindo da própria Câmara). Predicados devem propagá-lo em `premissas_cf`.
 - Pseudonimização (`--pseudonimizar`, ADR-006): CPF íntegro de terceiro → `hmac:<32hex>` + `*_visivel` (dígitos 4–9: `doador_cpf_visivel` na doação, `cpf_visivel` no sócio). CPF mascarado permanece mascarado (nunca vira hmac). CPF de deputado/candidato fica íntegro.
+
+## Nota (Onda 4): CNPJ alfanumérico
+- A Receita Federal emite, desde julho/2026, CNPJ de 14 posições com letras (12 primeiras em `A–Z`/`0–9`, 2 últimas de DV numérico; formatos numérico e alfanumérico coexistem). Fonte: [Perguntas e Respostas do CNPJ alfanumérico](https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/perguntas-e-respostas/cnpj/cnpj-alfanumerico.pdf), pergunta 14.
+- O contrato dos tipos **não muda**: `cnpj` (`despesa_ceap`, `sancao`, `empresa`, `socio`), `doador_cpf_cnpj` e `cpf_cnpj` continuam string de 14 caracteres, sem máscara. O "só dígitos" do cabeçalho vale para o CNPJ numérico; o alfanumérico é gravado em maiúsculas, sem `.`, `/` e `-`. CPF segue com 11 dígitos.
+- Uma única implementação de forma e DV (módulo 11 sobre `ord(c) - 48`) em `sources/rfb/normalizacao.py` (`normalizar_cnpj`, `cnpj_valido`, `dv_cnpj`); `sources/ceap`, `sources/tse`, `sources/rfb` e `ingest/resolve` a usam. Fornecedor com CNPJ alfanumérico não perde o documento nem vira CPF (11 posições).
+- Ainda só dígitos, fora desta nota: `sources/cgu`, `graph/build.py` e `engine/predicates/circuito.py` (ver pendências do PR).

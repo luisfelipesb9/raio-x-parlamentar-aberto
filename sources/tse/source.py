@@ -32,6 +32,7 @@ import httpx
 
 from contracts import Fact
 from sources.base import Source
+from sources.rfb.normalizacao import normalizar_cnpj
 
 CDN = "https://cdn.tse.jus.br/estatistica/sead/odsele"
 URL_IBGE = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
@@ -80,7 +81,13 @@ def _limpo(texto: Any) -> str | None:
 
 
 def _documento(texto: Any, tamanhos: tuple[int, ...] = (11, 14)) -> str | None:
-    d = re.sub(r"\D", "", str(texto or ""))
+    """CPF (11 dígitos) ou CNPJ (14 posições, numérico ou alfanumérico), conforme `tamanhos`."""
+    bruto = str(texto or "")
+    if 14 in tamanhos and (cnpj := normalizar_cnpj(bruto)) is not None:
+        return cnpj
+    d = re.sub(r"\D", "", bruto)
+    if re.search(r"[A-Za-z]", bruto):
+        return None  # letra que não forma um CNPJ de 14 posições: não é documento
     return d if len(d) in tamanhos else None
 
 

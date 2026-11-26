@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import inspect
 import json
-import re
 from collections import defaultdict
 from collections.abc import Callable, Collection, Iterable
 from dataclasses import dataclass, field
@@ -34,6 +33,7 @@ from ingest.resolve import (
 from ingest.resolve.comum import cnpj_valido, deputados_unicos
 from repo.store import Store
 from sources import REGISTRY
+from sources.rfb.normalizacao import normalizar_cnpj
 
 ORDEM = ("camara", "ceap", "cgu", "tse", "opensanctions", "rfb")  # ordem de execução fixa
 
@@ -404,8 +404,8 @@ class Pipeline:
             if f.atributos.get("cnpj") and self._no_escopo(f.atributos.get("deputado_id")):
                 valor[f.atributos["cnpj"]] += abs(float(f.atributos.get("valor") or 0))
         for f in self.store.facts_by_tipo("doacao"):
-            doc = re.sub(r"\D", "", str(f.atributos.get("doador_cpf_cnpj") or ""))
-            if len(doc) == 14:
+            doc = normalizar_cnpj(f.atributos.get("doador_cpf_cnpj"))  # PF, hash e máscara: None
+            if doc:
                 valor[doc] += abs(float(f.atributos.get("valor") or 0))
         conhecidos = {e.chave for e in self.store.facts_by_tipo("empresa")}
         ranking = [c for c, _ in sorted(valor.items(), key=lambda kv: (-kv[1], kv[0]))

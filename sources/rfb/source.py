@@ -23,6 +23,7 @@ import httpx
 
 from contracts import Fact
 from sources.base import Source
+from sources.rfb.normalizacao import cnpj_valido, normalizar_cnpj
 
 BASE = "https://brasilapi.com.br/api/cnpj/v1"
 FONTE = "brasilapi_cnpj"
@@ -35,28 +36,18 @@ def _digitos(texto: Any) -> str:
     return re.sub(r"\D", "", str(texto or ""))
 
 
-def _cnpj_valido(cnpj: str) -> bool:
-    if len(cnpj) != 14 or len(set(cnpj)) == 1:
-        return False
-    for n in (12, 13):
-        pesos = [*range(n - 7, 1, -1), *range(9, 1, -1)][:n]
-        resto = sum(int(d) * p for d, p in zip(cnpj[:n], pesos, strict=True)) % 11
-        if int(cnpj[n]) != (0 if resto < 2 else 11 - resto):
-            return False
-    return True
-
-
 def _nome_norm(nome: str) -> str:
     s = "".join(c for c in unicodedata.normalize("NFKD", nome) if not unicodedata.combining(c))
     return re.sub(r"\s+", " ", s).strip().upper()
 
 
 def _documento_socio(texto: Any) -> str | None:
-    """CPF mascarado ('***550179**') ou CNPJ de 14 dígitos; qualquer outra coisa vira None."""
+    """CPF mascarado ('***550179**') ou CNPJ de 14 posições (numérico ou alfanumérico); qualquer
+    outra coisa vira None."""
     s = re.sub(r"[.\-/\s]", "", str(texto or ""))
     if re.fullmatch(r"[\d*]{11}", s) and s.strip("*"):
         return s
-    return s if re.fullmatch(r"\d{14}", s) else None
+    return normalizar_cnpj(s)
 
 
 class RfbSource(Source):
@@ -108,10 +99,10 @@ class RfbSource(Source):
             dados = json.loads(caminho.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return None
-        return dados if isinstance(dados, dict) and _digitos(str(dados.get("cnpj", ""))) == cnpj else None
+        return dados if isinstance(dados, dict) and normalizar_cnpj(dados.get("cnpj")) == cnpj else None
 
     def fetch(self, cnpjs: Iterable[str], reusar_raw: bool = False) -> dict:
-        """Consulta cada CNPJ (14 dígitos, com ou sem máscara) uma vez; guarda cada resposta em
+        """Consulta cada CNPJ (14 posições, numérico ou alfanumérico, com ou sem máscara) uma vez; guarda cada resposta em
         data/raw/rfb/<cnpj>.json. Devolve {"cnpjs": [respostas], "nao_encontrados": [cnpj], "invalidos": [texto recebido],
         "indisponiveis": [cnpj]}. CNPJ inválido é só registrado em "invalidos" e o resto do lote segue.
         CNPJ que continua com erro 5xx/timeout depois de todas as tentativas vai para "indisponiveis"
@@ -124,9 +115,8 @@ class RfbSource(Source):
         lista: dict[str, None] = {}
         invalidos: list[str] = []
         for c in cnpjs:  # inválido (formato ou DV) não gasta requisição nem aborta o lote
-            d = _digitos(c)
-            if _cnpj_valido(d):
-                lista[d] = None
+            if cnpj_valido(c):
+                lista[normalizar_cnpj(c)] = None
             elif str(c) not in invalidos:
                 invalidos.append(str(c))
         raw: dict[str, list] = {"cnpjs": [], "nao_encontrados": [], "invalidos": invalidos,
@@ -168,8 +158,8 @@ class RfbSource(Source):
         """`empresa` por CNPJ e `socio` por integrante do QSA. Função pura."""
         facts: list[Fact] = []
         for d in raw.get("cnpjs", []):
-            cnpj = _digitos(d.get("cnpj"))
-            if len(cnpj) != 14:
+            cnpj = normalizar_cnpj(d.get("cnpj"))
+            if cnpj is None:
                 continue
             url = f"{BASE}/{cnpj}"
             cnae = _digitos(d.get("cnae_fiscal"))
