@@ -315,6 +315,25 @@ describe("exportação CSV", () => {
     expect(linhas[2]).toBe("empresa:1,empresa,'=SOMA(A1),12.5,sim");
   });
 
+  it("neutraliza fórmula também depois de espaços ou aspas iniciais e com caracteres de largura total", () => {
+    const rotulos = ["  =SOMA(A1)", '"=SOMA(A1)', " '+1", "＝SOMA(A1)", "＋1", "－1", "＠x", "\t=1"];
+    const csv = csvNos(grafoDe(rotulos.map((r, i) => no(`empresa:${i}`, "empresa", r)), []));
+    const celulas = csv.split("\n").slice(1).map((l) => l.split(",")[2]);
+    expect(celulas[0]).toBe("'  =SOMA(A1)");
+    expect(celulas[1]).toBe('"\'""=SOMA(A1)"');
+    expect(celulas[2]).toBe("' '+1");
+    expect(celulas[3]).toBe("'＝SOMA(A1)");
+    expect(celulas[4]).toBe("'＋1");
+    expect(celulas[5]).toBe("'－1");
+    expect(celulas[6]).toBe("'＠x");
+    expect(celulas[7]).toBe("'\t=1");
+  });
+
+  it("não mexe em texto comum com aspas ou espaços no começo", () => {
+    const csv = csvNos(grafoDe([no("empresa:1", "empresa", '  Padaria "Boa" Ltda')], []));
+    expect(csv.split("\n")[1]).toBe('empresa:1,empresa,"  Padaria ""Boa"" Ltda",0,não');
+  });
+
   it("conexões: nomes das duas pontas, peso numérico preservado (inclusive negativo) e certeza", () => {
     const linhas = csvArestas(g).split("\n");
     expect(linhas[0]).toBe("origem,origem_rotulo,destino,destino_rotulo,relacao,peso,certeza_cf,evidencias");

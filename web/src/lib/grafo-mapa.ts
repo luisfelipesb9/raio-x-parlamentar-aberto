@@ -404,9 +404,12 @@ export function resumoOcultos(ocultos: readonly OcultoResumo[]): string {
 
 /* ---------------------------------------------------------------- exportação (analista) */
 
-/** Célula de CSV: aspas escapadas e, no começo, `=`, `+`, `-`, `@` neutralizados (a planilha não executa fórmula). */
+/** Começo que a planilha pode ler como fórmula: espaços e aspas iniciais, depois `= + - @` (ou o equivalente de largura total) ou tab/CR. */
+const INICIO_DE_FORMULA = /^[\s"']*[=+\-@\t\r＝＋－＠]/;
+
+/** Célula de CSV: aspas escapadas e início de fórmula neutralizado com apóstrofo (a planilha não executa fórmula). */
 function celula(texto: string): string {
-  const seguro = /^[=+\-@\t\r]/.test(texto) ? `'${texto}` : texto;
+  const seguro = INICIO_DE_FORMULA.test(texto) ? `'${texto}` : texto;
   return /[",\n\r]/.test(seguro) ? `"${seguro.replaceAll('"', '""')}"` : seguro;
 }
 
