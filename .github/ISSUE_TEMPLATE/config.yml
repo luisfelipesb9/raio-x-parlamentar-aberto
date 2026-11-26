@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Perguntas e ideias (Discussions)
+    url: ../../discussions
+    about: Para dúvidas, ideias e conversa geral. Não use para relatar falha de segurança.
+  - name: Relato privado de segurança
+    url: ../../security/advisories/new
+    about: Vulnerabilidade ou CPF/dado pessoal exposto. Não abra issue pública.
