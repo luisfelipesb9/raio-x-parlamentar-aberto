@@ -3,17 +3,19 @@
 Sobe a API sobre o banco de DEMONSTRAÇÃO FICTÍCIO (`make seed-demo`) e o site em modo produção
 (`next start`), faz pedidos HTTP simples (sem navegador, sem executar JS) e confere:
 
-  - /deputado/9900001: 200, `<h1`, nome do deputado de demo no HTML, `rel="canonical"` apontando
-    para o endereço público, JSON-LD válido;
+  - /deputado/9900001: 200, nome do deputado de demo DENTRO de um `<h1>` do `<body>` (um
+    "Carregando…" não passa), `rel="canonical"` apontando para o endereço público e JSON-LD
+    com `@context` schema.org e `@type`;
   - /deputado/99999999: 404 de verdade (não 200 com "não encontrado");
-  - /deputados: lista as fichas com `href="/deputado/`;
+  - /deputados: link `href="/deputado/9900001"` no HTML;
   - /robots.txt: cita GPTBot e tem `Sitemap:`;
   - /sitemap.xml: lista a ficha demo com o endereço público;
-  - /llms.txt: 200;
-  - home: JSON-LD válido.
+  - /llms.txt: 200, não vazio;
+  - home: JSON-LD com `@context` schema.org e `@type`.
 
 Imprime OK/FALHA por checagem e sai com 1 se alguma falhar (2 se não conseguiu nem subir os
-serviços). Mata os processos que iniciou ao terminar, inclusive em Ctrl+C. Só biblioteca padrão.
+serviços). Mata o grupo de processos que iniciou ao terminar (inclusive em Ctrl+C/SIGTERM e no
+timeout do build). Só biblioteca padrão.
 Só roda em sistemas POSIX (Linux/macOS).
 
 Uso (na raiz do repositório, depois de `make seed-demo` e `pnpm --dir web install`):
@@ -54,6 +56,9 @@ _SCRIPT = re.compile(r"<script\b[^>]*>.*?</script\s*>", re.IGNORECASE | re.DOTAL
 _LD_JSON = re.compile(r"""<script\b[^>]*type=["']application/ld\+json["'][^>]*>(.*?)</script\s*>""",
                       re.IGNORECASE | re.DOTALL)
 _LINK = re.compile(r"<link\b[^>]*>", re.IGNORECASE)
+_BODY = re.compile(r"<body\b[^>]*>(.*)</body\s*>", re.IGNORECASE | re.DOTALL)
+_H1 = re.compile(r"<h1\b[^>]*>(.*?)</h1\s*>", re.IGNORECASE | re.DOTALL)
+_TAG = re.compile(r"<[^>]+>")
 _ATRIBUTO = re.compile(r"""([a-zA-Z:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')""")
 
 
@@ -83,6 +88,24 @@ Checagem = Callable[[Resposta], str]
 
 def _html_sem_script(corpo: str) -> str:
     return html.unescape(_SCRIPT.sub("", corpo))
+
+
+def _texto(fragmento: str) -> str:
+    return re.sub(r"\s+", " ", html.unescape(_TAG.sub(" ", fragmento))).strip()
+
+
+def h1_com(nome: str) -> Checagem:
+    """O nome precisa estar DENTRO de um <h1> do <body> já no HTML (não basta <title>/meta)."""
+    def f(r: Resposta) -> str:
+        m = _BODY.search(r.corpo)
+        corpo = _SCRIPT.sub("", m.group(1) if m else r.corpo)
+        titulos = [_texto(h) for h in _H1.findall(corpo)]
+        if not titulos:
+            return "sem <h1> no <body> do HTML (o conteúdo só existe se o JS rodar)"
+        if not any(nome in t for t in titulos):
+            return f"nenhum <h1> contém {nome!r} (h1 encontrados: {titulos[:3]})"
+        return ""
+    return f
 
 
 def status(esperado: int) -> Checagem:
@@ -118,15 +141,43 @@ def canonical(esperado: str) -> Checagem:
     return f
 
 
+def _contexto_schema_org(ctx: object) -> bool:
+    if isinstance(ctx, str):
+        return ctx.rstrip("/").split("://")[-1] == "schema.org"
+    if isinstance(ctx, list):
+        return any(_contexto_schema_org(c) for c in ctx)
+    if isinstance(ctx, dict):
+        return _contexto_schema_org(ctx.get("@vocab"))
+    return False
+
+
+def _itens_tipados(dado: object, ctx: object = None) -> list[dict]:
+    """Objetos com @type e @context schema.org (herdado do topo, como em @graph)."""
+    if isinstance(dado, list):
+        return [x for d in dado for x in _itens_tipados(d, ctx)]
+    if not isinstance(dado, dict):
+        return []
+    ctx = dado.get("@context", ctx)
+    achados = [dado] if dado.get("@type") and _contexto_schema_org(ctx) else []
+    return achados + _itens_tipados(dado.get("@graph", []), ctx)
+
+
 def json_ld_valido(r: Resposta) -> str:
+    """Todo bloco é JSON válido e ao menos um traz @context schema.org e @type."""
     blocos = _LD_JSON.findall(r.corpo)
     if not blocos:
         return 'sem <script type="application/ld+json">'
+    tipados = 0
     for i, bloco in enumerate(blocos, 1):
         try:
-            json.loads(bloco)
+            dado = json.loads(bloco)
         except json.JSONDecodeError as e:
             return f"bloco JSON-LD {i} não é JSON válido ({e.msg})"
+        if not isinstance(dado, (dict, list)):
+            return f"bloco JSON-LD {i} não é objeto nem lista"
+        tipados += len(_itens_tipados(dado))
+    if not tipados:
+        return 'JSON-LD sem objeto com "@context" schema.org e "@type"'
     return ""
 
 
@@ -142,15 +193,14 @@ def checagens(site_publico: str) -> list[tuple[str, str, list[tuple[str, Checage
     return [
         ("ficha demo", ficha, [
             ("status 200", status(200)),
-            ("tem <h1 no HTML", contem("<h1", fora_de_script=True)),
-            (f"nome {NOME_DEMO!r} no HTML", contem(NOME_DEMO, fora_de_script=True)),
+            (f"<h1> do body com o nome {NOME_DEMO!r}", h1_com(NOME_DEMO)),
             ('rel="canonical" com o endereço público', canonical(f"{site_publico}{ficha}")),
             ("JSON-LD (application/ld+json) válido", json_ld_valido),
         ]),
         ("ficha inexistente", f"/deputado/{ID_INEXISTENTE}", [("status 404", status(404))]),
         ("lista de deputados", "/deputados", [
             ("status 200", status(200)),
-            ('links href="/deputado/ no HTML', contem('href="/deputado/', fora_de_script=True)),
+            (f'link href="/deputado/{ID_DEMO}" no HTML', contem(f'href="/deputado/{ID_DEMO}"', fora_de_script=True)),
         ]),
         ("robots.txt", "/robots.txt", [
             ("status 200", status(200)),
@@ -216,6 +266,53 @@ def _cauda(log: Path, linhas: int = 30) -> str:
     return f"--- últimas linhas de {log} ---\n" + "\n".join(texto)
 
 
+def _grupo_vivo(pgid: int) -> bool:
+    try:
+        os.killpg(pgid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:  # existe, mas não é nosso: não deveria acontecer com grupo próprio
+        return True
+    return True
+
+
+def matar_grupo(p: subprocess.Popen, espera: float = 10.0) -> None:
+    """SIGTERM no grupo inteiro, mesmo se o líder já saiu (pnpm sai e deixa o next/workers vivos);
+    quem não sair em `espera` segundos leva SIGKILL."""
+    pgid = p.pid  # start_new_session=True: o pid do líder é o id do grupo
+    try:
+        os.killpg(pgid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    fim = time.monotonic() + espera
+    try:
+        p.wait(timeout=espera)
+    except subprocess.TimeoutExpired:
+        pass
+    while _grupo_vivo(pgid) and time.monotonic() < fim:
+        time.sleep(0.2)
+    if _grupo_vivo(pgid):
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    try:
+        p.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def rodar_com_timeout(cmd: list[str], cwd: Path, env: dict[str, str], timeout: float) -> int:
+    """Roda em grupo próprio (stdout no terminal) e mata o grupo todo se passar do tempo."""
+    p = subprocess.Popen(cmd, cwd=cwd, env=env, stdin=subprocess.DEVNULL, start_new_session=True)
+    try:
+        return p.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise ErroHarness(f"{' '.join(cmd)} passou de {timeout:.0f}s e foi interrompido.") from None
+    finally:
+        matar_grupo(p, espera=5)  # sobra de workers, ou o próprio comando no timeout/Ctrl+C
+
+
 class Processos:
     """Inicia processos em grupo próprio e mata o grupo inteiro no fim (pnpm → next → workers)."""
 
@@ -235,16 +332,7 @@ class Processos:
 
     def encerrar(self) -> None:
         for nome, p in reversed(self.procs):
-            if p.poll() is not None:
-                continue
-            try:
-                os.killpg(p.pid, signal.SIGTERM)
-                p.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                os.killpg(p.pid, signal.SIGKILL)
-                p.wait(timeout=5)
-            except ProcessLookupError:
-                pass
+            matar_grupo(p)  # sempre: o líder pode ter saído e deixado filhos no grupo
             print(f"[seo-smoke] {nome} encerrado")
         self.procs.clear()
 
@@ -279,7 +367,7 @@ def subir_e_checar(a: argparse.Namespace) -> int:
         esperar(f"{api}/deputados?page_size=1", a.timeout, lambda r: r.status == 200, p_api, "API", log_api)
         if a.build:  # com a API no ar: páginas pré-renderizadas no build podem consultá-la
             print("[seo-smoke] pnpm build")
-            if subprocess.run([pnpm, "build"], check=False, cwd=raiz / "web", env=env_web).returncode != 0:
+            if rodar_com_timeout([pnpm, "build"], raiz / "web", env_web, a.timeout_build) != 0:
                 raise ErroHarness("pnpm build falhou.")
         p_web, log_web = procs.iniciar(
             "site", [pnpm, "exec", "next", "start", "-H", "127.0.0.1", "-p", str(a.site_porta)],
@@ -301,6 +389,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="NEXT_PUBLIC_SITE_URL esperado no canonical e no sitemap")
     ap.add_argument("--build", action="store_true", help="roda `pnpm build` (com a API no ar) antes de subir o site")
     ap.add_argument("--timeout", type=float, default=120.0, help="segundos para API e site ficarem prontos")
+    ap.add_argument("--timeout-build", type=float, default=600.0, help="segundos para o `pnpm build`")
     ap.add_argument("--so-checar", metavar="URL",
                     help="não sobe nada: confere um site já no ar (o banco precisa ter a ficha demo)")
     a = ap.parse_args(argv)
