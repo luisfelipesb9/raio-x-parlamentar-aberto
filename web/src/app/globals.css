@@ -36,6 +36,11 @@
   --no-municipio: #0b6fa0;
   --no-proposicao: #b4452a;
   --no-pessoa: #5a5f8a;
+  /* famílias de ligação no mapa (cor da aresta); >= 3:1 sobre --surface-solida, conferido em contraste.test.ts */
+  --rel-dinheiro: #9a5600;
+  --rel-votos: #2a6aa8;
+  --rel-autoria: #a83a68;
+  --rel-filiacao: #4f6872;
 
   --font-display: var(--font-manrope), "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-body: var(--font-manrope), "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -78,6 +83,10 @@
   --no-municipio: #6db6ff;
   --no-proposicao: #ff8f66;
   --no-pessoa: #aab4e0;
+  --rel-dinheiro: #f0b24a;
+  --rel-votos: #7db8ff;
+  --rel-autoria: #ff8fb8;
+  --rel-filiacao: #9db0b8;
   color-scheme: dark;
 }
 
