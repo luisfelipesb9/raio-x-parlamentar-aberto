@@ -7,9 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from contracts import Fact
+from repo.proveniencia import RAW_DIR  # noqa: F401  (padrão de data/raw; testes e quem importa usam este nome)
 from sources import manifest
-
-RAW_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
 
 
 class Source(ABC):
@@ -18,7 +17,7 @@ class Source(ABC):
     fontes_fato: tuple[str, ...] = ()
 
     def raw_path(self, arquivo: str) -> Path:
-        p = RAW_DIR / self.nome / arquivo
+        p = manifest.raw_dir_padrao() / self.nome / arquivo
         p.parent.mkdir(parents=True, exist_ok=True)
         return p
 
@@ -37,4 +36,4 @@ class Source(ABC):
     def registrar_raw(self, arquivo: str) -> None:
         """Anota o arquivo (já gravado em data/raw/<nome>/) no manifesto: hash, tamanho, data.
         Chame depois de baixar um arquivo sem passar por `save_raw`."""
-        manifest.registrar(RAW_DIR, self.nome, arquivo)
+        manifest.registrar(manifest.raw_dir_padrao(), self.nome, arquivo)

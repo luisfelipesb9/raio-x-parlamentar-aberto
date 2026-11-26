@@ -106,11 +106,40 @@ def test_verificar_aponta_arquivo_alterado_ausente_e_nao_registrado(raw_dir):
                          ("falsa/c.json", "nao_registrado")}
 
 
-def test_verificar_sem_manifesto_acusa_tudo_como_nao_registrado(raw_dir):
+def test_verificar_sem_manifesto_gera_uma_linha_de_manifesto_ausente(raw_dir):
     (raw_dir / "falsa").mkdir()
     (raw_dir / "falsa" / "a.json").write_text("{}", encoding="utf-8")
+    (raw_dir / "falsa" / "b.json").write_text("{}", encoding="utf-8")
+    [p] = manifest.verificar(raw_dir)
+    assert p.tipo == "manifesto_ausente"
+    assert "--gerar-manifesto" in p.detalhe
+
+
+def test_verificar_com_manifesto_existente_continua_acusando_arquivo_nao_registrado(raw_dir):
+    FonteFalsa().save_raw("a.json", {"x": 1})
+    (raw_dir / "falsa" / "solto.json").write_text("{}", encoding="utf-8")
     assert [(p.arquivo, p.tipo) for p in manifest.verificar(raw_dir)] == [
-        ("falsa/a.json", "nao_registrado")]
+        ("falsa/solto.json", "nao_registrado")]
+
+
+def test_verificar_pasta_inexistente_tambem_e_manifesto_ausente(tmp_path):
+    assert [p.tipo for p in manifest.verificar(tmp_path / "nao_existe")] == ["manifesto_ausente"]
+
+
+# --------------------------------------------------------------------------- pasta dos brutos
+def test_save_raw_respeita_raio_x_raw(tmp_path, monkeypatch):
+    destino = tmp_path / "outro_lugar"
+    monkeypatch.setenv("RAIO_X_RAW", str(destino))
+    FonteFalsa().save_raw("a.json", {"x": 1})
+    assert (destino / "falsa" / "a.json").is_file()
+    assert [i["arquivo"] for i in lido(destino)["arquivos"]] == ["a.json"]
+
+
+def test_sem_raio_x_raw_o_padrao_continua_sendo_data_raw(raw_dir, monkeypatch):
+    monkeypatch.delenv("RAIO_X_RAW", raising=False)
+    FonteFalsa().save_raw("a.json", {"x": 1})
+    assert (raw_dir / "falsa" / "a.json").is_file()  # raw_dir = RAW_DIR monkeypatchado
+    assert (raw_dir / "manifest.json").is_file()
 
 
 # --------------------------------------------------------------------------- retroativo

@@ -30,8 +30,8 @@ from engine import backward, forward, proveniencia
 from engine.factbase import FactBase
 from engine.rules import Rule, load_rules
 from graph import SAL_ID, normaliza_nome, project
+from repo import proveniencia as manifesto
 from repo.store import DB_PATH, Store
-from sources import manifest
 
 log = logging.getLogger("raio_x.api")
 
@@ -153,7 +153,7 @@ class AppState:
         motor preencher esses campos. Sem manifesto (ex.: deploy sem data/raw), o hash fica vazio."""
         indice = proveniencia.indexar(facts)
         try:
-            sha = manifest.sha_por_fonte_fato(Path(self._raw_dir or manifest.raw_dir_padrao()))
+            sha = manifesto.sha_por_fonte_fato(Path(self._raw_dir or manifesto.raw_dir_padrao()))
         except (ValueError, OSError):
             log.warning("manifest.json ilegível: evidências sem sha256_bruto", exc_info=True)
             sha = {}

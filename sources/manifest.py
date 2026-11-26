@@ -17,19 +17,20 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, NamedTuple
 
-NOME = "manifest.json"
-VERSAO = 1
+from repo.proveniencia import NOME, carregar  # leitura compartilhada com a API (ADR-009)
+from repo.proveniencia import sha_por_fonte_fato as _sha_por_fonte_fato
+
 _PEDACO = 1 << 20
 
 
 class Problema(NamedTuple):
     arquivo: str  # "<fonte>/<arquivo>"
-    tipo: str  # sha256_diferente | ausente | nao_registrado
+    tipo: str  # sha256_diferente | ausente | nao_registrado | manifesto_ausente
     detalhe: str
 
 
 def raw_dir_padrao() -> Path:
-    """Pasta dos brutos: $RAIO_X_RAW ou data/raw do projeto."""
+    """Pasta dos brutos: $RAIO_X_RAW ou data/raw do projeto (a mesma que engine e API leem)."""
     from sources.base import RAW_DIR  # import tardio: sources.base importa este módulo
     return Path(os.environ.get("RAIO_X_RAW") or RAW_DIR)
 
@@ -40,23 +41,6 @@ def sha256_arquivo(caminho: Path) -> str:
         while pedaco := f.read(_PEDACO):
             h.update(pedaco)
     return h.hexdigest()
-
-
-def carregar(raw_dir: Path) -> dict[str, Any]:
-    """Manifesto da pasta; vazio se ainda não existe. Arquivo ilegível é erro (nunca é refeito)."""
-    caminho = Path(raw_dir) / NOME
-    if not caminho.exists():
-        return {"versao": VERSAO, "arquivos": []}
-    try:
-        corpo = json.loads(caminho.read_text(encoding="utf-8"))
-        valido = isinstance(corpo, dict) and isinstance(corpo.get("arquivos"), list)
-        erro = None if valido else "formato inesperado"
-    except (ValueError, OSError) as e:
-        erro = str(e)
-    if erro:
-        raise ValueError(f"{caminho} ilegível ({erro}): corrija ou apague o {NOME} e gere de novo "
-                         "com `--gerar-manifesto`")
-    return corpo
 
 
 def _gravar(raw_dir: Path, corpo: dict[str, Any]) -> None:
@@ -102,8 +86,14 @@ def _arquivos_em_disco(raw_dir: Path) -> list[tuple[str, str]]:
 
 
 def verificar(raw_dir: Path) -> list[Problema]:
-    """Compara o manifesto com o disco: hash diferente, arquivo ausente ou fora do manifesto."""
+    """Compara o manifesto com o disco: hash diferente, arquivo ausente ou fora do manifesto.
+
+    Manifesto inexistente não é divergência de cada arquivo: devolve UM problema `manifesto_ausente`
+    (nada a comparar). Arquivo no disco que não consta num manifesto que existe é `nao_registrado`."""
     raw_dir = Path(raw_dir)
+    if not (raw_dir / NOME).exists():
+        return [Problema(NOME, "manifesto_ausente",
+                         "manifesto ausente: rode com --gerar-manifesto")]
     registrados = {(i["fonte"], i["arquivo"]): i for i in carregar(raw_dir)["arquivos"]}
     em_disco = set(_arquivos_em_disco(raw_dir)) if raw_dir.is_dir() else set()
     problemas: list[Problema] = []
@@ -148,15 +138,6 @@ def _origens_por_fonte_fato() -> dict[str, str]:
 
 
 def sha_por_fonte_fato(raw_dir: Path) -> dict[str, str]:
-    """`Fact.fonte` -> sha256 do bruto, só para a fonte com UM arquivo no manifesto.
-
-    Fonte com vários arquivos (ex.: Câmara tem votações e proposições; CGU tem três zips; RFB, um
-    JSON por CNPJ) fica de fora: o fato não diz de qual deles veio, e apontar um seria afirmar
-    mais do que se sabe."""
-    if not (Path(raw_dir) / NOME).exists():
-        return {}
-    por_origem: dict[str, list[str]] = {}
-    for i in carregar(raw_dir)["arquivos"]:
-        por_origem.setdefault(i["fonte"], []).append(i["sha256"])
-    return {fonte_fato: hashes[0] for fonte_fato, origem in _origens_por_fonte_fato().items()
-            if len(hashes := por_origem.get(origem, [])) == 1}
+    """`Fact.fonte` -> sha256 do bruto (só fonte com UM arquivo no manifesto; ver
+    `repo.proveniencia.sha_por_fonte_fato`), com o mapa de origens derivado do registro de fontes."""
+    return _sha_por_fonte_fato(raw_dir, _origens_por_fonte_fato())

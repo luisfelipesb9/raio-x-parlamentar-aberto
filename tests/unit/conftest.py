@@ -3,6 +3,14 @@ import pytest
 from contracts import Fact
 
 
+@pytest.fixture(autouse=True)
+def _raw_isolado(monkeypatch):
+    """`$RAIO_X_RAW` vale por cima de `sources.base.RAW_DIR`: sem isto, quem exporta a variável
+    para a pasta real de brutos faria os testes de coleta gravarem lá. Teste que precisa dela a
+    define de novo (monkeypatch.setenv)."""
+    monkeypatch.delenv("RAIO_X_RAW", raising=False)
+
+
 def F(tipo, chave, **at):
     return Fact(tipo=tipo, chave=chave, atributos=at, fonte="teste", id_oficial=chave,
                 url=f"https://exemplo/{tipo}/{chave}")
