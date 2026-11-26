@@ -126,3 +126,94 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- /fontes ---------- */
+.bloco-pagina {
+  margin-top: 32px;
+}
+.bloco-pagina h2 {
+  margin-bottom: 0.4em;
+}
+.bloco-pagina h3 {
+  margin: 20px 0 6px;
+}
+.passos-conferir {
+  max-width: 68ch;
+  padding-left: 1.3em;
+}
+.passos-conferir li {
+  margin-bottom: 10px;
+}
+.tabela-fontes {
+  width: 100%;
+  margin: 16px 0;
+  border-collapse: collapse;
+}
+.tabela-fontes caption {
+  caption-side: top;
+  padding-bottom: 8px;
+  text-align: left;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.tabela-fontes th,
+.tabela-fontes td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.tabela-fontes thead th {
+  border-bottom: 2px solid var(--fg);
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  overflow-wrap: normal;
+}
+.tabela-fontes tbody th {
+  font-weight: 600;
+}
+.tabela-fontes td:nth-child(3),
+.tabela-fontes td:nth-child(4),
+.tabela-fontes td:nth-child(5) {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+@media (max-width: 40rem) {
+  /* em tela estreita cada fonte vira um cartão, com o nome da coluna antes do valor (sem rolagem lateral) */
+  .tabela-fontes thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .tabela-fontes,
+  .tabela-fontes tbody,
+  .tabela-fontes tr,
+  .tabela-fontes th,
+  .tabela-fontes td {
+    display: block;
+  }
+  .tabela-fontes caption {
+    display: block;
+    width: 100%;
+  }
+  .tabela-fontes tr {
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--raio);
+    background: var(--surface);
+  }
+  .tabela-fontes th,
+  .tabela-fontes td {
+    border-bottom: 0;
+    padding: 6px 12px;
+  }
+  .tabela-fontes td::before {
+    content: attr(data-rotulo) ": ";
+    color: var(--muted);
+  }
+}

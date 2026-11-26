@@ -11,6 +11,7 @@ const ITENS = [
   { href: "/perguntar", texto: "Perguntar" },
   { href: "/comparar", texto: "Comparar" },
   { href: "/glossario", texto: "Glossário" },
+  { href: "/fontes", texto: "Fontes e método" },
 ];
 
 function ativo(path: string, href: string): boolean {

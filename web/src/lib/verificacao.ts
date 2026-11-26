@@ -34,6 +34,29 @@ const FONTES: Record<string, string> = {
 
 export const rotuloFonte = (fonte: string): string => FONTES[fonte] ?? fonte.replaceAll("_", " ");
 
+const TIPOS_DE_FATO: Record<string, string> = {
+  deputado: "deputados",
+  votacao: "votações",
+  voto: "votos",
+  autoria: "autorias",
+  proposicao: "projetos",
+  despesa_ceap: "despesas da cota",
+  sancao: "sanções",
+  emenda: "emendas",
+  doacao: "doações",
+  candidatura: "candidaturas",
+  votos_municipio: "votos por município",
+  pep: "pessoas politicamente expostas",
+  empresa: "empresas",
+  socio: "sócios",
+};
+
+/** Tipos de fato de uma fonte, em palavras comuns ("votações, votos, projetos"). */
+export function listaTipos(tipos: readonly string[]): string {
+  if (tipos.length === 0) return SEM_DATA;
+  return tipos.map((t) => TIPOS_DE_FATO[t] ?? t.replaceAll("_", " ")).join(", ");
+}
+
 const REGRAS: Record<string, string> = {
   R01: "Alinhamento com o governo nas votações",
   R03: "Pagamento a fornecedor com sanção",
@@ -116,6 +139,11 @@ export function linhasMetricas(valores: Readonly<Record<string, number | string>
     .filter(([chave]) => !REDUNDANTES.has(chave))
     .map(([chave, valor]) => ({ chave, rotulo: rotuloMetrica(chave), valor: formataValor(chave, valor) }));
 }
+
+const teto = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+
+/** Nível de certeza com até 3 casas (0,665 não pode virar 0,67); 0,95 continua com duas. */
+export const formataTeto = (cf: number): string => teto.format(cf);
 
 /** Espelha knowledge/rules/R01_*.yaml: CF base 0,95 e fator 0,7 quando há menos de 30 votações com orientação. */
 const R01_CF_BASE = 0.95;

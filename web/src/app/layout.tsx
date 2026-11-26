@@ -63,7 +63,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Projeto acadêmico de Sistemas Especialistas (BSI/Unimontes). Usa só dados públicos abertos, principalmente da Câmara dos
               Deputados. Não substitui a consulta aos documentos oficiais e não é acusação contra ninguém.
             </p>
-            <p className="rodape-meta">Contratos de dados v{CONTRACT_VERSION}</p>
+            <p className="rodape-meta">
+              <TLink href="/fontes">Fontes e método</TLink> · <TLink href="/glossario">Glossário</TLink> · Contratos de dados v{CONTRACT_VERSION}
+            </p>
           </div>
         </footer>
         </TransicaoProvider>

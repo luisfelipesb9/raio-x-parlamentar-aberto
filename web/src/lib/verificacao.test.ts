@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formataData, linhasMetricas, nivelMaximoR01, nomeRegra, periodoColeta, rotuloFonte, rotuloMetrica } from "./verificacao";
+import { formataData, formataTeto, linhasMetricas, listaTipos, nivelMaximoR01, nomeRegra, periodoColeta, rotuloFonte, rotuloMetrica } from "./verificacao";
 
 describe("formataData", () => {
   it("data pura (AAAA-MM-DD) não muda de dia por fuso", () => {
@@ -41,6 +41,15 @@ describe("rotuloFonte", () => {
   });
 });
 
+describe("listaTipos", () => {
+  it("troca tipos de fato por palavras comuns e junta em uma frase", () => {
+    expect(listaTipos(["despesa_ceap"])).toBe("despesas da cota");
+    expect(listaTipos(["autoria", "deputado", "voto"])).toBe("autorias, deputados, votos");
+    expect(listaTipos(["tipo_novo"])).toBe("tipo novo");
+    expect(listaTipos([])).toBe("—");
+  });
+});
+
 describe("rotuloMetrica e linhasMetricas", () => {
   it("traduz as chaves do motor", () => {
     expect(rotuloMetrica("n_votacoes")).toBe("Votações consideradas");
@@ -67,6 +76,13 @@ describe("nomeRegra", () => {
     expect(nomeRegra("R01")).toMatch(/governo/i);
     expect(nomeRegra("R07")).toMatch(/emendas/i);
     expect(nomeRegra("R99")).toBe("Regra R99");
+  });
+});
+
+describe("formataTeto", () => {
+  it("mostra 0,665 sem arredondar para 0,67 e 0,95 com duas casas", () => {
+    expect(formataTeto(0.95 * 0.7)).toBe("0,665");
+    expect(formataTeto(0.95)).toBe("0,95");
   });
 });
 
