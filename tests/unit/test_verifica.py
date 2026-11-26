@@ -197,11 +197,27 @@ def test_ceap_sem_zip_vira_aviso_e_nao_aprova_em_silencio(ambiente):
 
 
 # --------------------------------------------------------------------------- manifesto
-def test_sem_manifesto_acusa_arquivos_nao_registrados(ambiente):
+def test_sem_manifesto_vira_uma_linha_nao_verificado_e_nao_reprova(ambiente):
     db, raw = ambiente
     r = rodar(db, raw)
-    assert {lin.status for lin in por(r, "manifesto")} == {"diverge"}
-    assert r.divergencias == 2  # o json da Câmara e o zip da CEAP
+    [lin] = por(r, "manifesto")
+    assert lin.status == "nao_verificado" and "--gerar-manifesto" in lin.detalhe
+    assert "manifesto ausente" in lin.detalhe
+    assert r.divergencias == 0 and r.nao_verificados == 1
+
+
+def test_manifesto_existente_com_arquivo_fora_dele_continua_divergindo(ambiente):
+    db, raw = ambiente
+    rodar(db, raw, gerar_manifesto=True)
+    (raw / "ceap" / "extra.json").write_text("{}", encoding="utf-8")
+    r = rodar(db, raw)
+    assert [(lin.status, lin.item) for lin in por(r, "manifesto")] == [("diverge", "ceap/extra.json")]
+    assert r.divergencias == 1
+
+
+def test_cli_sem_manifesto_sai_com_zero(ambiente, tmp_path):
+    db, raw = ambiente
+    assert verifica.main(["--db", str(db), "--raw", str(raw), "--saida", str(tmp_path / "v.md")]) == 0
 
 
 def test_gerar_manifesto_cria_retroativo_e_depois_confere(ambiente):
@@ -338,3 +354,54 @@ def test_verifica_nao_importa_o_motor():
                  {a.name.split(".")[0] for n in ast.walk(arvore) if isinstance(n, ast.Import)
                   for a in n.names}
     assert not importados & {"engine", "graph", "api", "knowledge"}
+
+
+# --------------------------------------------------------------------------- escolha do bruto da Câmara
+def _copia_com_janela(raw, inicio, fim):
+    origem = next((raw / "camara").glob("camara_2025-01-01_2025-03-31.json"))
+    (raw / "camara" / f"camara_{inicio}_{fim}.json").write_text(
+        origem.read_text("utf-8"), encoding="utf-8")
+
+
+def test_escolhe_o_bruto_cuja_janela_cobre_as_votacoes_do_banco(ambiente):
+    db, raw = ambiente  # votações de 2025-02-10
+    _copia_com_janela(raw, "2025-04-01", "2025-06-30")  # último em ordem alfabética, mas outra janela
+    r = rodar(db, raw, gerar_manifesto=True)
+    assert r.avisos == []
+    assert por(r, "votacoes") and all(lin.status == "ok" for lin in por(r, "votacoes"))
+    assert r.divergencias == 0
+
+
+def test_avisa_quando_mais_de_um_bruto_cobre_ou_nenhum_decide(ambiente):
+    db, raw = ambiente
+    _copia_com_janela(raw, "2024-01-01", "2025-12-31")  # também cobre 2025-02-10
+    r = rodar(db, raw, gerar_manifesto=True)
+    assert len(r.avisos) == 1 and "camara_" in r.avisos[0]
+    assert "avisos" in verifica.renderizar_md(r).lower() or "aviso" in verifica.renderizar_md(r).lower()
+
+
+def test_um_unico_bruto_nao_gera_aviso(ambiente):
+    db, raw = ambiente
+    assert rodar(db, raw, gerar_manifesto=True).avisos == []
+
+
+def test_online_fecha_o_cliente_http_que_ele_mesmo_criou(ambiente, monkeypatch):
+    db, raw = ambiente
+    criados = []
+
+    class Cliente(httpx.Client):
+        def __init__(self, *a, **k):
+            super().__init__(transport=httpx.MockTransport(
+                lambda req: httpx.Response(200, json={"dados": [{"tipoVoto": "Sim"}] * 99})))
+            criados.append(self)
+
+    monkeypatch.setattr(verifica.httpx, "Client", Cliente)
+    rodar(db, raw, gerar_manifesto=True, online=True, amostra_online=1)
+    assert len(criados) == 1 and criados[0].is_closed
+
+
+def test_online_nao_fecha_o_cliente_que_o_chamador_passou(ambiente):
+    db, raw = ambiente
+    c = cliente(contagens_reais())
+    rodar(db, raw, gerar_manifesto=True, online=True, cliente_http=c, amostra_online=1)
+    assert not c.is_closed

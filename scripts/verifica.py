@@ -24,6 +24,7 @@ import argparse
 import json
 import os
 import random
+import re
 import sys
 import zipfile
 from collections.abc import Sequence
@@ -69,6 +70,7 @@ class Resultado:
     n_deputados: int = 0
     banco: str = ""
     pasta_raw: str = ""
+    avisos: list[str] = field(default_factory=list)  # não reprovam, mas o leitor precisa saber
 
     @property
     def divergencias(self) -> int:
@@ -254,6 +256,9 @@ def _conferir_manifesto(raw_dir: Path) -> list[Linha]:
         n_itens = len(manifest.carregar(raw_dir)["arquivos"])
     except (ValueError, OSError) as e:
         return [Linha("manifesto", "manifest.json", "—", "—", NAO_VERIFICADO, str(e))]
+    if [p.tipo for p in problemas] == ["manifesto_ausente"]:
+        # sem manifesto não há o que conferir: é "não verificado", não divergência de cada arquivo
+        return [Linha("manifesto", "manifest.json", "—", "—", NAO_VERIFICADO, problemas[0].detalhe)]
     if not problemas:
         return [Linha("manifesto", "manifest.json", f"{n_itens} arquivos", f"{n_itens} arquivos",
                       OK, "sha256 de todos os arquivos confere")]
@@ -283,9 +288,35 @@ def _conferir_online(raw: dict[str, Any], cliente: httpx.Client, n: int, semente
     return linhas
 
 
-def _achar_raw_camara(raw_dir: Path) -> Path | None:
-    arqs = sorted((raw_dir / "camara").glob("camara_[0-9]*_[0-9]*.json")) if (raw_dir / "camara").is_dir() else []
-    return arqs[-1] if arqs else None
+_JANELA_CAMARA = re.compile(r"camara_(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})\.json")
+
+
+def _achar_raw_camara(raw_dir: Path, inicio: date | None = None,
+                      fim: date | None = None) -> tuple[Path | None, list[str]]:
+    """Bruto da Câmara `camara_<início>_<fim>.json` cuja janela cobre as votações do banco
+    (`inicio`..`fim`). Com mais de um candidato que não se resolve pela janela, usa o último em
+    ordem alfabética e AVISA, em vez de escolher em silêncio."""
+    pasta = raw_dir / "camara"
+    candidatos = []
+    for arq in sorted(pasta.glob("camara_*.json")) if pasta.is_dir() else []:
+        if m := _JANELA_CAMARA.fullmatch(arq.name):
+            candidatos.append((arq, date.fromisoformat(m[1]), date.fromisoformat(m[2])))
+    if not candidatos:
+        return None, []
+    if len(candidatos) == 1:
+        return candidatos[0][0], []
+    cobrem = ([c for c in candidatos if c[1] <= inicio and c[2] >= fim]
+              if inicio and fim else [])
+    if len(cobrem) == 1:
+        return cobrem[0][0], []
+    pool = cobrem or candidatos
+    escolhido = pool[-1][0]
+    motivo = ("mais de um cobre a janela das votações do banco" if cobrem
+              else "nenhum cobre a janela das votações do banco" if inicio and fim
+              else "o banco não tem janela de votações para decidir")
+    nomes = ", ".join(c[0].name for c in pool)
+    aviso = f"{len(pool)} brutos da Câmara candidatos ({nomes}): {motivo}; conferido {escolhido.name}"
+    return escolhido, [aviso]
 
 
 def verificar(db: Path | str, raw_dir: Path | str, *, gerar_manifesto: bool = False,
@@ -297,7 +328,8 @@ def verificar(db: Path | str, raw_dir: Path | str, *, gerar_manifesto: bool = Fa
         deputados = {f.chave: f.atributos.get("nome") or f"Deputado {f.chave}"
                      for f in store.facts_by_tipo("deputado")}
         res = Resultado(n_deputados=len(deputados), banco=Path(db).name, pasta_raw=raw_dir.name)
-        arq_camara = _achar_raw_camara(raw_dir)
+        janela = store.janela_votos()
+        arq_camara, res.avisos = _achar_raw_camara(raw_dir, janela.inicio, janela.fim)
         if arq_camara is None:
             res.linhas.append(Linha("governismo", "Câmara", "—", "—", NAO_VERIFICADO,
                                     "sem camara/camara_<início>_<fim>.json; votações e governismo "
@@ -312,8 +344,11 @@ def verificar(db: Path | str, raw_dir: Path | str, *, gerar_manifesto: bool = Fa
             res.manifesto_gerado = manifest.gerar_retroativo(raw_dir)
         res.linhas += _conferir_manifesto(raw_dir)
         if online and raw:
-            cliente = cliente_http or httpx.Client(timeout=30, headers={"Accept": "application/json"})
-            res.linhas += _conferir_online(raw, cliente, amostra_online, semente)
+            if cliente_http is not None:
+                res.linhas += _conferir_online(raw, cliente_http, amostra_online, semente)
+            else:
+                with httpx.Client(timeout=30, headers={"Accept": "application/json"}) as cliente:
+                    res.linhas += _conferir_online(raw, cliente, amostra_online, semente)
         return res
     finally:
         store.con.close()
@@ -331,6 +366,7 @@ def renderizar_tabela(res: Resultado) -> str:
     for lin in res.linhas:
         if lin.status != OK and lin.detalhe:
             out.append(f"  ! {lin.verificacao} · {lin.item}: {lin.detalhe}")
+    out += [f"  ? aviso: {a}" for a in res.avisos]
     out.append(_resumo(res))
     return "\n".join(out)
 
@@ -368,6 +404,8 @@ def renderizar_md(res: Resultado, quando: str | None = None) -> str:
     md += ["", "## Não verificado", ""]
     md += ([f"- **{TITULOS[lin.verificacao]} · {lin.item}**: {lin.detalhe}" for lin in nv]
            if nv else ["Nada ficou sem verificar nas conferências executadas."])
+    if res.avisos:
+        md += ["", "## Avisos", ""] + [f"- {a}" for a in res.avisos]
     md += ["", "## Todas as conferências"]
     for chave, titulo in TITULOS.items():
         ls = [lin for lin in res.linhas if lin.verificacao == chave]
