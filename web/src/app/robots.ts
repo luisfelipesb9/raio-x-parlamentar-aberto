@@ -2,10 +2,11 @@ import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/seo";
 
 /**
- * Robôs de IA e de busca liberados de forma explícita. Os de busca/consulta em tempo real
- * (OAI-SearchBot, Claude-SearchBot, PerplexityBot, *-User) são o que faz o site ser citado; os de treino
- * (GPTBot, ClaudeBot, Google-Extended, Applebot-Extended) ficam liberados porque a intenção é que os
- * modelos conheçam o método e as fontes corretamente.
+ * Robôs de IA e de busca declarados de forma explícita. Os de busca/consulta em tempo real (OAI-SearchBot,
+ * Claude-SearchBot, PerplexityBot, *-User) são o que faz o site ser citado; os de treino (GPTBot, ClaudeBot,
+ * Google-Extended, Applebot-Extended, CCBot) ficam liberados porque a intenção é que os modelos conheçam o método e
+ * as fontes corretamente. O robots.txt só diz quem pode ler; as condições de uso de cada fonte de dados estão em
+ * DATA_LICENSES.md.
  */
 const BOTS_LIBERADOS = [
   "GPTBot",
@@ -21,21 +22,13 @@ const BOTS_LIBERADOS = [
   "Applebot-Extended",
   "meta-externalagent",
   "Amazonbot",
+  "CCBot",
 ];
-
-/**
- * CCBot (Common Crawl) fica bloqueado de propósito: gera um corpus aberto de treino, sem citação nem link de
- * volta, redistribuído a qualquer usuário (inclusive comercial) sem o aviso de cada fonte. O site mostra dados
- * derivados de uma fonte de uso não comercial (OpenSanctions, CC BY-NC) e alertas que só fazem sentido junto
- * do nível de certeza e do aviso de não acusação. Se a política mudar, basta mover CCBot para a lista acima.
- */
-const BOTS_BLOQUEADOS = ["CCBot"];
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       ...BOTS_LIBERADOS.map((userAgent) => ({ userAgent, allow: "/" })),
-      ...BOTS_BLOQUEADOS.map((userAgent) => ({ userAgent, disallow: "/" })),
       { userAgent: "*", allow: "/" },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

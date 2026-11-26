@@ -29,6 +29,7 @@ describe("robots", () => {
     "Perplexity-User",
     "Google-Extended",
     "Applebot-Extended",
+    "CCBot",
   ])("declara %s explicitamente como liberado", (bot) => {
     const r = regraDe(bot);
     expect(r, bot).toBeDefined();
@@ -36,13 +37,13 @@ describe("robots", () => {
     expect(r?.disallow).toBeUndefined();
   });
 
-  it("bloqueia só o CCBot (corpus de treino aberto, sem citação)", () => {
-    const r = regraDe("CCBot");
-    expect(r?.disallow).toBe("/");
-    expect(r?.allow).toBeUndefined();
-  });
-
   it("aponta para o sitemap do site", () => {
     expect(robots().sitemap).toBe(`${SITE_URL}/sitemap.xml`);
+  });
+});
+
+describe("robots: nenhum robô é bloqueado", () => {
+  it("não há Disallow em nenhuma regra", () => {
+    for (const r of regras()) expect(r.disallow, String(r.userAgent)).toBeUndefined();
   });
 });
