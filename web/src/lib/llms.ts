@@ -2,7 +2,10 @@
 import { LICENCAS_DADOS_URL, REPO_URL } from "./jsonld";
 import { urlAbsoluta } from "./seo";
 
-export function gerarLlmsTxt(): string {
+/** Páginas de método e regras (sem os termos do glossário, que já estão em /glossario). */
+export type PaginaParaLlms = { caminho: string; nome: string };
+
+export function gerarLlmsTxt(conteudo: ReadonlyArray<PaginaParaLlms> = []): string {
   const l = (nome: string, caminho: string, descricao: string) => `- [${nome}](${urlAbsoluta(caminho)}): ${descricao}`;
   return `${[
     "# Raio-X Parlamentar",
@@ -20,6 +23,9 @@ export function gerarLlmsTxt(): string {
     "",
     `Cada deputado tem uma ficha em um endereço do tipo ${urlAbsoluta("/deputado/")}{número}, com os números e as fontes oficiais.`,
     "",
+    ...(conteudo.length > 0
+      ? ["## Método e regras", ...conteudo.filter((p) => !p.caminho.startsWith("/glossario/")).map((p) => `- [${p.nome}](${urlAbsoluta(p.caminho)})`), ""]
+      : []),
     "## Metodologia e limites",
     "- Isto não é acusação. Um alerta indica um padrão nos dados públicos, nunca prova de irregularidade.",
     "- Processo sem condenação definitiva não é culpa. Votação simbólica não é voto individual.",

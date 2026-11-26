@@ -64,3 +64,36 @@ describe("fallbackSeBuild", () => {
     expect(() => fallbackSeBuild(erro, fase)).toThrow(erro);
   });
 });
+
+describe("páginas de conteúdo no sitemap", () => {
+  const extras = [
+    { caminho: "/metodo", atualizado: "2026-11-20" },
+    { caminho: "/regras/R01" },
+    { caminho: "/glossario/ceap" },
+  ];
+
+  it("entram depois das rotas fixas e das fichas, com URL absoluta", () => {
+    const urls = montaSitemap(["9900001"], undefined, extras).map((e) => e.url);
+    expect(urls.slice(-4)).toEqual([`${SITE_URL}/deputado/9900001`, `${SITE_URL}/metodo`, `${SITE_URL}/regras/R01`, `${SITE_URL}/glossario/ceap`]);
+  });
+
+  it("lastModified é a data 'atualizado' do texto (nunca a da coleta) e só existe quando o texto tem data", () => {
+    const coleta = new Date("2026-11-25T00:00:00Z");
+    const s = montaSitemap([], coleta, extras);
+    const por = (u: string) => s.find((e) => e.url === `${SITE_URL}${u}`);
+    expect(por("/metodo")?.lastModified).toEqual(new Date("2026-11-20T00:00:00Z"));
+    expect(por("/regras/R01")).not.toHaveProperty("lastModified");
+    expect(por("/glossario/ceap")).not.toHaveProperty("lastModified");
+  });
+
+  it("sem a API (fallback do build) as páginas de conteúdo continuam no sitemap", () => {
+    const urls = fallbackSeBuild(new Error("x"), "phase-production-build", extras).map((e) => e.url);
+    expect(urls).toContain(`${SITE_URL}/metodo`);
+    expect(urls).toContain(`${SITE_URL}/`);
+  });
+
+  it("não repete uma rota que já é fixa", () => {
+    const urls = montaSitemap([], undefined, [{ caminho: "/glossario" }]).map((e) => e.url);
+    expect(urls.filter((u) => u === `${SITE_URL}/glossario`)).toHaveLength(1);
+  });
+});

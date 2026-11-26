@@ -48,3 +48,25 @@ describe("gerarLlmsTxt", () => {
     expect(txt.endsWith("\n")).toBe(true);
   });
 });
+
+describe("gerarLlmsTxt com páginas de conteúdo", () => {
+  const extras = [
+    { caminho: "/metodo", nome: "Método" },
+    { caminho: "/regras", nome: "Regras do sistema" },
+    { caminho: "/regras/R01", nome: "R01: Taxa de governismo" },
+    { caminho: "/glossario/ceap", nome: "CEAP (cota parlamentar)" },
+  ];
+
+  it("sem páginas de conteúdo, não cria a seção", () => {
+    expect(gerarLlmsTxt()).not.toContain("## Método e regras");
+  });
+
+  it("lista método e regras com link absoluto, e deixa os termos do glossário de fora (já estão em /glossario)", () => {
+    const txt = gerarLlmsTxt(extras);
+    expect(txt).toContain("## Método e regras");
+    expect(txt).toContain(`- [Método](${SITE_URL}/metodo)`);
+    expect(txt).toContain(`- [R01: Taxa de governismo](${SITE_URL}/regras/R01)`);
+    expect(txt).not.toContain("/glossario/ceap");
+    expect(txt.indexOf("## Método e regras")).toBeLessThan(txt.indexOf("## Metodologia e limites"));
+  });
+});
