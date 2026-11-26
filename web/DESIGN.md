@@ -14,7 +14,7 @@ Contrato visual do `web/`. Fonte da verdade para tokens (`src/app/globals.css`) 
 
 ## 1. Visual Theme & Atmosphere
 Conceito **"raio-x"**: o sistema ilumina o que já é público, em camadas. A pessoa vê *através* da superfície (política → dinheiro → relações). Três gestos recorrentes: **varredura** (uma linha de luz que passa sobre o conteúdo), **camadas translúcidas** (vidro fosco sobre grade), **luminescência contida** (brilho só no que importa: acento, nó selecionado, selo de certeza alta).
-Dois modos com a mesma identidade: **escuro = chapa de raio-x** (azul-quase-preto, acento ciano-gelo) e **claro = negatoscópio** (branco azulado, tinta quase preta, acento petróleo). O tom continua sóbrio: o efeito decora o dado, nunca o substitui. Grão de ruído sutil e grade técnica de fundo.
+Dois modos com a mesma identidade. **O claro é o padrão**: o site abre claro mesmo com o sistema em modo escuro, e o escuro só entra por escolha explícita no botão de tema (gravada em `localStorage`). **Escuro = chapa de raio-x** (azul-quase-preto, acento ciano-gelo) e **claro = negatoscópio** (branco azulado, tinta quase preta, acento petróleo). O tom continua sóbrio: o efeito decora o dado, nunca o substitui. Grão de ruído sutil e grade técnica de fundo.
 
 ## 2. Color
 Um único acento por modo. Certeza **nunca** depende de cor e **nunca** usa verde/vermelho (não sugerir inocência/culpa).

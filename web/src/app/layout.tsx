@@ -19,11 +19,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  colorScheme: "light dark",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#eef3f4" },
-    { media: "(prefers-color-scheme: dark)", color: "#070b0f" },
-  ],
+  colorScheme: "light",
+  themeColor: "#eef3f4",
 };
 
 // Aplica o tema salvo antes da primeira pintura (evita piscar). Texto estático, sem dado dinâmico.

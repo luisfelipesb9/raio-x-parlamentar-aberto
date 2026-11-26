@@ -46,42 +46,6 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #070b0f;
-    --surface: rgba(16, 25, 33, 0.66);
-    --surface-solida: #0f1820;
-    --surface-2: #131e27;
-    --fg: #e8f1f4;
-    --muted: #9db0b8;
-    --border: rgba(150, 215, 230, 0.16);
-    --borda-forte: #5b7580;
-    --acento: #5fe3f5;
-    --acento-fg: #04181d;
-    --brilho: rgba(95, 227, 245, 0.32);
-    --aviso: #e8b84a;
-    --perigo: #ff8f66;
-    --grade: rgba(150, 215, 230, 0.06);
-    --grao: 0.07;
-    --c-alta-bg: #5fe3f5;
-    --c-alta-fg: #04181d;
-    --c-media-bg: rgba(95, 227, 245, 0.12);
-    --c-media-fg: #bff3fa;
-    --c-media-bd: #5fe3f5;
-    --c-indicio-bg: rgba(232, 184, 74, 0.12);
-    --c-indicio-fg: #f2d58a;
-    --c-indicio-bd: #e8b84a;
-    --c-inconc-fg: #9db0b8;
-    --c-inconc-bd: #5b7580;
-    --no-deputado: #5fe3f5;
-    --no-partido: #e8b84a;
-    --no-empresa: #e08cff;
-    --no-municipio: #6db6ff;
-    --no-proposicao: #ff8f66;
-    --no-pessoa: #aab4e0;
-    color-scheme: dark;
-  }
-}
 :root[data-theme="dark"] {
   --bg: #070b0f;
   --surface: rgba(16, 25, 33, 0.66);

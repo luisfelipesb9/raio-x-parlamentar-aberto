@@ -78,7 +78,6 @@ export function GrafoCanvas({ elementos, centro, selecionado, onSelecionar, cyRe
     let cy: Core | null = null;
     let cancelado = false;
     let obs: MutationObserver | null = null;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const nNos = elementos.filter((e) => !("source" in e.data)).length;
     const muitos = nNos > 60;
 
@@ -143,7 +142,6 @@ export function GrafoCanvas({ elementos, centro, selecionado, onSelecionar, cyRe
       const restila = () => cy?.style(estilo(muitos));
       obs = new MutationObserver(restila);
       obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-      mq.addEventListener("change", restila);
     });
 
     return () => {

@@ -40,10 +40,9 @@ export function TemaToggle() {
 
   useEffect(() => {
     const atual = document.documentElement.dataset.theme;
-    const sistema = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    // lê o estado do DOM (definido antes da pintura pelo script do layout)
+    // lê o estado do DOM (definido antes da pintura pelo script do layout); o claro é o padrão
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTema(atual === "dark" || (atual !== "light" && sistema) ? "escuro" : "claro");
+    setTema(atual === "dark" ? "escuro" : "claro");
   }, []);
 
   function alterna() {

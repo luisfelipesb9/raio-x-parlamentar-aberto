@@ -70,11 +70,22 @@ test.describe("identidade visual: efeitos e prefers-reduced-motion", () => {
   });
 
   test("tema claro e escuro: home sem scroll horizontal", async ({ page }) => {
-    for (const esquema of ["light", "dark"] as const) {
-      await page.emulateMedia({ colorScheme: esquema });
+    for (const tema of ["light", "dark"] as const) {
+      await page.addInitScript((t) => localStorage.setItem("tema", t), tema);
       await page.goto("/");
+      await expect(page.locator("html")).toHaveAttribute("data-theme", tema);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await semScrollHorizontal(page);
     }
+  });
+
+  test("o tema claro é o padrão, mesmo com o sistema em modo escuro", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/");
+    await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
+    const fundo = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    const [r, g, b] = fundo.match(/\d+/g)!.map(Number);
+    expect((r + g + b) / 3).toBeGreaterThan(200);
+    await expect(page.getByRole("button", { name: /tema escuro/i })).toBeVisible();
   });
 });
