@@ -7,7 +7,7 @@ Usamos `targets.nested.json` (JSON Lines, ~150 MB, uma pessoa por linha com as o
 aninhadas) e não `targets.simple.csv`: o CSV só tem nome e CPF mascarado; cargo, órgão e datas
 (exigidos por docs/fact_types.md) só existem no nested.
 
-ATENÇÃO à qualidade: os cargos (`Position`) são normalizados por IA (`origin: openai:...`) e vêm em
+ATENÇÃO à qualidade: os cargos (`Position`) são normalizados automaticamente pela fonte (campo `origin`) e vêm em
 inglês ("Mayor, Guaraciaba-SC"); não são o texto oficial. O CPF vem mascarado (***.976.399-**) e
 pessoas homônimas podem ter sido fundidas numa entidade (mais de um CPF).
 """
