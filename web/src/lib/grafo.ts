@@ -137,3 +137,20 @@ export function paraElementos(g: GrafoResposta): Elemento[] {
     }));
   return [...nos, ...arestas];
 }
+
+const PREFIXO_SOCIO = "Sócio(a) de ";
+const LIMITE_ROTULO = 22;
+
+/**
+ * Rótulo para o canvas. O texto completo continua no painel, na lista e no tooltip.
+ * O rótulo do sócio repete a empresa vizinha ("Sócio(a) de {razão social}"), então vira "Sócio(a) · NOME…".
+ */
+export function rotuloCurto(rotulo: string, max: number = LIMITE_ROTULO): string {
+  const texto = rotulo.replace(/\s+/g, " ").trim();
+  const base = texto.startsWith(PREFIXO_SOCIO) ? `Sócio(a) · ${texto.slice(PREFIXO_SOCIO.length)}` : texto;
+  if (base.length <= max) return base;
+  let corte = base.slice(0, max - 1);
+  const espaco = corte.lastIndexOf(" ");
+  if (base[max - 1] !== " " && espaco > corte.length / 2) corte = corte.slice(0, espaco);
+  return `${corte.trimEnd()}…`;
+}

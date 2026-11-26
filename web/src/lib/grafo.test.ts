@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RELACOES, TIPOS_NO, certezaDaAresta, distanciasDoCentro, paraElementos, rotuloRelacao, saiDoNo, separaLigacoes, valorDaAresta, type ElementoNo } from "./grafo";
+import { RELACOES, TIPOS_NO, certezaDaAresta, distanciasDoCentro, paraElementos, rotuloCurto, rotuloRelacao, saiDoNo, separaLigacoes, valorDaAresta, type ElementoNo } from "./grafo";
 import type { GrafoResposta } from "@/types/contracts";
 
 const grafo: GrafoResposta = {
@@ -90,5 +90,28 @@ describe("vocabulário", () => {
     const formas = Object.values(TIPOS_NO).map((t) => t.forma);
     expect(new Set(formas).size).toBe(formas.length);
     expect(Object.keys(TIPOS_NO).sort()).toEqual(["deputado", "empresa", "municipio", "partido", "pessoa", "proposicao"]);
+  });
+});
+
+describe("rotuloCurto", () => {
+  it("abrevia o sócio sem repetir a razão social inteira", () => {
+    const curto = rotuloCurto("Sócio(a) de FACEBOOK SERVICOS ONLINE DO BRASIL LTDA");
+    expect(curto).toBe("Sócio(a) · FACEBOOK…");
+    expect(curto.length).toBeLessThanOrEqual(22);
+  });
+
+  it("não mexe em rótulo que já cabe e junta espaços repetidos", () => {
+    expect(rotuloCurto("Ana  Souza")).toBe("Ana Souza");
+    expect(rotuloCurto("PL 1234/2024")).toBe("PL 1234/2024");
+  });
+
+  it("corta no limite, de preferência numa palavra inteira, e marca com reticências", () => {
+    const curto = rotuloCurto("MARIA APARECIDA DA SILVA SOUZA", 22);
+    expect(curto).toBe("MARIA APARECIDA DA…");
+    expect(rotuloCurto("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 10)).toBe("ABCDEFGHI…");
+  });
+
+  it("sócio com razão social curta continua legível", () => {
+    expect(rotuloCurto("Sócio(a) de ACME")).toBe("Sócio(a) · ACME");
   });
 });
