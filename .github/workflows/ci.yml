@@ -18,8 +18,8 @@ jobs:
       RAIO_X_ID_SALT: sal-somente-para-testes  # sal de TESTE, não é segredo
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - run: uv sync
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run pytest -q
       - run: uv run python -m scripts.checa_pii
@@ -30,9 +30,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # Em repositório de ORGANIZAÇÃO, a gitleaks-action exige a secret GITLEAKS_LICENSE
+      # (gratuita para uso aberto; ver gitleaks.com). Em conta pessoal não é necessária.
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}  # descomente se o repo for de uma organização
 
   web:
     runs-on: ubuntu-latest

@@ -1,4 +1,4 @@
-# api/  (Pedro, fase 2)
+# api/
 FastAPI **somente leitura** (só GET). Nunca chama serviço externo. Respostas = tipos de `contracts/`
 + envelopes em `api/schemas.py` (exportados para o web por `scripts/export_schemas.py`).
 
