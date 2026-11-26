@@ -50,7 +50,11 @@ No `faq.md`, cada `##` é uma pergunta e o texto até o próximo `##` é a respo
 
 ## Âncoras do glossário usadas
 
-Os textos apontam para âncoras em `/glossario#...` (por exemplo `ceap`, `fator-de-certeza`, `votacao-simbolica`, `guardrail`, `qsa`, `emenda-pix`). Quem gera as páginas deve conferir se cada âncora existe. O glossário atual (`docs/glossario.md`) tem só dez termos; os demais termos citados (por exemplo `mediana`, `z-score-robusto`, `trânsito em julgado`) ainda precisam de entrada.
+Os links `/glossario#...` usam só ids que existem em `web/src/lib/glossario.ts`: `ceap`, `ceis-cnep`, `emenda`, `emenda-pix`, `guardrail`, `qsa`, `votacao-nominal`, `votacao-simbolica`, `votos-validos` e `cf`.
+
+## Termos que ainda faltam no glossário
+
+Estes termos aparecem nos textos sem link, porque não têm entrada no glossário. Cada um vai virar uma issue: autoria, cnpj, cpf-mascarado, doador, encadeamento-progressivo, encadeamento-regressivo, governismo, indicio, lacuna-de-dado, mediana, presuncao-de-inocencia, proposicao, pseudonimizacao, relatoria, transito-em-julgado, z-score-robusto.
 
 ## Regras de conteúdo seguidas
 
