@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Diagnostico } from "@/types/contracts";
-import { fraseDiagnostico, resumoDiagnosticos } from "./diagnostico";
+import { fraseDiagnostico, notaDoPasso, resumoDiagnosticos } from "./diagnostico";
 
 const diag = (motivo: Diagnostico["motivo"], detalhes: Diagnostico["detalhes"] = {}): Diagnostico => ({ motivo, detalhes });
 
@@ -34,8 +34,8 @@ describe("fraseDiagnostico", () => {
     expect(f).toContain("a partir de 70%");
   });
 
-  it("sem regra aplicável mantém o texto atual", () => {
-    expect(fraseDiagnostico(diag("sem_regra_aplicavel"))).toBe("Os dados atuais não ativam esta regra.");
+  it("sem regra aplicável diz que nenhuma regra do sistema conclui o objetivo", () => {
+    expect(fraseDiagnostico(diag("sem_regra_aplicavel"))).toBe("Nenhuma regra do sistema conclui este objetivo.");
   });
 
   it("diagnóstico sem os números esperados cai no texto genérico em vez de mostrar 'undefined'", () => {
@@ -70,5 +70,42 @@ describe("resumoDiagnosticos", () => {
 
   it("lista vazia não gera frases", () => {
     expect(resumoDiagnosticos([]).frases).toEqual([]);
+  });
+});
+
+const passo = (nota: string, diagnostico: Diagnostico | null = null) => ({ nota, diagnostico });
+
+describe("notaDoPasso", () => {
+  it("diagnóstico da R01 (dados insuficientes) tem prioridade sobre a nota", () => {
+    const d = diag("dados_insuficientes", { n_votos_validos: 4, minimo_votos: 10 });
+    expect(notaDoPasso(passo("condições não satisfeitas", d))).toBe(fraseDiagnostico(d));
+  });
+
+  it("diagnóstico da R01 (abaixo do limiar) tem prioridade sobre a nota", () => {
+    const d = diag("abaixo_do_limiar", { n_votos_validos: 120, minimo_votos: 10, taxa: 0.62, limiar: 0.7 });
+    expect(notaDoPasso(passo("condições não satisfeitas", d))).toContain("62% acompanharam");
+  });
+
+  it("sem regra aplicável usa a frase de que nenhuma regra conclui o objetivo", () => {
+    expect(notaDoPasso(passo("sub-objetivos: alinhado_governo=0.0", diag("sem_regra_aplicavel")))).toBe(
+      "Nenhuma regra do sistema conclui este objetivo.",
+    );
+  });
+
+  it("sem diagnóstico, a nota informativa do motor continua aparecendo", () => {
+    const nota = "sub-objetivos: alinhado_governo=0.0, pagamento_sancionado=0.0";
+    expect(notaDoPasso(passo(nota, null))).toBe(nota);
+  });
+
+  it("sem diagnóstico, 'finding X' vira frase de alerta gerado", () => {
+    expect(notaDoPasso(passo("finding abc123"))).toBe("Gerou o alerta abc123.");
+  });
+
+  it("sem diagnóstico, 'condições não satisfeitas' vira o texto genérico", () => {
+    expect(notaDoPasso(passo("condições não satisfeitas"))).toBe("Os dados atuais não ativam esta regra.");
+  });
+
+  it("diagnóstico ausente (undefined) também mantém a nota", () => {
+    expect(notaDoPasso({ nota: "nota do motor" })).toBe("nota do motor");
   });
 });

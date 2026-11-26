@@ -3,20 +3,12 @@
 import { useMemo, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from "react";
 import type { PassoProva } from "@/types/contracts";
 import { achata, navega } from "@/lib/arvoreNav";
-import { fraseDiagnostico } from "@/lib/diagnostico";
+import { notaDoPasso } from "@/lib/diagnostico";
 import { OBJETIVOS } from "@/lib/formato";
 import { formataCf } from "@/lib/nivel";
 import { montaArvore, type NoProva } from "@/lib/trilha";
 
 const pergunta = (id: string) => OBJETIVOS.find((o) => o.id === id)?.pergunta ?? id.replaceAll("_", " ");
-
-function notaLegivel(passo: PassoProva): string {
-  if (passo.diagnostico) return fraseDiagnostico(passo.diagnostico);
-  const f = passo.nota.match(/^finding (.+)$/);
-  if (f) return `Gerou o alerta ${f[1]}.`;
-  if (passo.nota === "condições não satisfeitas") return fraseDiagnostico(null);
-  return passo.nota;
-}
 
 /**
  * Trilha da prova como árvore ARIA: um único item na ordem do Tab (tabindex gerenciado), setas para
@@ -92,7 +84,7 @@ function NoArvore({ no, id, nivel, foco, recolhidos }: { no: NoProva; id: string
           Nível de certeza {formataCf(passo.cf)} · <strong>{confirmado ? "confirmado" : "não confirmado"}</strong>
         </span>
       </div>
-      <p className="no-nota">{notaLegivel(passo)}</p>
+      <p className="no-nota">{notaDoPasso(passo)}</p>
       {aberto && (
         <ul role="group">
           {no.filhos.map((f, i) => (

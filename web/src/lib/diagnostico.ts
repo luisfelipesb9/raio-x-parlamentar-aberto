@@ -3,6 +3,9 @@ import type { Diagnostico } from "@/types/contracts";
 /** Texto para o passo que não se aplica (ou que o motor não sabe explicar melhor). */
 export const FRASE_SEM_REGRA = "Os dados atuais não ativam esta regra.";
 
+/** Texto quando nenhuma regra da base conclui o objetivo perguntado. */
+export const FRASE_NENHUMA_REGRA = "Nenhuma regra do sistema conclui este objetivo.";
+
 const pct0 = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
 const pct1 = new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -23,6 +26,7 @@ const votos = (n: number) => `${n} ${n === 1 ? "voto válido" : "votos válidos"
  */
 export function fraseDiagnostico(d: Diagnostico | null | undefined): string {
   if (!d) return FRASE_SEM_REGRA;
+  if (d.motivo === "sem_regra_aplicavel") return FRASE_NENHUMA_REGRA;
   const n = numero(d.detalhes["n_votos_validos"]);
   const minimo = numero(d.detalhes["minimo_votos"]);
   if (d.motivo === "dados_insuficientes" && n !== null && minimo !== null) {
@@ -39,6 +43,18 @@ export function fraseDiagnostico(d: Diagnostico | null | undefined): string {
     );
   }
   return FRASE_SEM_REGRA;
+}
+
+/**
+ * Texto de um passo da trilha. O diagnóstico (R01 sem conclusão, ou nenhuma regra para o objetivo) manda;
+ * sem diagnóstico, vale a `nota` do motor, só com os rótulos conhecidos traduzidos.
+ */
+export function notaDoPasso(passo: { nota: string; diagnostico?: Diagnostico | null }): string {
+  if (passo.diagnostico) return fraseDiagnostico(passo.diagnostico);
+  const f = passo.nota.match(/^finding (.+)$/);
+  if (f) return `Gerou o alerta ${f[1]}.`;
+  if (passo.nota === "condições não satisfeitas") return FRASE_SEM_REGRA;
+  return passo.nota;
 }
 
 export type ProximoPasso = "cobertura" | "outra-pergunta";
