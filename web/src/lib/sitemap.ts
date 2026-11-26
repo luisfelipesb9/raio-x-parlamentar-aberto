@@ -1,14 +1,11 @@
 /** Montagem pura do sitemap (a leitura da API fica em `app/sitemap.ts`). */
 import type { MetadataRoute } from "next";
-import { urlAbsoluta } from "./seo";
+import { ID_SEGURO, urlAbsoluta } from "./seo";
 
 export const ROTAS_FIXAS = ["/", "/deputados", "/grafo", "/perguntar", "/comparar", "/glossario", "/fontes"] as const;
 
 /** Rotas cujo texto não depende dos dados coletados: não recebem `lastModified`. */
 const SEM_DATA_DE_DADOS = new Set<string>(["/glossario"]);
-
-/** Mesmo formato de id aceito pela API em /deputados/{id}. */
-const ID_SEGURO = /^[A-Za-z0-9_-]{1,32}$/;
 
 /** Data da coleta mais recente entre as fontes da cobertura; `undefined` se não houver nenhuma válida (nada de data inventada). */
 export function ultimaColeta(cobertura: { fontes: ReadonlyArray<{ coletado_em_max: string | null }> } | null): Date | undefined {
@@ -30,4 +27,13 @@ export function montaSitemap(idsDeputados: ReadonlyArray<string>, coleta?: Date)
   const fixas = ROTAS_FIXAS.map((r) => (SEM_DATA_DE_DADOS.has(r) ? { url: urlAbsoluta(r) } : comData(r)));
   const ids = [...new Set(idsDeputados)].filter((id) => ID_SEGURO.test(id));
   return [...fixas, ...ids.map((id) => comData(`/deputado/${id}`))];
+}
+
+/**
+ * Falha ao ler a API. Só durante o build (`NEXT_PHASE === "phase-production-build"`, ex.: CI sem API) devolve as rotas
+ * fixas. Em runtime relança o erro: o Next mantém a versão anterior do sitemap em vez de publicar um sitemap sem fichas.
+ */
+export function fallbackSeBuild(erro: unknown, fase: string | undefined): MetadataRoute.Sitemap {
+  if (fase === "phase-production-build") return montaSitemap([]);
+  throw erro;
 }
