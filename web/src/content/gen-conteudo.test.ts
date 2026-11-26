@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -131,6 +132,94 @@ describe("gerarConteudo com arquivos ausentes", () => {
 describe("conteudo.json committed", () => {
   it("é exatamente a saída do gerador sobre docs/conteudo e knowledge/rules (rode `pnpm gen:conteudo` se falhar)", () => {
     const committed = readFileSync(path.join(aqui, "gerado/conteudo.json"), "utf-8");
-    expect(committed).toBe(serializa(gerarConteudo(REAL)));
+    expect(committed.replace(/\r\n/g, "\n")).toBe(serializa(gerarConteudo(REAL)));
+  });
+});
+
+/** Cria uma pasta de conteúdo temporária com os arquivos dados (caminho relativo -> texto). */
+function pasta(arquivos: Record<string, string>): string {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "gen-conteudo-"));
+  for (const [rel, texto] of Object.entries(arquivos)) {
+    mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+    writeFileSync(path.join(dir, rel), texto);
+  }
+  return dir;
+}
+const fm = (extra: Record<string, string> = {}, corpo = "texto") => {
+  const campos = { slug: "metodo", titulo: "T", descricao: "D", resposta: "R", atualizado: "2026-11-20", ...extra };
+  return `---\n${Object.entries(campos).map(([k, v]) => `${k}: ${v}`).join("\n")}\n---\n\n${corpo}\n`;
+};
+const gera = (arquivos: Record<string, string>) => gerarConteudo({ dirConteudo: pasta(arquivos), dirRegras: FIX.dirRegras });
+
+describe("validações do frontmatter", () => {
+  it("data impossível (2026-02-31) é erro, não data corrigida", () => {
+    expect(() => gera({ "metodo.md": fm({ atualizado: "2026-02-31" }) })).toThrow(/atualizado/);
+  });
+
+  it("slug diferente do nome do arquivo é erro", () => {
+    expect(() => gera({ "metodo.md": fm({ slug: "outro" }) })).toThrow(/slug/);
+  });
+
+  it("texto de regra: 'regra:' ausente é erro", () => {
+    expect(() => gera({ "regras/R01.md": fm({ slug: "R01" }) })).toThrow(/regra/);
+  });
+
+  it("texto de regra: 'regra:' diferente do nome do arquivo é erro", () => {
+    expect(() => gera({ "regras/R01.md": fm({ slug: "R01", regra: "R05" }) })).toThrow(/R05/);
+  });
+
+  it("texto de regra válido é ligado pela chave 'regra:'", () => {
+    const c = gera({ "regras/R05.md": fm({ slug: "R05", regra: "R05" }) });
+    expect(c.regras.find((r) => r.id === "R05")?.texto?.regra).toBe("R05");
+  });
+
+  it("avisa quando há texto antes da primeira pergunta do FAQ", () => {
+    const avisos: string[] = [];
+    const original = console.warn;
+    console.warn = (m: string) => avisos.push(m);
+    try {
+      gera({ "faq.md": fm({ slug: "faq" }, "introdução solta\n\n## Pergunta?\n\nResposta.") });
+    } finally {
+      console.warn = original;
+    }
+    expect(avisos.join("\n")).toMatch(/faq\.md.*antes da primeira pergunta/);
+  });
+});
+
+describe("parseYaml: escalares que o PyYAML leria diferente (o motor usa yaml.safe_load)", () => {
+  it.each(["yes", "No", "ON", "off", "y", "N", "True", "FALSE", "Null", "NULL"])("recusa %s sem aspas", (v) => {
+    expect(() => parseYaml(`x: ${v}\n`)).toThrow(/aspas/);
+  });
+
+  it.each([".5", "1_000", "+3", "1.0e-3", "0x1F", "0o17", "1e3", ".inf", ".NaN", "1."])("recusa o numérico %s sem aspas", (v) => {
+    expect(() => parseYaml(`x: ${v}\n`)).toThrow(/aspas/);
+  });
+
+  it("aceita as mesmas palavras entre aspas e as formas true/false/null/~ e inteiros e decimais", () => {
+    expect(parseYaml('a: "yes"\nb: \'No\'\nc: true\nd: false\ne: null\nf: ~\ng: -3\nh: 0.5\n')).toEqual({ a: "yes", b: "No", c: true, d: false, e: null, f: null, g: -3, h: 0.5 });
+  });
+
+  it("não confunde datas e textos comuns com número", () => {
+    expect(parseYaml("a: 2026-11-26\nb: R01\nc: 10-20\n")).toEqual({ a: "2026-11-26", b: "R01", c: "10-20" });
+  });
+});
+
+describe("literais reais de knowledge/rules (independentes do parser)", () => {
+  const regras = gerarConteudo(REAL).regras;
+  const por = (id: string) => regras.find((r) => r.id === id)!;
+  it("R05: parâmetros com decimais e inteiros", () => {
+    expect(por("R05").parametros).toEqual({
+      peso_coautor: 0.25,
+      max_iniciativa: 32,
+      escala_iniciativa: 25,
+      max_relatoria: 8,
+      escala_relatoria: 10.57,
+      minimo_colegas_partido: 3,
+    });
+  });
+  it("R01, R04 e R07: limiares e cf", () => {
+    expect(por("R01")).toMatchObject({ parametros: { minimo_votacoes: 10, limiar: 0.7 }, cf: 0.95 });
+    expect(por("R04")).toMatchObject({ parametros: { z_limiar: 3.5, minimo_deputados: 5 }, cf: 0.5 });
+    expect(por("R07")).toMatchObject({ parametros: { razao_minima: 3, ano_pix_rastreavel: 2027 }, cf: 0.6 });
   });
 });

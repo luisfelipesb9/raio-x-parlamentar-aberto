@@ -33,6 +33,12 @@ function semComentario(linha) {
   return linha.trimEnd();
 }
 
+// O motor lê as regras com yaml.safe_load (PyYAML). Para o gerador nunca ler diferente, só aceita sem aspas as formas
+// que os dois leem igual: true, false, null, ~, inteiros e decimais simples. O resto que o PyYAML interpretaria
+// (yes/no/on/off/y/n, True/Null, .5, 1_000, +3, 1e3, 0x1F, .inf...) é erro: exige aspas.
+const AMBIGUO_BOOLEANO = /^(yes|no|on|off|y|n|true|false|null)$/i;
+const AMBIGUO_NUMERICO = /^(?:[-+]?(?:\d[\d_]*)?(?:\.\d*)?(?:[eE][-+]?\d+)?|0[xXoObB][\da-fA-F_]+|[-+]?\.(?:inf|nan))$/i;
+
 function tipado(bruto) {
   const s = bruto.trim();
   if (s === "" || s === "null" || s === "~") return null;
@@ -40,6 +46,9 @@ function tipado(bruto) {
   if (s === "false") return false;
   if (/^-?\d+$/.test(s)) return Number(s);
   if (/^-?\d+\.\d+$/.test(s)) return Number(s);
+  if (AMBIGUO_BOOLEANO.test(s) || (/\d|inf|nan/i.test(s) && AMBIGUO_NUMERICO.test(s))) {
+    throw erro(`valor sem aspas "${s}" seria lido de outro jeito pelo PyYAML; coloque entre aspas`, s);
+  }
   return s;
 }
 
@@ -159,7 +168,15 @@ export function parseYaml(texto) {
 const OBRIGATORIOS = ["slug", "titulo", "descricao", "resposta", "atualizado"];
 const LIMITES = { titulo: 70, descricao: 160, resposta: 240 };
 
-function lePagina(arquivoAbs, nome, avisos) {
+/** AAAA-MM-DD que existe no calendário (2026-02-31 não vale: o JavaScript a "corrigiria" em silêncio). */
+function dataValida(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return false;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return d.getUTCFullYear() === Number(m[1]) && d.getUTCMonth() === Number(m[2]) - 1 && d.getUTCDate() === Number(m[3]);
+}
+
+function lePagina(arquivoAbs, nome, avisos, ehRegra = false) {
   const bruto = readFileSync(arquivoAbs, "utf8").replace(/\r\n?/g, "\n");
   const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(bruto);
   if (!m) throw new Error(`${nome}.md: frontmatter (--- ... ---) ausente`);
@@ -169,7 +186,8 @@ function lePagina(arquivoAbs, nome, avisos) {
       throw new Error(`${nome}.md: campo obrigatório "${campo}" ausente no frontmatter`);
     }
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(fm.atualizado))) throw new Error(`${nome}.md: "atualizado" deve ser AAAA-MM-DD`);
+  if (!dataValida(String(fm.atualizado))) throw new Error(`${nome}.md: "atualizado" deve ser uma data real no formato AAAA-MM-DD`);
+  if (String(fm.slug) !== nome) throw new Error(`${nome}.md: "slug" (${fm.slug}) deve ser igual ao nome do arquivo`);
   for (const [campo, max] of Object.entries(LIMITES)) {
     if (String(fm[campo]).length > max) avisos.push(`${nome}.md: "${campo}" tem ${String(fm[campo]).length} caracteres (limite ${max})`);
   }
@@ -181,7 +199,11 @@ function lePagina(arquivoAbs, nome, avisos) {
     resposta: String(fm.resposta),
     atualizado: String(fm.atualizado),
   };
-  if (fm.regra !== undefined && fm.regra !== null) pagina.regra = String(fm.regra);
+  if (ehRegra) {
+    if (fm.regra === undefined || fm.regra === null) throw new Error(`regras/${nome}.md: campo "regra" ausente no frontmatter`);
+    if (String(fm.regra) !== nome) throw new Error(`regras/${nome}.md: "regra" (${fm.regra}) deve ser igual ao nome do arquivo`);
+    pagina.regra = String(fm.regra);
+  } else if (fm.regra !== undefined && fm.regra !== null) pagina.regra = String(fm.regra);
   pagina.corpo = m[2].trim();
   return pagina;
 }
@@ -246,13 +268,20 @@ export function gerarConteudo({ dirConteudo, dirRegras }) {
   const paginas = {};
   for (const nome of PAGINAS) {
     const f = path.join(dirConteudo, `${nome}.md`);
-    if (existsSync(f)) paginas[nome] = lePagina(f, nome, avisos);
+    if (existsSync(f)) {
+      paginas[nome] = lePagina(f, nome, avisos);
+      if (nome === "faq") {
+        const antes = paginas[nome].corpo.split(/^##\s/m)[0].trim();
+        if (antes && !paginas[nome].corpo.startsWith("##")) avisos.push("faq.md: há texto antes da primeira pergunta (##); ele não aparece na página");
+      }
+    }
   }
 
   const textos = {};
   for (const f of arquivosMd(path.join(dirConteudo, "regras"))) {
     const nome = f.replace(/\.md$/, "");
-    textos[nome] = lePagina(path.join(dirConteudo, "regras", f), nome, avisos);
+    const pagina = lePagina(path.join(dirConteudo, "regras", f), nome, avisos, true);
+    textos[String(pagina.regra)] = pagina;
   }
 
   const regras = [];
@@ -265,7 +294,7 @@ export function gerarConteudo({ dirConteudo, dirRegras }) {
     }
   }
   regras.sort((a, b) => comparaRegras(a.id, b.id));
-  for (const nome of Object.keys(textos)) {
+  for (const nome of Object.keys(textos)) { // chaves = campo "regra:" (igual ao nome do arquivo)
     if (!regras.some((r) => r.id === nome)) avisos.push(`regras/${nome}.md: sem regra correspondente em knowledge/rules (ignorado)`);
   }
   for (const a of avisos) console.warn(`[gen-conteudo] aviso: ${a}`);
