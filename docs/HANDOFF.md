@@ -13,7 +13,7 @@ cd web && pnpm install && pnpm dev                     # web em http://localhost
 ## Status por componente
 | Componente | Status |
 |---|---|
-| contracts/ (Fact, Finding, Explanation, Graph) v0.1.0 | pronto |
+| contracts/ (Fact, Finding, Explanation, Graph) v0.2.0 | pronto |
 | sources/: camara, ceap, cgu, tse, opensanctions, rfb | prontos, com testes de fixture |
 | ingest/pipeline + ingest/resolve (candidatura, emenda, pep, cnpj) | pronto; links com CF e tabela de ambiguidades |
 | repo/ DuckDB (`Store`, `read_only`, migrations 001/002) | pronto |

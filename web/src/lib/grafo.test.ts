@@ -6,6 +6,9 @@ const grafo: GrafoResposta = {
   centro: "deputado:1",
   profundidade: 2,
   truncado: false,
+  total_nos: null,
+  total_arestas: null,
+  ocultos: [],
   nodes: [
     { id: "deputado:1", tipo: "deputado", rotulo: "Ana", atributos: { partido: "PT" } },
     { id: "partido:PT", tipo: "partido", rotulo: "PT", atributos: {} },

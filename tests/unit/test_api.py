@@ -497,7 +497,7 @@ def test_saude_com_banco_ausente_nao_vaza_caminho(tmp_path, monkeypatch):
     with TestClient(create_app()) as c:
         r = c.get("/saude")
     assert r.status_code == 503
-    assert r.json() == {"status": "degradado", "contract_version": "0.1.0", "n_deputados": 0,
+    assert r.json() == {"status": "degradado", "contract_version": "0.2.0", "n_deputados": 0,
                         "n_findings": 0, "banco": "ausente", "pseudonimizado": False}
     assert str(tmp_path) not in r.text
 

@@ -8,6 +8,7 @@ const passo = (profundidade: number, objetivo: string, regra: string | null = "R
   regra,
   cf: 0,
   nota: "n",
+  diagnostico: null,
 });
 
 describe("montaArvore", () => {

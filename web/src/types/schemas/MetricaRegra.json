@@ -1,0 +1,43 @@
+{
+  "properties": {
+    "regra": {
+      "title": "Regra",
+      "type": "string"
+    },
+    "finding_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Finding Id"
+    },
+    "valores": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "title": "Valores",
+      "type": "object"
+    }
+  },
+  "required": [
+    "regra",
+    "finding_id",
+    "valores"
+  ],
+  "title": "MetricaRegra",
+  "type": "object"
+}

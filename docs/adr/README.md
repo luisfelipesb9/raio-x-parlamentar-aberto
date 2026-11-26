@@ -7,3 +7,5 @@
 | [004](ADR-004-encadeamento-regressivo.md) | Encadeamento regressivo com `requer` e detecção de ciclo | Proposto |
 | [005](ADR-005-excecao-direcao-dependencia.md) | Exceção à direção de dependência (ingest/engine importam repo) | Proposto |
 | [006](ADR-006-pseudonimizacao.md) | Pseudonimização da base pública | Proposto |
+| [007](ADR-007-contrato-v0-2-0.md) | Contrato v0.2.0: transparência do corte, diagnóstico, proveniência e cobertura | Proposto |
+| [008](ADR-008-jev-juiz-consultivo.md) | Jev como juiz consultivo opcional (extensão proposta) | Proposto |

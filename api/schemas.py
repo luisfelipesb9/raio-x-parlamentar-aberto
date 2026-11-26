@@ -6,6 +6,7 @@ os de contracts/.
 """
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -51,12 +52,24 @@ class PerfilDeputado(DeputadoResumo):
     categorias: list[ResumoCategoria] = Field(default_factory=list)
 
 
+class OcultoResumo(BaseModel):
+    """O que o limite de nós cortou do grafo, agrupado por tipo de nó e relação."""
+
+    tipo: str  # tipo do nó cortado (empresa, municipio, ...)
+    relacao: str | None  # relação que ligava o nó cortado; None = não informada
+    quantidade: int
+
+
 class GrafoResposta(BaseModel):
     centro: str
     profundidade: int
     nodes: list[GraphNode]
     edges: list[GraphEdge]
     truncado: bool  # True: o limite de nós cortou a expansão
+    # v0.2.0 (opcionais): tamanho do subgrafo completo e resumo do que foi cortado.
+    total_nos: int | None = None
+    total_arestas: int | None = None
+    ocultos: list[OcultoResumo] = Field(default_factory=list)
 
 
 class BacklinksResposta(BaseModel):
@@ -65,12 +78,23 @@ class BacklinksResposta(BaseModel):
     backlinks: list[Backlink]
 
 
+class Diagnostico(BaseModel):
+    """Por que um passo da prova ficou inconclusivo, em forma legível por máquina.
+
+    Convenção de `detalhes` para a R01: `n_votos_validos`, `minimo_votos`, `taxa`, `limiar`.
+    """
+
+    motivo: Literal["dados_insuficientes", "abaixo_do_limiar", "sem_regra_aplicavel"]
+    detalhes: dict[str, float | int | str] = Field(default_factory=dict)
+
+
 class PassoProva(BaseModel):
     profundidade: int
     objetivo: str
     regra: str | None
     cf: float
     nota: str
+    diagnostico: Diagnostico | None = None  # v0.2.0
 
 
 class PerguntarResposta(BaseModel):
@@ -108,3 +132,47 @@ class Saude(BaseModel):
     n_findings: int
     banco: Literal["ok", "ausente", "erro"]
     pseudonimizado: bool  # True: nenhum CPF íntegro de terceiro no banco
+
+
+# --------------------------------------------------------------------------- cobertura e métricas
+# v0.2.0: modelos prontos, ainda sem endpoint (a lógica que os preenche vem depois).
+class JanelaVotos(BaseModel):
+    """Período e volume das votações usadas pelas regras de votação."""
+
+    inicio: date | None
+    fim: date | None
+    n_votacoes: int
+    n_votacoes_nominais: int
+    n_votacoes_com_orientacao: int
+
+
+class FonteCobertura(BaseModel):
+    """O que a base tem de cada fonte oficial e de quando é."""
+
+    fonte: str
+    tipos: list[str]
+    n_fatos: int
+    coletado_em_min: datetime | None
+    coletado_em_max: datetime | None
+
+
+class CoberturaResposta(BaseModel):
+    contract_version: str
+    janela_votos: JanelaVotos
+    fontes: list[FonteCobertura]
+    n_deputados: int
+    n_findings: int
+
+
+class MetricaRegra(BaseModel):
+    regra: str
+    finding_id: str | None  # None = a regra não gerou finding para este deputado
+    valores: dict[str, float | int | str]
+
+
+class MetricasDeputadoResposta(BaseModel):
+    deputado_id: int
+    n_votos: int
+    n_votos_validos: int
+    janela_votos: JanelaVotos
+    metricas_por_regra: list[MetricaRegra]

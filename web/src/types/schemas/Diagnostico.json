@@ -1,0 +1,37 @@
+{
+  "description": "Por que um passo da prova ficou inconclusivo, em forma legível por máquina.\n\nConvenção de `detalhes` para a R01: `n_votos_validos`, `minimo_votos`, `taxa`, `limiar`.",
+  "properties": {
+    "motivo": {
+      "enum": [
+        "dados_insuficientes",
+        "abaixo_do_limiar",
+        "sem_regra_aplicavel"
+      ],
+      "title": "Motivo",
+      "type": "string"
+    },
+    "detalhes": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "title": "Detalhes",
+      "type": "object"
+    }
+  },
+  "required": [
+    "motivo",
+    "detalhes"
+  ],
+  "title": "Diagnostico",
+  "type": "object"
+}

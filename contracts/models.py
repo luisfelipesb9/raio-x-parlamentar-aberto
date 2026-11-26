@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-CONTRACT_VERSION = "0.1.0"
+CONTRACT_VERSION = "0.2.0"
 
 
 class Fact(BaseModel):
@@ -26,6 +26,9 @@ class Evidence(BaseModel):
     id_oficial: str
     url: str | None = None
     descricao: str | None = None
+    # Proveniência (v0.2.0): quando o dado foi coletado e o hash do arquivo bruto de origem.
+    coletado_em: datetime | None = None
+    sha256_bruto: str | None = None
 
 
 class Nivel(str, Enum):

@@ -106,13 +106,40 @@
           ],
           "default": null,
           "title": "Descricao"
+        },
+        "coletado_em": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coletado Em"
+        },
+        "sha256_bruto": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256 Bruto"
         }
       },
       "required": [
         "tipo",
         "id_oficial",
         "url",
-        "descricao"
+        "descricao",
+        "coletado_em",
+        "sha256_bruto"
       ],
       "title": "Evidence",
       "type": "object"

@@ -1,6 +1,6 @@
 /* eslint-disable */
 // ARQUIVO GERADO por `pnpm gen:types` a partir de src/types/schemas/*.json — não edite à mão.
-export const CONTRACT_VERSION = "0.1.0" as const;
+export const CONTRACT_VERSION = "0.2.0" as const;
 
 export interface Afinidade {
   deputado_a: string;
@@ -38,6 +38,30 @@ export interface BacklinksResposta {
   node_id: string;
   total: number;
   backlinks: Backlink[];
+}
+
+export interface CoberturaResposta {
+  contract_version: string;
+  janela_votos: JanelaVotos;
+  fontes: FonteCobertura[];
+  n_deputados: number;
+  n_findings: number;
+}
+
+export interface JanelaVotos {
+  inicio: string | null;
+  fim: string | null;
+  n_votacoes: number;
+  n_votacoes_nominais: number;
+  n_votacoes_com_orientacao: number;
+}
+
+export interface FonteCobertura {
+  fonte: string;
+  tipos: string[];
+  n_fatos: number;
+  coletado_em_min: string | null;
+  coletado_em_max: string | null;
 }
 
 export type Nivel = "alta" | "media" | "indicio" | "inconclusivo";
@@ -95,6 +119,8 @@ export interface Evidence {
   id_oficial: string;
   url: string | null;
   descricao: string | null;
+  coletado_em: string | null;
+  sha256_bruto: string | null;
 }
 
 export interface DeputadoResumo {
@@ -103,6 +129,13 @@ export interface DeputadoResumo {
   partido: string | null;
   uf: string | null;
   foto: string | null;
+}
+
+export interface Diagnostico {
+  motivo: "dados_insuficientes" | "abaixo_do_limiar" | "sem_regra_aplicavel";
+  detalhes: {
+    [k: string]: number | string;
+  };
 }
 
 export interface Explanation {
@@ -137,6 +170,31 @@ export interface GrafoResposta {
   nodes: GraphNode[];
   edges: GraphEdge[];
   truncado: boolean;
+  total_nos: number | null;
+  total_arestas: number | null;
+  ocultos: OcultoResumo[];
+}
+
+export interface OcultoResumo {
+  tipo: string;
+  relacao: string | null;
+  quantidade: number;
+}
+
+export interface MetricaRegra {
+  regra: string;
+  finding_id: string | null;
+  valores: {
+    [k: string]: number | string;
+  };
+}
+
+export interface MetricasDeputadoResposta {
+  deputado_id: number;
+  n_votos: number;
+  n_votos_validos: number;
+  janela_votos: JanelaVotos;
+  metricas_por_regra: MetricaRegra[];
 }
 
 export interface PaginaDeputados {
@@ -152,6 +210,7 @@ export interface PassoProva {
   regra: string | null;
   cf: number;
   nota: string;
+  diagnostico: Diagnostico | null;
 }
 
 export interface PerguntarResposta {
@@ -174,4 +233,13 @@ export interface Problem {
         [k: string]: string;
       }[]
     | null;
+}
+
+export interface Saude {
+  status: "ok" | "degradado";
+  contract_version: string;
+  n_deputados: number;
+  n_findings: number;
+  banco: "ok" | "ausente" | "erro";
+  pseudonimizado: boolean;
 }

@@ -71,6 +71,37 @@
       ],
       "title": "GraphNode",
       "type": "object"
+    },
+    "OcultoResumo": {
+      "description": "O que o limite de nós cortou do grafo, agrupado por tipo de nó e relação.",
+      "properties": {
+        "tipo": {
+          "title": "Tipo",
+          "type": "string"
+        },
+        "relacao": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Relacao"
+        },
+        "quantidade": {
+          "title": "Quantidade",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tipo",
+        "relacao",
+        "quantidade"
+      ],
+      "title": "OcultoResumo",
+      "type": "object"
     }
   },
   "properties": {
@@ -99,6 +130,37 @@
     "truncado": {
       "title": "Truncado",
       "type": "boolean"
+    },
+    "total_nos": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Total Nos"
+    },
+    "total_arestas": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Total Arestas"
+    },
+    "ocultos": {
+      "items": {
+        "$ref": "#/$defs/OcultoResumo"
+      },
+      "title": "Ocultos",
+      "type": "array"
     }
   },
   "required": [
@@ -106,7 +168,10 @@
     "profundidade",
     "nodes",
     "edges",
-    "truncado"
+    "truncado",
+    "total_nos",
+    "total_arestas",
+    "ocultos"
   ],
   "title": "GrafoResposta",
   "type": "object"

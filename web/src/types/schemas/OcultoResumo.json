@@ -1,0 +1,31 @@
+{
+  "description": "O que o limite de nós cortou do grafo, agrupado por tipo de nó e relação.",
+  "properties": {
+    "tipo": {
+      "title": "Tipo",
+      "type": "string"
+    },
+    "relacao": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Relacao"
+    },
+    "quantidade": {
+      "title": "Quantidade",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "tipo",
+    "relacao",
+    "quantidade"
+  ],
+  "title": "OcultoResumo",
+  "type": "object"
+}

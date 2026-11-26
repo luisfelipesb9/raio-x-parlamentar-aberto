@@ -1,0 +1,130 @@
+{
+  "$defs": {
+    "JanelaVotos": {
+      "description": "Período e volume das votações usadas pelas regras de votação.",
+      "properties": {
+        "inicio": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Inicio"
+        },
+        "fim": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fim"
+        },
+        "n_votacoes": {
+          "title": "N Votacoes",
+          "type": "integer"
+        },
+        "n_votacoes_nominais": {
+          "title": "N Votacoes Nominais",
+          "type": "integer"
+        },
+        "n_votacoes_com_orientacao": {
+          "title": "N Votacoes Com Orientacao",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "inicio",
+        "fim",
+        "n_votacoes",
+        "n_votacoes_nominais",
+        "n_votacoes_com_orientacao"
+      ],
+      "title": "JanelaVotos",
+      "type": "object"
+    },
+    "MetricaRegra": {
+      "properties": {
+        "regra": {
+          "title": "Regra",
+          "type": "string"
+        },
+        "finding_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Finding Id"
+        },
+        "valores": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "title": "Valores",
+          "type": "object"
+        }
+      },
+      "required": [
+        "regra",
+        "finding_id",
+        "valores"
+      ],
+      "title": "MetricaRegra",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "deputado_id": {
+      "title": "Deputado Id",
+      "type": "integer"
+    },
+    "n_votos": {
+      "title": "N Votos",
+      "type": "integer"
+    },
+    "n_votos_validos": {
+      "title": "N Votos Validos",
+      "type": "integer"
+    },
+    "janela_votos": {
+      "$ref": "#/$defs/JanelaVotos"
+    },
+    "metricas_por_regra": {
+      "items": {
+        "$ref": "#/$defs/MetricaRegra"
+      },
+      "title": "Metricas Por Regra",
+      "type": "array"
+    }
+  },
+  "required": [
+    "deputado_id",
+    "n_votos",
+    "n_votos_validos",
+    "janela_votos",
+    "metricas_por_regra"
+  ],
+  "title": "MetricasDeputadoResposta",
+  "type": "object"
+}

@@ -1,0 +1,50 @@
+{
+  "description": "Período e volume das votações usadas pelas regras de votação.",
+  "properties": {
+    "inicio": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Inicio"
+    },
+    "fim": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Fim"
+    },
+    "n_votacoes": {
+      "title": "N Votacoes",
+      "type": "integer"
+    },
+    "n_votacoes_nominais": {
+      "title": "N Votacoes Nominais",
+      "type": "integer"
+    },
+    "n_votacoes_com_orientacao": {
+      "title": "N Votacoes Com Orientacao",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "inicio",
+    "fim",
+    "n_votacoes",
+    "n_votacoes_nominais",
+    "n_votacoes_com_orientacao"
+  ],
+  "title": "JanelaVotos",
+  "type": "object"
+}

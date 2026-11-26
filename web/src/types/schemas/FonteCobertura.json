@@ -1,0 +1,53 @@
+{
+  "description": "O que a base tem de cada fonte oficial e de quando é.",
+  "properties": {
+    "fonte": {
+      "title": "Fonte",
+      "type": "string"
+    },
+    "tipos": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tipos",
+      "type": "array"
+    },
+    "n_fatos": {
+      "title": "N Fatos",
+      "type": "integer"
+    },
+    "coletado_em_min": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Coletado Em Min"
+    },
+    "coletado_em_max": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Coletado Em Max"
+    }
+  },
+  "required": [
+    "fonte",
+    "tipos",
+    "n_fatos",
+    "coletado_em_min",
+    "coletado_em_max"
+  ],
+  "title": "FonteCobertura",
+  "type": "object"
+}

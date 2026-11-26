@@ -564,7 +564,7 @@ def test_export_schemas_gera_um_json_por_modelo_e_manifesto(tmp_path):
     edge = json.loads((tmp_path / "GraphEdge.json").read_text())
     assert set(edge["properties"]) == {"origem", "destino", "relacao", "peso", "cf", "evidencia_ids"}
     manifesto = json.loads((tmp_path / "index.json").read_text())
-    assert manifesto["contract_version"] == CONTRACT_VERSION
+    assert manifesto["contract_version"] == CONTRACT_VERSION == "0.2.0"
     assert "Finding" in manifesto["schemas"]
 
 

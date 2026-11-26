@@ -9,6 +9,9 @@ const base: GrafoResposta = {
   centro: "deputado:1",
   profundidade: 1,
   truncado: false,
+  total_nos: null,
+  total_arestas: null,
+  ocultos: [],
   nodes: [
     no("deputado:1", "deputado", "Ana"),
     no("deputado:2", "deputado", "Beto"),
