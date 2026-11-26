@@ -1,10 +1,12 @@
 """Câmara dos Deputados — API v2 (dadosabertos.camara.leg.br/api/v2). Sem autenticação."""
 from __future__ import annotations
 
+import os
 import re
 import time
 from collections.abc import Callable, Iterable
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -12,6 +14,7 @@ import httpx
 from contracts import Fact
 from sources import manifest
 from sources.base import Source
+from sources.camara.dumps import CONJUNTOS, url_dump, votacoes_do_dump
 from sources.camara.janelas import fatiar_janela
 from sources.camara.parcial import Parcial
 
@@ -20,6 +23,7 @@ FONTE = "camara_api_v2"
 
 _RE_DEPUTADO_URI = re.compile(r"/deputados/(\d+)$")
 _ESPERA_MAX = 60.0
+FONTES_VOTOS = ("api", "dump")
 LOTE_CHECKPOINT = 25  # votações (ou detalhes de deputado) entre duas gravações do parcial
 
 
@@ -101,7 +105,8 @@ class CamaraSource(Source):
               incluir_proposicoes: bool = False, siglas_tipo: Iterable[str] | None = None,
               max_proposicoes: int | None = None,
               detalhar_deputados: bool | Iterable[str | int] = False,
-              legislatura_completa: bool = False, retomar: bool = True) -> dict:
+              legislatura_completa: bool = False, retomar: bool = True,
+              fonte_votos: str = "api", reusar_dumps: bool = False) -> dict:
         """Coleta deputados, votações de Plenário (com votos e orientações) e, opcionalmente,
         proposições. Grava `data/raw/camara/camara_<início>_<fim>.json` (formato de sempre).
 
@@ -115,14 +120,23 @@ class CamaraSource(Source):
         cair, a chamada seguinte retoma dali (`retomar=False` ignora e refaz); coleta concluída
         apaga o parcial.
 
+        Votos: `fonte_votos="api"` (padrão; 2 chamadas por votação de Plenário) ou `"dump"`
+        (3 arquivos CSV anuais oficiais, lidos em streaming; recomendado para mais de um
+        trimestre). Nos dois, só votação NOMINAL tem voto individual. O dump muda todo dia: só é
+        reaproveitado do disco com `reusar_dumps=True`.
+
         `detalhar_deputados`: True = GET /deputados/{id} de todos os deputados baixados;
         uma lista de ids = só os que estiverem nela e no escopo. Acrescenta `cpf` e `nome_civil`
         ao fato `deputado` (1 chamada por deputado, com `pausa`). Opt-in."""
+        if fonte_votos not in FONTES_VOTOS:
+            raise ValueError(f"fonte_votos deve ser um de {FONTES_VOTOS}, recebi {fonte_votos!r}")
         parcial = Parcial(manifest.raw_dir_padrao() / self.nome / "parcial", retomar)
         escopo = f"legislatura_{legislatura}" if legislatura_completa else "exercicio"
         deputados = self._deputados(legislatura, legislatura_completa, parcial, escopo)
         erros_det = self._detalhar_deputados(deputados, detalhar_deputados, parcial, escopo)
-        votacoes = self._votacoes_api(data_inicio, data_fim, max_votacoes, parcial)
+        votacoes = (self._votacoes_dump(data_inicio, data_fim, max_votacoes, reusar_dumps)
+                    if fonte_votos == "dump"
+                    else self._votacoes_api(data_inicio, data_fim, max_votacoes, parcial))
         raw = {"deputados": deputados, "votacoes": votacoes}
         if erros_det:
             raw["deputados_erros"] = erros_det
@@ -230,6 +244,51 @@ class CamaraSource(Source):
             if feitas:
                 parcial.gravar(nome, lista)
         return alvo
+
+    # ---------- votações (dump anual oficial) ----------
+
+    def _votacoes_dump(self, data_inicio: str, data_fim: str, max_votacoes: int | None,
+                       reusar_dumps: bool) -> list[dict]:
+        ini, fim = date.fromisoformat(data_inicio), date.fromisoformat(data_fim)
+        if ini > fim:
+            raise ValueError(f"início ({data_inicio}) depois do fim ({data_fim})")
+        if max_votacoes == 0:
+            return []
+        arquivos = {c: [self._baixar_dump(c, ano, reusar_dumps)
+                        for ano in range(ini.year, fim.year + 1)] for c in CONJUNTOS}
+        return votacoes_do_dump(arquivos["votacoes"], arquivos["votacoesVotos"],
+                                arquivos["votacoesOrientacoes"], data_inicio, data_fim,
+                                max_votacoes)
+
+    def _baixar_dump(self, conjunto: str, ano: int, reusar: bool) -> Path:
+        """Baixa `<conjunto>-<ano>.csv` para data/raw/camara/dumps/ (em streaming, via `.part`,
+        com nova tentativa) e o registra no manifesto. Falha não deixa arquivo pela metade."""
+        arquivo = f"dumps/{conjunto}-{ano}.csv"
+        destino = self.raw_path(arquivo)
+        if reusar and destino.is_file() and destino.stat().st_size > 0:
+            return destino
+        parte = destino.with_name(destino.name + ".part")
+        url = url_dump(conjunto, ano)
+
+        def baixar() -> httpx.Response:
+            with self.client.stream("GET", url, follow_redirects=True) as r:
+                if r.status_code < 400:
+                    with parte.open("wb") as f:
+                        for pedaco in r.iter_bytes():
+                            f.write(pedaco)
+                else:
+                    r.read()
+            return r
+
+        try:
+            self._tentar(baixar)
+            os.replace(parte, destino)
+        except BaseException:
+            parte.unlink(missing_ok=True)
+            raise
+        self.registrar_raw(arquivo)
+        self._dormir(self.pausa)
+        return destino
 
     # ---------- proposições (proposicao + autoria) ----------
 

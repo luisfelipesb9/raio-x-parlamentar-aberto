@@ -1,0 +1,5 @@
+﻿"idVotacao";"uriVotacao";"siglaOrgao";"descricao";"siglaBancada";"uriBancada";"orientacao"
+"2442848-52";"https://dadosabertos.camara.leg.br/api/v2/votacoes/2442848-52";"PLEN";"Aprovada a Emenda nº 3.";"Governo";"https://dadosabertos.camara.leg.br/api/v2/partidos/37903";"Sim"
+"2442848-52";"https://dadosabertos.camara.leg.br/api/v2/votacoes/2442848-52";"PLEN";"Aprovada a Emenda nº 3.";"PL";"https://dadosabertos.camara.leg.br/api/v2/partidos/37903";"Não"
+"2458405-38";"https://dadosabertos.camara.leg.br/api/v2/votacoes/2458405-38";"PLEN";"Aprovado o Parecer.";"Governo";"https://dadosabertos.camara.leg.br/api/v2/partidos/37903";"Liberado"
+"2440085-41";"https://dadosabertos.camara.leg.br/api/v2/votacoes/2440085-41";"CAPADR";"Aprovado o Parecer na comissão.";"Governo";"https://dadosabertos.camara.leg.br/api/v2/partidos/37903";"Sim"
