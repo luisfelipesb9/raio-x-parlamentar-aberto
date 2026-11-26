@@ -102,6 +102,12 @@ export const GLOSSARIO: readonly Termo[] = [
     definicao: "Votos Sim ou Não de um deputado em votação nominal na qual o governo orientou Sim ou Não. Abstenção, obstrução e votação simbólica não entram.",
     porQueImporta: "É a conta que decide se há dado suficiente: o sistema só conclui a partir de um mínimo de votos válidos.",
   },
+  {
+    id: "hash-arquivo",
+    termo: "Impressão digital do arquivo (hash)",
+    definicao: "Código curto calculado a partir do conteúdo de um arquivo. Se o arquivo mudar em qualquer detalhe, o código muda.",
+    porQueImporta: "Permite conferir se o arquivo que o sistema usou é igual ao que a fonte oficial publicou.",
+  },
 ];
 
 export function buscaTermo(id: string): Termo | undefined {

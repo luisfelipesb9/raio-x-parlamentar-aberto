@@ -54,3 +54,75 @@
   width: 1em;
   color: var(--muted);
 }
+
+/* ---------- ficha: "Dados e verificação" e "Verificar na fonte" ---------- */
+.evid-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.painel-dados {
+  max-width: 52rem;
+}
+.fontes-lista {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.fontes-lista li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.fonte-data {
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.metricas-regras {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+}
+.metrica-regra {
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--raio);
+}
+.metrica-regra h4 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+.metrica-id {
+  margin-left: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.metricas {
+  margin: 0;
+}
+.metricas > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 12px;
+  padding: 4px 0;
+  border-bottom: 1px dotted var(--border);
+}
+.metricas dt {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.metricas dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

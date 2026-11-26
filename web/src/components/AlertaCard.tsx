@@ -5,6 +5,7 @@ import type { Explanation, Finding } from "@/types/contracts";
 import { useApi } from "@/lib/useApi";
 import { formataCf } from "@/lib/nivel";
 import { rotuloCategoria, rotuloEvidencia } from "@/lib/formato";
+import { formataData } from "@/lib/verificacao";
 import { urlSegura } from "@/lib/url";
 import { Carregando, ErroApi } from "./Estados";
 import { SeloCerteza } from "./SeloCerteza";
@@ -14,12 +15,10 @@ const EVIDENCIAS_VISIVEIS = 5;
 
 function Trilha({ finding, titulo }: { finding: Finding; titulo: string }) {
   const { estado, recarregar } = useApi<Explanation>(`/findings/${encodeURIComponent(finding.id)}/explicar`);
-  const [todas, setTodas] = useState(false);
 
   if (estado.status === "carregando" || estado.status === "ocioso") return <Carregando texto="Buscando o passo a passo…" />;
   if (estado.status === "erro") return <ErroApi erro={estado.erro} onTentarDeNovo={recarregar} />;
   const ex = estado.data;
-  const evid = todas ? finding.evidencias : finding.evidencias.slice(0, EVIDENCIAS_VISIVEIS);
 
   return (
     <div className="trilha-corpo">
@@ -63,46 +62,65 @@ function Trilha({ finding, titulo }: { finding: Finding; titulo: string }) {
       ) : (
         <p>Nenhuma limitação específica registrada para esta regra.</p>
       )}
-
-      <h4>Documentos oficiais ({finding.evidencias.length})</h4>
-      {finding.evidencias.length === 0 ? (
-        <p>Esta conclusão não tem documento individual associado.</p>
-      ) : (
-        <>
-          <ul className="trilha-evidencias">
-            {evid.map((e) => {
-              const href = urlSegura(e.url);
-              return (
-              <li key={`${e.tipo}-${e.id_oficial}`}>
-                {href ? (
-                  <a href={href} target="_blank" rel="noopener noreferrer">
-                    Abrir na fonte: {rotuloEvidencia(e.tipo).toLowerCase()} {e.id_oficial}
-                    <span className="visually-hidden"> (abre em nova aba)</span>
-                  </a>
-                ) : (
-                  <span>
-                    {rotuloEvidencia(e.tipo)} {e.id_oficial} (sem link público)
-                  </span>
-                )}
-                {e.descricao && <span className="evid-desc"> — {e.descricao}</span>}
-              </li>
-              );
-            })}
-          </ul>
-          {finding.evidencias.length > EVIDENCIAS_VISIVEIS && (
-            <button type="button" className="btn btn-sec btn-mini" onClick={() => setTodas((t) => !t)}>
-              {todas ? "Mostrar menos" : `Mostrar todos os ${finding.evidencias.length}`}
-            </button>
-          )}
-        </>
-      )}
     </div>
+  );
+}
+
+/** Documentos oficiais que sustentam o alerta, com o que é preciso para conferir cada um por conta própria. */
+function VerificarNaFonte({ finding }: { finding: Finding }) {
+  const [todas, setTodas] = useState(false);
+  const evid = todas ? finding.evidencias : finding.evidencias.slice(0, EVIDENCIAS_VISIVEIS);
+  if (finding.evidencias.length === 0) return <p>Esta conclusão não tem documento individual associado.</p>;
+  return (
+    <>
+      <p className="nota">
+        Cada item abaixo é um registro oficial usado neste alerta. Procure o identificador no site da fonte para conferir. A data é de quando o
+        sistema baixou o dado, não de quando o fato aconteceu.
+      </p>
+      <ul className="trilha-evidencias">
+        {evid.map((e) => {
+          const href = urlSegura(e.url);
+          return (
+            <li key={`${e.tipo}-${e.id_oficial}`}>
+              {href ? (
+                <a href={href} target="_blank" rel="noopener noreferrer">
+                  Abrir na fonte: {rotuloEvidencia(e.tipo).toLowerCase()} {e.id_oficial}
+                  <span className="visually-hidden"> (abre em nova aba)</span>
+                </a>
+              ) : (
+                <span>
+                  {rotuloEvidencia(e.tipo)} {e.id_oficial} (sem link público)
+                </span>
+              )}
+              {e.descricao && <span className="evid-desc"> — {e.descricao}</span>}
+              <span className="evid-meta">
+                Identificador oficial: <code>{e.id_oficial}</code>
+                {e.coletado_em && <> · Coletado em {formataData(e.coletado_em)}</>}
+                {e.sha256_bruto && (
+                  <>
+                    {" "}
+                    · <Termo id="hash-arquivo">Impressão digital do arquivo</Termo>: <code title={e.sha256_bruto}>{e.sha256_bruto.slice(0, 12)}…</code>
+                  </>
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {finding.evidencias.length > EVIDENCIAS_VISIVEIS && (
+        <button type="button" className="btn btn-sec" onClick={() => setTodas((t) => !t)}>
+          {todas ? "Mostrar menos" : `Mostrar todos os ${finding.evidencias.length}`}
+        </button>
+      )}
+    </>
   );
 }
 
 export function AlertaCard({ finding }: { finding: Finding }) {
   const [aberto, setAberto] = useState(false);
+  const [fonteAberta, setFonteAberta] = useState(false);
   const painelId = useId();
+  const fonteId = useId();
   const tituloId = useId();
 
   return (
@@ -120,12 +138,22 @@ export function AlertaCard({ finding }: { finding: Finding }) {
         <Termo id="cf">Nível de certeza (CF)</Termo>: <strong>{formataCf(finding.cf)}</strong> de 1,00
       </p>
       <p className="alerta-aviso">Isto não é acusação; é o que os dados públicos mostram.</p>
-      <button type="button" className="btn" aria-expanded={aberto} aria-controls={painelId} onClick={() => setAberto((a) => !a)}>
-        Como sabemos disso?
-      </button>
+      <div className="acoes">
+        <button type="button" className="btn" aria-expanded={aberto} aria-controls={painelId} onClick={() => setAberto((a) => !a)}>
+          Como sabemos disso?
+        </button>
+        <button type="button" className="btn btn-sec" aria-expanded={fonteAberta} aria-controls={fonteId} onClick={() => setFonteAberta((a) => !a)}>
+          Verificar na fonte ({finding.evidencias.length})
+        </button>
+      </div>
       {aberto && (
         <section id={painelId} className="trilha" aria-label={`Como sabemos disso? Regra ${finding.regra}`}>
           <Trilha finding={finding} titulo={finding.conclusao} />
+        </section>
+      )}
+      {fonteAberta && (
+        <section id={fonteId} className="trilha" aria-label={`Verificar na fonte. Regra ${finding.regra}`}>
+          <VerificarNaFonte finding={finding} />
         </section>
       )}
     </article>

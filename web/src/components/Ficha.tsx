@@ -11,6 +11,7 @@ import { AlertaCard } from "./AlertaCard";
 import { AvisoNaoAcusacao } from "./Aviso";
 import { Carregando, ErroApi, Vazio } from "./Estados";
 import { Foto } from "./Foto";
+import { PainelDados } from "./PainelDados";
 import { Revela } from "./Revela";
 import { SeloCerteza } from "./SeloCerteza";
 import { Termo } from "./Termo";
@@ -28,13 +29,14 @@ const SECAO_DA_REGRA: Record<string, Secao> = {
   R07: "dinheiro",
 };
 
-const SECOES: { id: Secao | "alertas"; titulo: string }[] = [
+const SECOES: { id: Secao | "alertas" | "dados"; titulo: string }[] = [
   { id: "quem", titulo: "Quem é" },
   { id: "vota", titulo: "Como vota" },
   { id: "gasta", titulo: "Quanto gasta" },
   { id: "dinheiro", titulo: "Para onde mandou dinheiro" },
   { id: "financiou", titulo: "Quem financiou" },
   { id: "alertas", titulo: "Alertas" },
+  { id: "dados", titulo: "Dados e verificação" },
 ];
 
 export function Ficha({ id }: { id: string }) {
@@ -155,7 +157,7 @@ export function Ficha({ id }: { id: string }) {
             {lista && lista.length > 0 && (
               <>
                 <p>
-                  Cada cartão traz o nível de certeza e o botão <em>Como sabemos disso?</em>, que mostra o passo a passo e os documentos oficiais.
+                  Cada cartão traz o nível de certeza, o botão <em>Como sabemos disso?</em> (passo a passo) e o botão <em>Verificar na fonte</em> (documentos oficiais, com identificador e data de coleta).
                 </p>
                 <div className="alertas">
                   {lista.map((f) => (
@@ -164,6 +166,10 @@ export function Ficha({ id }: { id: string }) {
                 </div>
               </>
             )}
+          </SecaoFicha>
+
+          <SecaoFicha id="dados" titulo="Dados e verificação">
+            <PainelDados deputadoId={p.id} />
           </SecaoFicha>
         </div>
       </div>

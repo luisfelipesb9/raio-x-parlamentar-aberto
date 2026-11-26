@@ -20,7 +20,7 @@ test.describe("busca -> ficha -> 'Como sabemos disso?'", () => {
     await expect(page.getByText(/isto não é acusação/i).first()).toBeVisible();
 
     // seções da ficha, em linguagem simples
-    for (const titulo of ["Quem é", "Como vota", "Quanto gasta", "Para onde mandou dinheiro", "Quem financiou", "Alertas"]) {
+    for (const titulo of ["Quem é", "Como vota", "Quanto gasta", "Para onde mandou dinheiro", "Quem financiou", "Alertas", "Dados e verificação"]) {
       await expect(page.getByRole("heading", { name: titulo, exact: true })).toBeVisible();
     }
 
@@ -36,7 +36,23 @@ test.describe("busca -> ficha -> 'Como sabemos disso?'", () => {
     await expect(trilha).toBeVisible();
     await expect(trilha.getByText(/passo a passo|como chegamos/i).first()).toBeVisible();
     await expect(trilha.getByText(/limitações/i).first()).toBeVisible();
-    await expect(trilha.getByRole("link", { name: /documento oficial|abrir na fonte|votacoes/i }).first()).toBeVisible();
+
+    // "Verificar na fonte": link oficial, identificador e data de coleta de cada documento
+    await page.getByRole("button", { name: /verificar na fonte/i }).first().click();
+    const fonte = page.getByRole("region", { name: /verificar na fonte/i }).first();
+    await expect(fonte.getByRole("link", { name: /abrir na fonte/i }).first()).toBeVisible();
+    await expect(fonte.getByText(/identificador oficial/i).first()).toBeVisible();
+    await expect(fonte.getByText(/coletado em \d{2}\/\d{2}\/\d{4}/i).first()).toBeVisible();
+  });
+
+  test("ficha mostra 'Dados e verificação': janela de votos, números por regra e fontes", async ({ page, request }) => {
+    const { id } = await deputadoComAlerta(request);
+    await page.goto(`/deputado/${id}`);
+    const secao = page.getByRole("region", { name: "Dados e verificação" });
+    await expect(secao.getByText(/janela de votação/i).first()).toBeVisible();
+    await expect(secao.getByText(/votos? válidos?/i).first()).toBeVisible();
+    await expect(secao.getByRole("heading", { name: /de onde vêm os dados/i })).toBeVisible();
+    await expect(secao.getByRole("link", { name: /ver todas as fontes/i })).toBeVisible();
   });
 
   test("busca sem resultado mostra estado vazio amigável, não tela quebrada", async ({ page }) => {
