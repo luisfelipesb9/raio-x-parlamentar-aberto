@@ -23,8 +23,11 @@ from contracts import Fact
 ENV_SALT = "RAIO_X_ID_SALT"
 PREFIXO = "hmac:"
 _CPF = re.compile(r"\d{3}\.?\d{3}\.?\d{3}-?\d{2}")
-# CPF solto em texto livre (plano ou formatado)
-CPF_EM_TEXTO = (re.compile(r"(?<!\d)\d{11}(?!\d)"), re.compile(r"(?<![\d.])\d{3}\.\d{3}\.\d{3}-\d{2}(?!\d)"))
+# CPF solto em texto livre: plano ou com separadores (ponto, hífen, barra, espaço, NBSP; até 2
+# caracteres entre grupos, p.ex. "NNN. NNN. NNN-NN"). Quem usa valida o dígito verificador (dv_ok)
+# para não confundir com valores monetários, datas, CNPJ ou ids.
+_SEP = "[.\\s\u00a0]{0,2}"
+CPF_EM_TEXTO = re.compile(rf"(?<!\d)\d{{3}}{_SEP}\d{{3}}{_SEP}\d{{3}}[-/.\s\u00a0]{{0,2}}\d{{2}}(?!\d)")
 # tipos cujo CPF é dado cadastral público (ADR-002): nada é trocado neles
 PUBLICOS = ("deputado", "candidatura")
 # o próprio hash (32 hex) pode conter, por acaso, 11 dígitos seguidos: nunca é tratado como CPF
@@ -70,23 +73,37 @@ def pseudonimizar_fatos(fatos: Iterable[Fact], salt: str) -> list[Fact]:
     return [_um(f, salt) for f in fatos]
 
 
-def _em_texto(valor: Any, salt: str) -> Any:
-    """Troca CPF válido solto dentro de texto (ex.: nome do fornecedor + CPF) pelo hash."""
+def _cpf_numerico(valor: Any) -> str | None:
+    """CPF guardado como número (ou texto só de dígitos) que perdeu o zero à esquerda."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, str)):
+        return None
+    s = str(valor).strip()
+    if not s.isascii() or not s.isdigit() or len(s) > 11:
+        return None
+    s = s.zfill(11)
+    return s if dv_ok(s) else None
+
+
+def _em_texto(valor: Any, salt: str, chave: str = "") -> Any:
+    """Troca CPF válido solto dentro de texto (ex.: nome do fornecedor + CPF) pelo hash.
+
+    Em chave que começa com `cpf`, também troca o CPF numérico sem o zero à esquerda."""
+    if chave.lower().startswith("cpf") and (c := _cpf_numerico(valor)):
+        return hash_cpf(c, salt)
     if isinstance(valor, str):
         tokens = TOKEN_HASH.findall(valor)
         partes = TOKEN_HASH.split(valor)
-        for rx in CPF_EM_TEXTO:
-            partes = [rx.sub(lambda m: hash_cpf(re.sub(r"\D", "", m.group()), salt)
-                             if dv_ok(re.sub(r"\D", "", m.group())) else m.group(), p)
-                      for p in partes]
+        partes = [CPF_EM_TEXTO.sub(lambda m: hash_cpf(re.sub(r"\D", "", m.group()), salt)
+                                   if dv_ok(re.sub(r"\D", "", m.group())) else m.group(), p)
+                  for p in partes]
         saida = partes[0]
         for tok, resto in zip(tokens, partes[1:], strict=True):
             saida += tok + resto
         return saida
     if isinstance(valor, list):
-        return [_em_texto(v, salt) for v in valor]
+        return [_em_texto(v, salt, chave) for v in valor]
     if isinstance(valor, dict):
-        return {k: _em_texto(v, salt) for k, v in valor.items()}
+        return {k: _em_texto(v, salt, str(k)) for k, v in valor.items()}
     return valor
 
 
@@ -94,7 +111,7 @@ def _um(f: Fact, salt: str) -> Fact:
     if f.tipo in PUBLICOS:
         return f
     f = _estruturado(f, salt)
-    texto = {k: _em_texto(v, salt) for k, v in f.atributos.items()}
+    texto = {k: _em_texto(v, salt, k) for k, v in f.atributos.items()}
     return f.model_copy(update={"atributos": texto}) if texto != f.atributos else f
 
 

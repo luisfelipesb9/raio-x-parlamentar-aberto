@@ -28,8 +28,7 @@ class Achado(NamedTuple):
 
 def tem_cpf(texto: str) -> bool:
     texto = TOKEN_HASH.sub(" ", texto)  # o hash não é CPF, mesmo que tenha 11 dígitos seguidos
-    return any(dv_ok(re.sub(r"\D", "", m.group())) for rx in CPF_EM_TEXTO
-               for m in rx.finditer(texto))
+    return any(dv_ok(re.sub(r"\D", "", m.group())) for m in CPF_EM_TEXTO.finditer(texto))
 
 
 def _textos(valor: Any, caminho: str) -> Iterator[tuple[str, str]]:

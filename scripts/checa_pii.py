@@ -34,6 +34,8 @@ CPFS_PERMITIDOS: frozenset[str] = frozenset({
     "98765432100",  # tests/unit/test_rules_r05_r08.py: CPF de sócio inventado ("diferente")
 })
 
+CPF_NUMERICO_EM_CHAVE = re.compile(r"""(?i)cpf\w*["']?\s*[:=]\s*["']?(\d{10})(?!\d)""")
+
 LOCKFILES = frozenset({"uv.lock", "pnpm-lock.yaml", "package-lock.json", "yarn.lock",
                        "poetry.lock", "Pipfile.lock"})
 ENV_PERMITIDOS = frozenset({".env.example", ".env.sample", ".env.template"})
@@ -67,11 +69,11 @@ def achados_em_texto(arquivo: str, texto: str, *,
     achados: list[Achado] = []
     for n, linha in enumerate(texto.splitlines(), start=1):
         sem_hash = TOKEN_HASH.sub(" ", linha)  # o hash do HMAC não é CPF, mesmo com 11 dígitos
-        for rx in CPF_EM_TEXTO:
-            for m in rx.finditer(sem_hash):
-                d = _so_digitos(m.group())
-                if dv_ok(d) and d not in permitidos:
-                    achados.append(Achado(arquivo, n, "cpf"))
+        candidatos = [_so_digitos(m.group()) for m in CPF_EM_TEXTO.finditer(sem_hash)]
+        # CPF numérico que perdeu o zero à esquerda, em chave `cpf*` ("cpf": 2998224725)
+        candidatos += [m.group(1).zfill(11) for m in CPF_NUMERICO_EM_CHAVE.finditer(sem_hash)]
+        if any(dv_ok(d) and d not in permitidos for d in candidatos):
+            achados.append(Achado(arquivo, n, "cpf"))
         if any(rx.search(linha) for rx in _SEGREDOS):
             achados.append(Achado(arquivo, n, "segredo"))
     # uma linha com o mesmo tipo duas vezes vira um achado só
