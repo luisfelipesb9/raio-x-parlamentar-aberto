@@ -108,6 +108,33 @@ export const GLOSSARIO: readonly Termo[] = [
     definicao: "Código curto calculado a partir do conteúdo de um arquivo. Se o arquivo mudar em qualquer detalhe, o código muda.",
     porQueImporta: "Permite conferir se o arquivo que o sistema usou é igual ao que a fonte oficial publicou.",
   },
+  {
+    id: "mapa-relacoes",
+    termo: "Mapa de relações",
+    definicao:
+      "Desenho que mostra o deputado no centro e, em volta, partidos, empresas, municípios, projetos e pessoas ligados a ele nos dados públicos. Cada ponto é um nó; cada linha, uma ligação.",
+    porQueImporta: "Ver a ligação não é acusação: mostra o que os dados públicos registram, com a fonte oficial de cada ligação.",
+  },
+  {
+    id: "saltos",
+    termo: "Ligação direta e indireta (saltos)",
+    definicao:
+      "1 salto são as ligações diretas do deputado. 2 saltos acrescentam as ligações dessas ligações, por exemplo outros deputados que pagaram à mesma empresa.",
+    porQueImporta: "Com 2 saltos o mapa cresce muito; por isso ele mostra no máximo 300 nós e avisa o que ficou de fora.",
+  },
+  {
+    id: "grupo-nos",
+    termo: "Grupo de nós (+N)",
+    definicao:
+      "Quando um ponto tem muitas ligações sem outras conexões, as de menor valor são reunidas num grupo, por exemplo +154 empresas. Clique no grupo para abrir e use Recolher para fechar.",
+  },
+  {
+    id: "tamanho-espessura",
+    termo: "Tamanho e espessura",
+    definicao:
+      "Quanto maior o ponto, mais dinheiro (R$) passa por ele no mapa. Quanto mais grossa a linha, maior o valor daquela ligação. Pontos sem valor em R$ têm tamanho fixo.",
+    porQueImporta: "O tamanho ajuda a achar o que mais pesa, mas não diz se algo é certo ou errado.",
+  },
 ];
 
 export function buscaTermo(id: string): Termo | undefined {

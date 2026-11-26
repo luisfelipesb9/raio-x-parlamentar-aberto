@@ -21,6 +21,17 @@ describe("glossário", () => {
     }
   });
 
+  it("explica em palavras simples o vocabulário do mapa de relações", () => {
+    for (const id of ["mapa-relacoes", "saltos", "grupo-nos", "tamanho-espessura"]) {
+      const t = buscaTermo(id);
+      expect(t, id).toBeDefined();
+      expect(t!.definicao).not.toMatch(/\b(grafo|aresta|BFS|cytoscape)\b/i);
+    }
+    expect(buscaTermo("saltos")!.definicao).toMatch(/ligações diretas/i);
+    expect(buscaTermo("grupo-nos")!.definicao).toMatch(/\+N|mais N|\+ ?\d/);
+    expect(buscaTermo("tamanho-espessura")!.definicao).toMatch(/R\$/);
+  });
+
   it("todo termo tem nome, definição curta e ids únicos", () => {
     const ids = GLOSSARIO.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
