@@ -8,6 +8,8 @@ import { HeroScan } from "@/components/HeroScan";
 import { Numeros } from "@/components/Numeros";
 import { Ticker } from "@/components/Ticker";
 import type { CoberturaResposta } from "@/types/contracts";
+import { JsonLd } from "@/components/JsonLd";
+import { datasetLd } from "@/lib/jsonld";
 import { canonical } from "@/lib/seo";
 import { servidorGet } from "@/lib/server-api";
 
@@ -17,10 +19,11 @@ export const revalidate = 3600;
 export const metadata: Metadata = { alternates: canonical("/") };
 
 /** Contagens do servidor para o bloco "Veja a lista". Sem API (build no CI, falha passageira) volta `null`, sem erro. */
-async function contagens(): Promise<{ deputados: number; alertas: number } | null> {
+async function contagens(): Promise<{ deputados: number; alertas: number; atualizadoEm: string | null } | null> {
   try {
     const c = await servidorGet<CoberturaResposta>("/cobertura");
-    return { deputados: c.n_deputados, alertas: c.n_findings };
+    const datas = c.fontes.map((f) => f.coletado_em_max).filter((d): d is string => !!d);
+    return { deputados: c.n_deputados, alertas: c.n_findings, atualizadoEm: datas.length ? datas.sort().at(-1)! : null };
   } catch {
     return null;
   }
@@ -32,6 +35,7 @@ export default async function Inicio() {
   const total = await contagens();
   return (
     <div className="pagina">
+      <JsonLd data={datasetLd({ atualizadoEm: total?.atualizadoEm })} />
       <section className="hero" aria-labelledby="titulo-hero">
         <div className="hero-texto">
           <p className="eyebrow">Dados públicos, sem juridiquês</p>
