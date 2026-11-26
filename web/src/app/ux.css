@@ -217,3 +217,88 @@
     color: var(--muted);
   }
 }
+
+/* ---------- acessibilidade extra ---------- */
+/* alvos de toque de pelo menos 44 px nos links do menu e nos controles novos */
+.nav a,
+.rodape-meta a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.sem-conclusao .btn,
+.painel-dados a,
+.trilha .btn {
+  min-height: 44px;
+}
+.arvore .no-linha {
+  min-height: 44px;
+}
+
+/* maior contraste pedido pelo sistema: bordas e focos mais fortes, texto secundário na cor do texto */
+@media (prefers-contrast: more) {
+  :root {
+    --border: currentColor;
+    --muted: var(--fg);
+  }
+  .sem-conclusao,
+  .metrica-regra,
+  .tabela-fontes tr,
+  .fontes-lista li,
+  .arvore .no-linha {
+    border-color: currentColor;
+  }
+  .arvore [role="treeitem"]:focus-visible > .no-linha,
+  .resposta:focus-visible {
+    outline-width: 4px;
+  }
+}
+
+/* modo de alto contraste do Windows: cores do sistema; foco, bordas e selos sem depender de cor */
+@media (forced-colors: active) {
+  .arvore [role="treeitem"]:focus-visible > .no-linha,
+  .resposta:focus-visible,
+  .btn:focus-visible,
+  a:focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+  .sem-conclusao,
+  .metrica-regra,
+  .no-linha,
+  .tabela-fontes tr,
+  .selo {
+    border: 1px solid CanvasText;
+  }
+  .no-nao > .no-linha {
+    border-style: dashed;
+  }
+  .selo-barras i {
+    background: GrayText;
+    forced-color-adjust: none;
+  }
+  .selo-barras i.on {
+    background: Highlight;
+  }
+  .medidor {
+    border: 2px solid CanvasText;
+  }
+  .medidor span {
+    background: Highlight;
+    forced-color-adjust: none;
+  }
+}
+
+/* animações pausadas (botão) ou reduzidas pelo sistema: nenhuma rolagem suave nem transição nos blocos novos */
+@media (prefers-reduced-motion: reduce) {
+  .sem-conclusao,
+  .metrica-regra,
+  .no-linha {
+    transition: none;
+  }
+}
+:root[data-animacoes="pausadas"] .sem-conclusao,
+:root[data-animacoes="pausadas"] .metrica-regra,
+:root[data-animacoes="pausadas"] .no-linha {
+  transition: none;
+}

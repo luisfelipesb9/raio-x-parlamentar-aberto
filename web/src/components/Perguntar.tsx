@@ -135,13 +135,6 @@ function Resultado({ r, pedido, aoPerguntarOutra }: { r: PerguntarResposta; pedi
         passo (<Termo id="guardrail">travas</Termo> incluídas). Cada linha mostra a certeza daquele passo. Com o teclado, use as setas para percorrer a trilha e as setas direita e esquerda para abrir e fechar um passo.
       </p>
       <ArvoreProva trilha={r.trilha} />
-      {r.trilha.filter((p) => p.cf > 0).length >= 2 && (
-        <p className="nota">
-          Mais de uma regra confirmou a conclusão. O sistema combina as certezas (como no sistema MYCIN), por isso o resultado final pode ser
-          maior do que o de cada regra isolada.
-        </p>
-      )}
-
       {r.finding_ids.length > 0 && (
         <p>
           Alertas usados:{" "}

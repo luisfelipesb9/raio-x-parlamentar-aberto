@@ -27,7 +27,7 @@ export function PickerDeputado({ rotulo = "Nome do deputado", onEscolher, exclui
       <div aria-live="polite">
         {estado.status === "carregando" && <Carregando texto="Buscando…" />}
         {estado.status === "erro" && <ErroApi erro={estado.erro} onTentarDeNovo={recarregar} />}
-        {estado.status === "ok" && estado.data.items.length === 0 && <Vazio titulo="Nenhum deputado encontrado" />}
+        {estado.status === "ok" && estado.data.items.length === 0 && <Vazio titulo="Nenhum deputado encontrado"><p>Confira a grafia ou digite só uma parte do nome. A base atual não tem todos os deputados.</p></Vazio>}
         {estado.status === "ok" && estado.data.items.length > 0 && (
           <ul className="picker-lista" aria-label="Resultados da busca">
             {estado.data.items

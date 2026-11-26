@@ -104,7 +104,21 @@ export function Busca() {
       {estado.status === "erro" && <ErroApi erro={estado.erro} onTentarDeNovo={recarregar} />}
       {estado.status === "ok" && estado.data.items.length === 0 && (
         <Vazio titulo="Nenhum deputado encontrado">
-          <p>Confira a grafia (a busca ignora acentos e maiúsculas) ou limpe os filtros.</p>
+          <p>Confira a grafia (a busca ignora acentos e maiúsculas) ou tente só uma parte do nome.</p>
+          {filtrando && (
+            <button
+              type="button"
+              className="btn btn-sec"
+              onClick={() => {
+                setQ("");
+                setPart("");
+                ultimaUrl.current = "|";
+                router.replace("/", { scroll: false });
+              }}
+            >
+              Limpar filtros e ver todos
+            </button>
+          )}
         </Vazio>
       )}
       {estado.status === "ok" && estado.data.items.length > 0 && (

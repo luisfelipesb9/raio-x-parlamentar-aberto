@@ -152,6 +152,10 @@ export function Ficha({ id }: { id: string }) {
                   A ausência de alerta não quer dizer que esteja tudo certo: significa só que o sistema não encontrou, nos dados que já
                   carregou, nada que ative uma de suas regras.
                 </p>
+                <p>
+                  Próximos passos: <a href="#dados">veja os dados e a cobertura</a>, <Link href={`/perguntar?deputado=${encodeURIComponent(p.id)}`}>pergunte ao sistema</Link> ou{" "}
+                  <Link href="/fontes">entenda o método</Link>.
+                </p>
               </Vazio>
             )}
             {lista && lista.length > 0 && (
