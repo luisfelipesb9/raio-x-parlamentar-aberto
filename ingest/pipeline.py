@@ -9,6 +9,10 @@ da UF, por id). Só entra o que é atribuível a eles; o resto é descartado ant
 A resolução de entidades usa TODOS os deputados da Câmara (para enxergar homônimos fora do
 escopo), mas nunca grava link para deputado fora do escopo.
 Cada passo apaga o que vai reafirmar (INSERT OR REPLACE não remove chave que sumiu) e regrava.
+
+Modo nacional (sem --uf nem --amostra): o TSE é processado uma UF por vez (baixa, normaliza, grava e
+solta antes da próxima; bruto por UF em data/raw/tse/) e `--reusar-raw` pula a UF já baixada.
+Ver docs/ampliacao/ingest-nacional.md.
 """
 from __future__ import annotations
 
@@ -16,7 +20,7 @@ import argparse
 import inspect
 import json
 from collections import defaultdict
-from collections.abc import Callable, Collection, Iterable, Sequence
+from collections.abc import Callable, Collection, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -347,38 +351,61 @@ class Pipeline:
         self.relatorio["cgu"] = {"sancoes": len(sancoes), "emendas": res.resumo(),
                                  "emendas_gravadas": len(ficam)}
 
-    def _passo_tse(self) -> None:
+    def _partes_tse(self, src: Any, uf: str | None) -> Iterator[tuple[str | None, dict]]:
+        """(uf, bruto) de cada parte a processar, uma por vez. Sem UF (modo nacional) usa
+        `fetch_por_uf`, que baixa e entrega uma UF de cada vez; com UF (ou numa fonte sem
+        `fetch_por_uf`) é o `fetch` de sempre."""
         o = self.opcoes
+        pedido = {"ano": o.ano_eleicao, "conjuntos": ("candidatos", "receitas", "votacao"),
+                  "reusar_raw": o.reusar_raw}
+        if uf is None and callable(getattr(src, "fetch_por_uf", None)):
+            for parte in src.fetch_por_uf(None, **pedido):
+                yield parte["uf"], parte
+                del parte  # senão esta função segura a UF anterior enquanto a próxima é lida
+            return
+        yield uf, chamar_fetch(src, uf=uf, **pedido)
+
+    def _passo_tse(self) -> None:
+        """Uma UF por vez: baixa, normaliza, grava e solta antes de ir para a próxima. No modo
+        nacional o pico de memória é o de uma UF, não o das 27 somadas."""
         src = self.registry["tse"]()
         total = {"total": 0, "ligados": 0, "ambiguos": 0, "sem_match": 0}
-        gravadas = doacoes = votos = 0
-        for uf in self._ufs_do_escopo():
-            raw = chamar_fetch(src, uf=uf, ano=o.ano_eleicao,
-                               conjuntos=("candidatos", "receitas", "votacao"))
-            cand_raw = src.normalize({"ano": o.ano_eleicao, "candidatos": raw.get("candidatos", [])})
-            res = resolver_candidaturas(cand_raw, self.todos_deputados)
-            for k, v in res.resumo().items():
-                total[k] += v
-            ficam, res_c = self._restringir(res, "candidatura")
-            sqs = {f.chave for f in ficam if f.atributos.get("deputado_id")}
-            self.store.delete_facts("candidatura", fonte=cand_raw[0].fonte if cand_raw else None,
-                                    onde={"ano": [o.ano_eleicao], **({"uf": [uf]} if uf else {})})
-            self._gravar(ficam, res_c, origens=[f"candidatura:{f.chave}" for f in ficam])
-            gravadas += len(ficam)
+        contagem = {"gravadas": 0, "doacoes": 0, "votos": 0}
+        for uf_escopo in self._ufs_do_escopo():
+            partes = self._partes_tse(src, uf_escopo)
+            for uf, raw in partes:
+                self._gravar_uf_tse(src, raw, uf, total, contagem)
+                del raw  # o gerador só solta a UF anterior se ninguém mais a segura
+        self.relatorio["tse"] = {"candidaturas": total,
+                                 "candidaturas_gravadas": contagem["gravadas"],
+                                 "doacoes": contagem["doacoes"],
+                                 "votos_municipio": contagem["votos"]}
 
-            todos_sq = [f.chave for f in cand_raw]
-            doa = src.normalize({"ano": o.ano_eleicao, "receitas": [
-                r for r in raw.get("receitas", []) if str(r.get("SQ_CANDIDATO")) in sqs]})
-            vot = self._votos_por_municipio(src, raw, sqs, uf)
-            for tipo, novos in (("doacao", doa), ("votos_municipio", vot)):
-                if novos:
-                    self.store.delete_facts(tipo, fonte=novos[0].fonte,
-                                            onde={"sq_candidato": todos_sq})
-            self._gravar(doa + vot)
-            doacoes += len(doa)
-            votos += len(vot)
-        self.relatorio["tse"] = {"candidaturas": total, "candidaturas_gravadas": gravadas,
-                                 "doacoes": doacoes, "votos_municipio": votos}
+    def _gravar_uf_tse(self, src: Any, raw: dict, uf: str | None, total: dict[str, int],
+                       contagem: dict[str, int]) -> None:
+        o = self.opcoes
+        cand_raw = src.normalize({"ano": o.ano_eleicao, "candidatos": raw.get("candidatos", [])})
+        res = resolver_candidaturas(cand_raw, self.todos_deputados)
+        for k, v in res.resumo().items():
+            total[k] += v
+        ficam, res_c = self._restringir(res, "candidatura")
+        sqs = {f.chave for f in ficam if f.atributos.get("deputado_id")}
+        self.store.delete_facts("candidatura", fonte=cand_raw[0].fonte if cand_raw else None,
+                                onde={"ano": [o.ano_eleicao], **({"uf": [uf]} if uf else {})})
+        self._gravar(ficam, res_c, origens=[f"candidatura:{f.chave}" for f in ficam])
+        contagem["gravadas"] += len(ficam)
+
+        todos_sq = [f.chave for f in cand_raw]
+        doa = src.normalize({"ano": o.ano_eleicao, "receitas": [
+            r for r in raw.get("receitas", []) if str(r.get("SQ_CANDIDATO")) in sqs]})
+        vot = self._votos_por_municipio(src, raw, sqs, uf)
+        for tipo, novos in (("doacao", doa), ("votos_municipio", vot)):
+            if novos:
+                self.store.delete_facts(tipo, fonte=novos[0].fonte,
+                                        onde={"sq_candidato": todos_sq})
+        self._gravar(doa + vot)
+        contagem["doacoes"] += len(doa)
+        contagem["votos"] += len(vot)
 
     @staticmethod
     def _votos_por_municipio(src: Any, raw: dict, sqs: set[str], uf: str | None) -> list[Fact]:
@@ -481,7 +508,8 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--janela-fim", default="2025-03-31")
     ap.add_argument("--max-pep", type=int, help="limita entidades lidas do OpenSanctions (teste)")
     ap.add_argument("--reusar-raw", action="store_true",
-                    help="usa data/raw/camara/ já baixado em vez de refazer a coleta da Câmara")
+                    help="usa o bruto já baixado em vez de baixar de novo: Câmara (data/raw/camara/), "
+                         "TSE por UF (data/raw/tse/) e Receita por CNPJ (data/raw/rfb/)")
     ap.add_argument("--detalhar-deputados", action="store_true",
                     help="GET /deputados/{id} (cpf, nome civil) só dos deputados do escopo")
     ap.add_argument("--incluir-proposicoes", action="store_true",
