@@ -266,9 +266,18 @@ class TseSource(Source):
                             self._abrir_zip(_CONJUNTOS[c][0].format(ano=ano)))
                 return zips
 
+            lidos: dict[str, dict | None] = {}  # bruto de disco já lido (lê cada arquivo uma vez)
+
+            def em_disco(sigla: str) -> dict | None:
+                if not reusar_raw:
+                    return None
+                if sigla not in lidos:
+                    lidos[sigla] = self._parte_em_disco(sigla, ano, conjuntos)
+                return lidos[sigla]
+
             if uf:
                 ufs = [uf]
-                if not (reusar_raw and self._parte_em_disco(uf, ano, conjuntos)):
+                if em_disco(uf) is None:
                     for c, z in abrir().items():
                         nome = _CONJUNTOS[c][1].format(ano=ano, uf=uf)
                         if nome not in z.namelist():
@@ -277,10 +286,12 @@ class TseSource(Source):
                 ufs = sorted({u for c, z in abrir().items() for u in self._ufs_do_zip(z, c, ano)})
             municipios: list[dict] | None = None
             for sigla in ufs:
-                if reusar_raw and (do_disco := self._parte_em_disco(sigla, ano, conjuntos)):
+                if (do_disco := em_disco(sigla)) is not None:
+                    lidos.pop(sigla, None)
                     yield do_disco
                     del do_disco
                     continue
+                lidos.pop(sigla, None)
                 if municipios is None and "votacao" in conjuntos:
                     municipios = self._municipios_ibge()
                 parte: dict[str, Any] = {"ano": ano, "uf": sigla}

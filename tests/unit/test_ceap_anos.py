@@ -133,14 +133,55 @@ def test_recarregar_o_ano_nao_apaga_o_outro_ano():
     assert {f.chave for f in store.facts_by_tipo("despesa_ceap")} == antes
 
 
-def test_despesa_sem_data_de_um_ano_nao_some_quando_o_ano_seguinte_e_carregado():
-    # o delete por ano apaga também fatos sem data (não sabe de que carga são): numa rodada com
-    # vários anos, os sem data dos anos anteriores precisam ser regravados
-    sem_data = {**_linha(1, 9, 2023, data=""), "dataEmissao": None}
+def test_despesa_sem_data_de_um_ano_sobrevive_quando_o_outro_ano_e_carregado():
+    # o delete por ano também apaga fatos sem data (não sabe de que carga são): numa rodada com
+    # vários anos, todos os deletes vêm antes de qualquer gravação
+    sem_data = {**_linha(1, 9, 2023), "dataEmissao": None}
     srv = Servidor({2023: [_linha(1, 0, 2023), sem_data], 2024: [_linha(1, 0, 2024)]})
     store, _ = _rodar(srv, n_dep=1, anos_ceap=(2023, 2024))
     datas = sorted(str(f.atributos["data"])[:4] for f in store.facts_by_tipo("despesa_ceap"))
     assert datas == ["2023", "2024", "None"]
+
+
+def _zips_com_notas_de_outro_ano() -> Servidor:
+    """O zip de um ano traz notas emitidas em outro ano: jan/2024 dentro do zip de 2023 e
+    dez/2023 dentro do zip de 2024 (acontece: o arquivo é por ano de COMPETÊNCIA/lançamento)."""
+    l23 = [_linha(1, 0, 2023), {**_linha(1, 1, 2023), "dataEmissao": "2024-01-05T00:00:00"}]
+    l24 = [_linha(1, 0, 2024), {**_linha(1, 1, 2024), "dataEmissao": "2023-12-20T00:00:00"}]
+    return Servidor({2023: l23, 2024: l24})
+
+
+@pytest.mark.parametrize("ordem", [(2023, 2024), (2024, 2023)])
+def test_nota_de_outro_ano_dentro_do_zip_nao_e_apagada_pelo_outro_ano(ordem):
+    store, rel = _rodar(_zips_com_notas_de_outro_ano(), n_dep=1, anos_ceap=ordem)
+    assert len(store.facts_by_tipo("despesa_ceap")) == 4 == rel["ceap"]["despesas"]
+
+
+@pytest.mark.parametrize("ordem", [(2023, 2024), (2024, 2023)])
+def test_recarregar_com_notas_de_outro_ano_nao_duplica_nem_perde(ordem):
+    srv = _zips_com_notas_de_outro_ano()
+    store, _ = _rodar(srv, n_dep=1, anos_ceap=ordem)
+    antes = {f.chave for f in store.facts_by_tipo("despesa_ceap")}
+    _rodar(srv, store, n_dep=1, anos_ceap=ordem)
+    assert {f.chave for f in store.facts_by_tipo("despesa_ceap")} == antes
+
+
+def test_nota_que_sumiu_do_zip_e_removida_na_recarga():
+    srv = _zips_com_notas_de_outro_ano()
+    store, _ = _rodar(srv, n_dep=1, anos_ceap=(2023, 2024))
+    menos = Servidor({2023: [_linha(1, 0, 2023)],
+                      2024: [_linha(1, 0, 2024), {**_linha(1, 1, 2024),
+                                                  "dataEmissao": "2023-12-20T00:00:00"}]})
+    _rodar(menos, store, n_dep=1, anos_ceap=(2023, 2024))
+    assert len(store.facts_by_tipo("despesa_ceap")) == 3  # a de jan/2024 do zip de 2023 saiu
+
+
+def test_nada_e_apagado_antes_de_o_primeiro_ano_ser_baixado():
+    store = Store(":memory:")
+    _rodar(Servidor({2023: [_linha(1, 0, 2023)]}), store, n_dep=1, anos_ceap=(2023,))
+    with pytest.raises(httpx.HTTPStatusError):  # 2022 não existe: 404 no primeiro ano
+        _rodar(Servidor({2023: [_linha(1, 0, 2023)]}), store, n_dep=1, anos_ceap=(2022, 2023))
+    assert len(store.facts_by_tipo("despesa_ceap")) == 1
 
 
 def test_ano_que_falha_interrompe_e_o_que_ja_foi_gravado_fica():
