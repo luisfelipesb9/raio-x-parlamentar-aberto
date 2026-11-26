@@ -194,3 +194,21 @@ def test_fatos_leves_com_muitos_pares_usa_lotes(store):
     store.upsert_facts([F("despesa_ceap", f"c{i}") for i in range(1200)])
     achados = store.fatos_leves({("despesa_ceap", f"c{i}") for i in range(0, 1200, 2)})
     assert len(achados) == 600
+
+def test_voto_de_votacao_simbolica_nao_vai_para_o_arquivo_publico(tmp_path):
+    """Votação simbólica não é voto individual (princípio ético): o voto fica de fora mesmo que exista."""
+    caminho = tmp_path / "o.duckdb"
+    s = Store(caminho)
+    s.upsert_facts([F("votacao", "nom", nominal=True), F("votacao", "sim", nominal=False),
+                    F("votacao", "sem_flag"),
+                    F("voto", "nom:1", votacao_id="nom", deputado_id="1", voto="Sim"),
+                    F("voto", "sim:1", votacao_id="sim", deputado_id="1", voto="Sim"),
+                    F("voto", "sem_flag:1", votacao_id="sem_flag", deputado_id="1", voto="Sim"),
+                    F("voto", "orfao:1", votacao_id="orfao", deputado_id="1", voto="Sim")])
+    s.con.close()
+    pub = Store.novo_publico(tmp_path / "p.duckdb")
+    pub.copiar_enxuto(caminho, tipos_integrais=("votacao", "voto"))
+    # votação sem a marca `nominal` conta como simbólica (o motor também a trata assim); voto órfão
+    # (votação ausente) fica, como em `Store.contagem_votos`
+    assert sorted(f.chave for f in pub.facts_by_tipo("voto")) == ["nom:1", "orfao:1"]
+    pub.con.close()

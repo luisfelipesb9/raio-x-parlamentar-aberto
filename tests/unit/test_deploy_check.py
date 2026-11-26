@@ -138,3 +138,11 @@ def test_reprova_base_publica_antiga_sem_as_tabelas_novas(tmp_path):
     con.close()
     (erro,) = verificar_envio(tmp_path, pub)
     assert "graph_node" in erro and "publicacao_meta" in erro and "make publicar" in erro
+
+
+@pytest.mark.parametrize("nome", ["raio_x_publico.duckdb.tmp", "outro.duckdb.wal", "x.duckdb.tmp"])
+def test_reprova_temporario_e_wal_de_banco_na_arvore(tmp_path, nome):
+    pub = _base_publica(tmp_path)
+    (tmp_path / "data" / "sample" / nome).write_text("x")
+    (erro,) = verificar_envio(tmp_path, pub)
+    assert nome in erro

@@ -86,9 +86,9 @@ CLI, **de dentro da pasta que está sendo publicada** (rodando de outra pasta, a
 arquivos da árvore como estáticos (código-fonte baixável) e não monta as rotas da API.
 
 1. `RAIO_X_ID_SALT=<segredo> make sample-publico` (a varredura precisa sair 0; gera a origem pseudonimizada em
-   `data/sample/raio_x_publico_origem.duckdb` e, por `make publicar`, o banco enxuto `data/sample/raio_x_publico.duckdb`,
-   ADR-011). Mova a origem para fora da árvore antes do `make deploy-check`. `make verifica` roda sobre a origem
-   (`RAIO_X_DB=data/sample/raio_x_publico_origem.duckdb`), porque o banco enxuto não tem as despesas cruas. Guarde o sal fora do repositório
+   `$TMPDIR/raio_x_publico_origem.duckdb` (ou `/tmp`; mude com `ORIGEM=...`; fora da árvore, de propósito) e, por `make publicar`, o banco enxuto `data/sample/raio_x_publico.duckdb`,
+   ADR-011). `make verifica` roda sobre a origem
+   (`RAIO_X_DB=$TMPDIR/raio_x_publico_origem.duckdb`), porque o banco enxuto não tem as despesas cruas. Guarde o sal fora do repositório
    e use sempre o mesmo, senão os ids pseudonimizados mudam a cada atualização.
 2. Em um clone limpo, copie só `data/sample/raio_x_publico.duckdb` e rode `make deploy-check` (reprova se houver
    outro `.duckdb` na árvore).

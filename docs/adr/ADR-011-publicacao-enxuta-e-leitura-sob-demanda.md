@@ -42,6 +42,9 @@ Escolhemos o desenho (a) da pesquisa, sem custo e sem trocar de hospedagem: publ
 - O corte vale para qualquer tipo fora de `publicar.TIPOS_INTEGRAIS` que **não** seja citado como evidência (par `tipo` + `id_oficial`,
   a mesma chave de `engine.proveniencia.indexar`). `empresa`/`socio`/`pep`/... entram só por evidência: o nome de empresa e de município
   de um nó **não** exige manter o fato, porque o grafo é materializado antes do corte (`graph_node.payload.rotulo`).
+- `voto` só de votação nominal: o ingest já só grava `voto` de votação com votos (`nominal = bool(votos)`), então na prática nenhum voto simbólico
+  existe nos bancos reais; a cópia ainda filtra por garantia (votação simbólica não é voto individual, princípio ético). Voto de votação ausente fica,
+  como em `Store.contagem_votos`.
 - `inferencia(deputado_id, regra, payload)`: um `Finding` do `forward.run` por linha, **sem evidências** (o regressivo só lê id, regra,
   deputado e CF). O diagnóstico da R01 (`DIAGNOSTICOS`) lê `votacao` e `voto`, que ficam por inteiro: a API reconstrói uma base mínima
   (votações + votos do deputado + guardrails) em vez de carregar todos os fatos. Diagnosticador novo que precise de outro tipo exige
@@ -49,7 +52,7 @@ Escolhemos o desenho (a) da pesquisa, sem custo e sem trocar de hospedagem: publ
 - `publicar` confere que a tabela `finding` da origem coincide com o `forward.run` sobre os fatos completos (senão manda rodar `make infer`).
 - `graph_edge` guarda `origem`, `destino`, `rel` em colunas e `peso`, `cf`, `evidencia_ids` no `payload`; `Store.load_graph` devolve na ordem
   de `graph.project` (o recorte depende dela). `publicacao_meta.gerado_em` marca o banco como publicado: sem ele a API usa o caminho antigo.
-- A origem pseudonimizada vai para `data/sample/raio_x_publico_origem.duckdb` (`make sample-publico`); o arquivo que sobe é só o enxuto.
+- A origem pseudonimizada vai para `$TMPDIR/raio_x_publico_origem.duckdb` (`make sample-publico`, variável `ORIGEM`), fora da árvore para o `deploy-check` não reprová-la; o arquivo que sobe é só o enxuto. O `deploy-check` também reprova `*.duckdb.tmp`.
 
 ## Gatilho do plano B (decidir por medição, não por suposição)
 Passar para Cloudflare R2 (arquivo) + API em Fly.io (~US$ 4–7/mês), ou Vercel Pro (US$ 20/mês), se, no teste com dados

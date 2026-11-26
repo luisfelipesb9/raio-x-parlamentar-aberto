@@ -2,7 +2,7 @@
 from pathlib import Path
 
 MAKEFILE = (Path(__file__).resolve().parents[2] / "Makefile").read_text(encoding="utf-8")
-ORIGEM = "data/sample/raio_x_publico_origem.duckdb"
+ORIGEM = "$(or $(TMPDIR),/tmp)/raio_x_publico_origem.duckdb"  # fora da árvore: o deploy-check não reprova
 PUBLICO = "data/sample/raio_x_publico.duckdb"
 
 
@@ -29,8 +29,9 @@ def test_publicar_esta_declarado_como_phony():
 
 def test_sample_publico_gera_a_origem_pseudonimizada_e_termina_em_publicar():
     alvo = _alvo("sample-publico")
-    assert f"--pseudonimizar --db {ORIGEM}" in alvo
-    assert f"RAIO_X_DB={ORIGEM} uv run python -m engine.run" in alvo
-    assert f"python -m ingest.varredura --db {ORIGEM}" in alvo
+    assert "--pseudonimizar --db $(ORIGEM)" in alvo
+    assert "RAIO_X_DB=$(ORIGEM) uv run python -m engine.run" in alvo
+    assert "python -m ingest.varredura --db $(ORIGEM)" in alvo
     assert alvo.rstrip().splitlines()[-1].strip() == "$(MAKE) publicar"
-    assert f"--db {PUBLICO}" not in alvo  # o arquivo público só nasce em `publicar`
+    assert f"--db {PUBLICO}" not in alvo
+    assert "data/" not in ORIGEM  # o arquivo público só nasce em `publicar`
