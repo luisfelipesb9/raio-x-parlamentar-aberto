@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { canonical } from "@/lib/seo";
 import { Fontes } from "@/components/Fontes";
 
 export const metadata: Metadata = {
   title: "Fontes e método",
   description: "De onde vêm os dados do Raio-X Parlamentar, quanto cobrem e como o sistema chega às conclusões.",
+  alternates: canonical("/fontes"),
 };
 
 export default function PaginaFontes() {
