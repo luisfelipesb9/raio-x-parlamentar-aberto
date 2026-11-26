@@ -2,17 +2,15 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { AvisoNaoAcusacao } from "@/components/Aviso";
 import { JsonLd } from "@/components/JsonLd";
+import { dataIsoValida } from "@/lib/jsonld";
 import "./conteudo.css";
 
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
 /** "2026-11-20" -> "20 de novembro de 2026" (sem fuso nem Intl: a saída é sempre a mesma). `null` se a data não existir. */
 export function dataPorExtenso(iso: string): string | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!m) return null;
-  const [ano, mes, dia] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const d = new Date(Date.UTC(ano, mes - 1, dia));
-  if (d.getUTCFullYear() !== ano || d.getUTCMonth() !== mes - 1 || d.getUTCDate() !== dia) return null;
+  if (!dataIsoValida(iso)) return null;
+  const [ano, mes, dia] = iso.split("-").map(Number) as [number, number, number];
   return `${dia} de ${MESES[mes - 1]} de ${ano}`;
 }
 

@@ -1,5 +1,6 @@
 /** Montagem pura do sitemap (a leitura da API fica em `app/sitemap.ts`). */
 import type { MetadataRoute } from "next";
+import { dataIsoValida } from "./jsonld";
 import { ID_SEGURO, urlAbsoluta } from "./seo";
 
 export const ROTAS_FIXAS = ["/", "/deputados", "/grafo", "/perguntar", "/comparar", "/glossario", "/fontes"] as const;
@@ -33,8 +34,8 @@ export function montaSitemap(idsDeputados: ReadonlyArray<string>, coleta?: Date,
   const paginas = conteudo
     .filter((p, i, todas) => !fixasSet.has(p.caminho) && todas.findIndex((q) => q.caminho === p.caminho) === i)
     .map((p) => {
-      const data = p.atualizado ? new Date(`${p.atualizado}T00:00:00Z`) : undefined;
-      return { url: urlAbsoluta(p.caminho), ...(data && !Number.isNaN(data.getTime()) ? { lastModified: data } : {}) };
+      const data = p.atualizado && dataIsoValida(p.atualizado) ? new Date(`${p.atualizado}T00:00:00Z`) : undefined;
+      return { url: urlAbsoluta(p.caminho), ...(data ? { lastModified: data } : {}) };
     });
   return [...fixas, ...ids.map((id) => comData(`/deputado/${id}`)), ...paginas];
 }

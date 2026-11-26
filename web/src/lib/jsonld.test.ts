@@ -169,14 +169,14 @@ describe("pessoaLd", () => {
 });
 
 describe("termosLd", () => {
-  it("vira um DefinedTermSet com todos os termos do glossário e âncora de cada um", () => {
+  it("vira um DefinedTermSet com todos os termos do glossário e a página própria de cada um", () => {
     const t = ciclo(termosLd(GLOSSARIO));
     expect(t["@type"]).toBe("DefinedTermSet");
     expect(t.url).toBe(`${SITE_URL}/glossario`);
     const termos = t.hasDefinedTerm as Array<{ "@type": string; name: string; description: string; url: string }>;
     expect(termos).toHaveLength(GLOSSARIO.length);
     const primeiro = GLOSSARIO[0]!;
-    expect(termos[0]).toMatchObject({ "@type": "DefinedTerm", name: primeiro.termo, url: `${SITE_URL}/glossario#${primeiro.id}` });
+    expect(termos[0]).toMatchObject({ "@type": "DefinedTerm", name: primeiro.termo, url: `${SITE_URL}/glossario/${primeiro.id}` });
     expect(termos[0]!.description).toContain(primeiro.definicao);
     expect(termos[0]!.description).toContain(primeiro.porQueImporta!);
   });
@@ -229,6 +229,10 @@ describe("artigoLd", () => {
   it("não inventa data: sem 'atualizado' (ou com data inválida) não há dateModified", () => {
     expect(ciclo(artigoLd({ ...base, atualizado: undefined }))).not.toHaveProperty("dateModified");
     expect(ciclo(artigoLd({ ...base, atualizado: "ontem" }))).not.toHaveProperty("dateModified");
+  });
+
+  it("data impossível (2026-02-31) não vira dateModified", () => {
+    expect(ciclo(artigoLd({ ...base, atualizado: "2026-02-31" }))).not.toHaveProperty("dateModified");
   });
 
   it("normaliza espaços e o HTML entregue não tem '<' dentro do script", () => {

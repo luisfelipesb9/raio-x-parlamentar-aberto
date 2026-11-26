@@ -86,6 +86,11 @@ describe("páginas de conteúdo no sitemap", () => {
     expect(por("/glossario/ceap")).not.toHaveProperty("lastModified");
   });
 
+  it("data impossível (2026-02-31) não vira lastModified (o V8 a corrigiria para março)", () => {
+    const s = montaSitemap([], undefined, [{ caminho: "/metodo", atualizado: "2026-02-31" }]);
+    expect(s.find((e) => e.url === `${SITE_URL}/metodo`)).not.toHaveProperty("lastModified");
+  });
+
   it("sem a API (fallback do build) as páginas de conteúdo continuam no sitemap", () => {
     const urls = fallbackSeBuild(new Error("x"), "phase-production-build", extras).map((e) => e.url);
     expect(urls).toContain(`${SITE_URL}/metodo`);
