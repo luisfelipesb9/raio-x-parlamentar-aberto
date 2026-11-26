@@ -213,3 +213,11 @@ def test_fatos_leves_com_muitos_pares_usa_lotes(store):
     store.upsert_facts([F("despesa_ceap", f"c{i}") for i in range(1200)])
     achados = store.fatos_leves({("despesa_ceap", f"c{i}") for i in range(0, 1200, 2)})
     assert len(achados) == 600
+
+
+def test_fatos_leves_voltam_em_ordem_deterministica(store):
+    store.upsert_facts([F("emenda", "b"), F("despesa_ceap", "z"), F("despesa_ceap", "a"),
+                        F("emenda", "a")])
+    pares = {("emenda", "a"), ("emenda", "b"), ("despesa_ceap", "z"), ("despesa_ceap", "a")}
+    ordem = [(f.tipo, f.chave) for f in store.fatos_leves(pares)]
+    assert ordem == [("despesa_ceap", "a"), ("despesa_ceap", "z"), ("emenda", "a"), ("emenda", "b")]

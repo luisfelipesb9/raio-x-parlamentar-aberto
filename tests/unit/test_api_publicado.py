@@ -190,3 +190,71 @@ def test_diagnostico_aplica_os_guardrails_como_o_motor_e_ignora_voto_de_votacao_
     passo = next(p for p in respostas[1]["trilha"] if p["regra"] == "R01")
     assert passo["diagnostico"]["motivo"] == "dados_insuficientes"
     assert passo["diagnostico"]["detalhes"]["n_votos_validos"] == 6  # os 6 simbólicos ficaram de fora
+
+
+# ---------- proveniência das evidências (fatos_leves + _enriquecer) ----------
+def test_evidencia_sem_coletado_em_e_completada_com_fato_e_manifesto_como_no_caminho_antigo(tmp_path):
+    import json
+    from datetime import UTC, datetime
+
+    from contracts import Evidence, Explanation, Fact, Finding, Nivel
+    ceap_em = datetime(2025, 4, 1, 12, 0, tzinfo=UTC)
+    fatos = [Fact(tipo="deputado", chave="1", atributos={"nome": "Ana", "partido": "ABC", "uf": "MG"},
+                  fonte="camara_api_v2", id_oficial="1", url="https://x"),
+             Fact(tipo="despesa_ceap", chave="d1:a", atributos={"deputado_id": "1"}, fonte="camara_ceap",
+                  id_oficial="d1", url="https://x", coletado_em=ceap_em),
+             Fact(tipo="despesa_ceap", chave="d1:b", atributos={"deputado_id": "1"}, fonte="camara_ceap",
+                  id_oficial="d1", url="https://x", coletado_em=datetime(2025, 3, 1, tzinfo=UTC))]
+    antigo = Finding(
+        id="R04:1", deputado_id="1", regra="R04", categoria="gastos", conclusao="c", cf=0.5,
+        nivel=Nivel.from_cf(0.5),
+        evidencias=[Evidence(tipo="despesa_ceap", id_oficial="d1"),
+                    Evidence(tipo="despesa_ceap", id_oficial="inexistente")])  # sem coletado_em nem sha
+    origem, destino, raw = tmp_path / "o.duckdb", tmp_path / "p.duckdb", tmp_path / "raw"
+    raw.mkdir()
+    (raw / "manifest.json").write_text(json.dumps({"versao": 1, "arquivos": [
+        {"fonte": "ceap", "arquivo": "Ano-2024.json.zip", "sha256": "e" * 64}]}), "utf-8")
+    s = Store(origem)
+    s.upsert_facts(fatos)
+    s.save_findings([antigo], {"R04:1": Explanation(finding_id="R04:1", como=[], por_que="x")})
+    s.con.close()
+    # o motor não produz este finding de mão: a checagem de atualização é contornada gravando no
+    # destino a partir de um publicar() sobre uma origem coerente e trocando só a tabela `finding`
+    coerente = tmp_path / "coerente.duckdb"
+    s2 = Store(coerente)
+    s2.upsert_facts(fatos)
+    s2.con.close()
+    publicar(coerente, destino)
+    pub = Store.__new__(Store)
+    import duckdb
+    pub.con = duckdb.connect(str(destino))
+    pub.con.execute("DELETE FROM finding")
+    pub.con.execute("INSERT INTO finding VALUES (?, ?, ?, ?, ?::JSON, ?::JSON)", [
+        "R04:1", "1", "R04", 0.5, antigo.model_dump_json(),
+        Explanation(finding_id="R04:1", como=[], por_que="x").model_dump_json()])
+    # a evidência precisa estar nos fatos mantidos: copia os dois fatos da CEAP para o destino
+    for f in fatos[1:]:
+        pub.con.execute("INSERT INTO fact VALUES (?, ?, ?::JSON, ?, ?, ?, ?)", [
+            f.tipo, f.chave, json.dumps(f.atributos), f.fonte, f.id_oficial, f.url, f.coletado_em])
+    pub.con.close()
+    with TestClient(create_app(origem, raw_dir=raw)) as a, TestClient(create_app(destino, raw_dir=raw)) as b:
+        ra, rb = a.get("/deputados/1/findings").json(), b.get("/deputados/1/findings").json()
+    assert ra == rb
+    com, sem = rb[0]["evidencias"]
+    assert com["coletado_em"].startswith("2025-03-01")  # o fato mais antigo entre os que repetem o id
+    assert com["sha256_bruto"] == "e" * 64
+    assert sem["coletado_em"] is None and sem["sha256_bruto"] is None
+
+
+def test_votos_de_cada_deputado_sao_lidos_uma_vez_por_processo(bancos, monkeypatch):
+    chamadas: list[str] = []
+    original = Store.votos_do_deputado
+    monkeypatch.setattr(Store, "votos_do_deputado",
+                        lambda self, d: chamadas.append(d) or original(self, d))
+    a, b = "9900001", "9900002"
+    with TestClient(create_app(bancos[1])) as c:
+        for _ in range(3):
+            c.get("/comparar", params={"a": a, "b": b})
+            c.get("/comparar", params={"a": b, "b": a})
+            c.get("/perguntar", params={"deputado": a, "objetivo": "alinhado_governo"})
+    assert sorted(chamadas) == [a, b]

@@ -433,12 +433,13 @@ class Store:
         for tipo, id_oficial in pares:
             por_tipo.setdefault(tipo, []).append(id_oficial)
         saida: list[Fact] = []
-        for tipo, ids in por_tipo.items():
+        for tipo in sorted(por_tipo):
+            ids = sorted(set(por_tipo[tipo]))
             for i in range(0, len(ids), lote):
                 parte = ids[i:i + lote]
                 rows = self.con.execute(
                     "SELECT tipo, chave, fonte, id_oficial, url, coletado_em FROM fact WHERE tipo = ? "
-                    f"AND id_oficial IN ({','.join('?' * len(parte))})", [tipo, *parte]).fetchall()
+                    f"AND id_oficial IN ({','.join('?' * len(parte))}) ORDER BY chave", [tipo, *parte]).fetchall()
                 saida += [Fact(tipo=r[0], chave=r[1], atributos={}, fonte=r[2], id_oficial=r[3],
                                url=r[4], coletado_em=r[5]) for r in rows]
         return saida

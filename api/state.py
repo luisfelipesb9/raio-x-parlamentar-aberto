@@ -103,6 +103,7 @@ class SnapshotPublicado:
         self.provas: dict[tuple[str, str], Any] = {}  # cache de /perguntar
         self._findings: dict[str, list[Finding]] = {}
         self._votacoes: list[Fact] | None = None
+        self._votos: dict[str, list[Fact]] = {}
 
     @cached_property
     def vizinhos(self) -> dict[str, set[str]]:
@@ -118,14 +119,22 @@ class SnapshotPublicado:
                 self._findings[deputado_id] = self._estado._findings_do_banco(deputado_id)
             return self._findings[deputado_id]
 
+    def votacoes(self) -> list[Fact]:
+        with self._estado._lock:
+            if self._votacoes is None:
+                self._votacoes = self._estado._get_store().facts_by_tipo("votacao")
+            return self._votacoes
+
+    def votos(self, deputado_id: str) -> list[Fact]:
+        """Votos de um deputado, lidos do banco uma vez por processo (`/comparar` e `/perguntar` repetem)."""
+        with self._estado._lock:
+            if deputado_id not in self._votos:
+                self._votos[deputado_id] = self._estado._get_store().votos_do_deputado(deputado_id)
+            return self._votos[deputado_id]
+
     def afinidade(self, a: str, b: str) -> Any:
         """Mesma conta de `graph.afinidade_votos`, só com as votações e os votos dos dois deputados."""
-        with self._estado._lock:
-            store = self._estado._get_store()
-            if self._votacoes is None:
-                self._votacoes = store.facts_by_tipo("votacao")
-            fatos = [*self._votacoes, *store.votos_do_deputado(a), *store.votos_do_deputado(b)]
-        return afinidade_votos(fatos, a, b)
+        return afinidade_votos([*self.votacoes(), *self.votos(a), *self.votos(b)], a, b)
 
 
 class AppState:
@@ -274,14 +283,11 @@ class AppState:
         """O que `backward.prove` lê do `forward.run`: os findings (da tabela `inferencia`) e a base já
         restringida pelos guardrails, só usada no diagnóstico. A base mínima = todas as votações + os
         votos do deputado, com os mesmos guardrails; basta ao diagnóstico da R01 (ver ADR-011)."""
-        store = self._get_store()
-        if snap._votacoes is None:
-            snap._votacoes = store.facts_by_tipo("votacao")
-        base = FactBase([*snap._votacoes, *store.votos_do_deputado(deputado)])
+        base = FactBase([*snap.votacoes(), *snap.votos(deputado)])
         for r in regras:
             if r.tipo == "guardrail":
                 GUARDRAILS[r.predicado](base, r.parametros)
-        return InferenceResult(findings=store.inferencia_de(deputado), factbase=base)
+        return InferenceResult(findings=self._get_store().inferencia_de(deputado), factbase=base)
 
     def contagens(self) -> tuple[int, int, bool]:
         """(deputados, findings, pseudonimizado) sem montar o snapshot.

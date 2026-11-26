@@ -55,7 +55,7 @@ def test_referencias_continuam_resolvendo_dentro_do_conjunto(base):
 def test_tipos_compartilhados_nao_se_repetem_e_os_por_deputado_crescem(base):
     por_tipo_base, por_tipo = Counter(f.tipo for f in base), Counter(
         f.tipo for f in esc.replicar(base, copias=4))
-    for tipo in esc.COMPARTILHADOS:
+    for tipo in esc.COMPARTILHADOS:  # votações, proposições e PEP
         assert por_tipo[tipo] == por_tipo_base[tipo]
     for tipo in ("deputado", "voto", "despesa_ceap"):
         assert por_tipo[tipo] == 4 * por_tipo_base[tipo]
@@ -94,3 +94,27 @@ def test_gerar_origem_grava_fatos_findings_e_rotulo_nos_logs(base, tmp_path):
     s.con.close()
     assert logs and all(linha.startswith("SINTÉTICO") for linha in logs)
 
+
+
+# ---------- cada réplica tem as suas empresas (pior caso para o grafo: nada de nó compartilhado) ----------
+def test_empresa_socio_e_sancao_sao_replicados_com_cnpj_novo(base):
+    por_base, fatos = Counter(f.tipo for f in base), esc.replicar(base, copias=3)
+    por_tipo = Counter(f.tipo for f in fatos)
+    for tipo in ("empresa", "sancao", "socio"):
+        assert por_tipo[tipo] == 3 * por_base[tipo], tipo
+    cnpjs = lambda fs: {f.atributos["cnpj"] for f in fs if f.tipo == "despesa_ceap" and f.atributos.get("cnpj")}
+    assert len(cnpjs(fatos)) == 3 * len(cnpjs(base))
+    sancionados = {f.atributos["cnpj"] for f in fatos if f.tipo == "sancao"}
+    assert len(sancionados) == 3 * len({f.atributos["cnpj"] for f in base if f.tipo == "sancao"})
+
+
+def test_replica_parcial_leva_so_parte_das_empresas(base):
+    inteiro = Counter(f.tipo for f in esc.replicar(base, copias=3))
+    parcial = Counter(f.tipo for f in esc.replicar(base, copias=2.5))
+    assert Counter(f.tipo for f in base)["empresa"] * 2 < parcial["empresa"] < inteiro["empresa"]
+
+
+def test_links_acompanham_o_cnpj_novo_das_empresas():
+    from repo.links import EntityLink
+    (_, novo) = esc.replicar_links([EntityLink("despesa_ceap:d1", "empresa:11222333000181", "cnpj", 1.0)], 2)
+    assert novo.origem == "despesa_ceap:d1~1" and novo.destino == "empresa:11222333010181"

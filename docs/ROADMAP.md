@@ -9,6 +9,7 @@ Antes de começar, abra uma issue (modelos "Nova fonte" ou "Nova regra") e leia 
 | Bens declarados no TSE | Patrimônio declarado na candidatura, para uma regra de evolução patrimonial | Não (exige regra nova e cuidado com identidade) |
 | Presença e frentes parlamentares da Câmara | Novos fatos da API da Câmara para a ficha | Sim |
 | Calibração dos fatores de certeza | Hoje são escolhas do especialista; calibrar com dados rotulados e documentar o método | Não |
+| `make verifica` no banco público enxuto | Pendência da [ADR-011](adr/ADR-011-publicacao-enxuta-e-leitura-sob-demanda.md), não implementada: conferir no público que findings, contagens e ausência de CPF batem com a origem | Sim |
 | Cobertura dos 513 deputados | Hoje são 20 de MG; ampliar ingestão, janela de votações e desempenho | Não |
 | Regressivo interativo | Deixar a pessoa escolher o objetivo e responder perguntas que faltam para o motor | Não |
 | Validação com especialistas e leigos | Testar a linguagem e as regras com jornalistas, analistas e cidadãos; ver [HANDOFF](HANDOFF.md) | Sim (não exige código) |
