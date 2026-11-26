@@ -1,4 +1,4 @@
-"""Registro de fontes. Adicione a sua em REGISTRY (ver AGENTS.md)."""
+"""Registro de fontes. Adicione a sua em REGISTRY (ver CONTRIBUTING.md)."""
 from sources.camara.source import CamaraSource
 from sources.ceap.source import CeapSource
 from sources.cgu.source import CguSource

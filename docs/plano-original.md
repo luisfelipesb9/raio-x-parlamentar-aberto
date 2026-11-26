@@ -20,7 +20,7 @@ Regras iniciais (da pesquisa): Produção Legislativa Ponderada, Taxa de Governi
 
 ## System design
 
-### Princípios (valem para pessoas e agents)
+### Princípios (valem para todo o time)
 1. **Camadas com dependência em uma direção só**: `sources → ingest → facts → engine → api → web`. Nenhuma camada importa a de cima.
 2. **Contratos antes de código**: todo dado que cruza camadas é um schema versionado em `contracts/` (Pydantic → exporta JSON Schema → gera tipos TypeScript para o web). Mudou contrato = ADR + bump de versão.
 3. **Conhecimento é dado, não código**: regras em YAML; adicionar regra nova não exige tocar no motor.
@@ -56,8 +56,8 @@ Regras iniciais (da pesquisa): Produção Legislativa Ponderada, Taxa de Governi
 | Só deputados federais | Senado/estados = novos plugins em `sources/`, regras reaproveitadas |
 | API read-only com cache | CDN/ISR na ficha (página muda 1×/dia) |
 
-### Onboarding para pessoas e agents
-- `AGENTS.md` na raiz: mapa de pastas, regra de dependência, comandos (`make setup | ingest | infer | test | dev`), "como adicionar uma fonte" e "como adicionar uma regra" em passo a passo.
+### Onboarding de quem entra no projeto
+- `CONTRIBUTING.md` na raiz (e o mapa em `docs/mapa-do-repositorio.md`): mapa de pastas, regra de dependência, comandos (`make setup | ingest | infer | test | dev`), "como adicionar uma fonte" e "como adicionar uma regra" em passo a passo.
 - `README.md` curto em **cada** pasta: responsabilidade, entradas, saídas, dono.
 - `docs/adr/` (decisões), `docs/glossario.md` (CEAP, emenda Pix, CF…), `docs/arquitetura.md` com o diagrama acima.
 - Monorepo: `pyproject.toml` (uv) para Python, `pnpm` para web, `Makefile` como interface única; CI (GitHub Actions) roda lint, testes e valida contratos e YAML de regras.
@@ -73,7 +73,7 @@ Regras iniciais (da pesquisa): Produção Legislativa Ponderada, Taxa de Governi
 ## Estrutura do repositório e divisão (Luis faz a 1ª metade, Pedro Rodrigues finaliza a 2ª)
 ```
 raio-x-parlamentar/
-  AGENTS.md  README.md  Makefile  CODEOWNERS  .github/workflows/
+  CONTRIBUTING.md  README.md  Makefile  CODEOWNERS  .github/workflows/
   contracts/     Fact, Entity, Finding, Explanation, GraphNode/Edge (Pydantic + JSON Schema)  [LUIS]
   sources/       base.py (interface) + camara/ ceap/ tse/ cgu/ rfb/ opensanctions/            [LUIS]
   ingest/        pipeline.py, resolve/ (CPF/CNPJ, homonímia → entity_link com CF)             [LUIS]

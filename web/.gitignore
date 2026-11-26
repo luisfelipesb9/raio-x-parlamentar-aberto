@@ -7,3 +7,6 @@ test-results/
 .vercel
 .env*
 !.env.example
+
+# gerado pelo next dev
+AGENTS.md

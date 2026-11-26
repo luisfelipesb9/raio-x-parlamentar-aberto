@@ -2,7 +2,7 @@
 Status: Proposto · 2026-11-26
 
 ## Contexto
-`AGENTS.md` diz que `api/` e `web/` só leem o banco. Mas `Evidence.sha256_bruto` (contrato v0.2.0, ADR-007) vem do
+`docs/mapa-do-repositorio.md` diz que `api/` e `web/` só leem o banco. Mas `Evidence.sha256_bruto` (contrato v0.2.0, ADR-007) vem do
 manifesto `data/raw/manifest.json`, e findings gravados antes de o motor preencher esse campo ficam sem o hash. Para
 completá-los na leitura, a API consulta o manifesto. Isso é leitura de arquivo, fora do banco, e a primeira versão
 ainda importava o pacote `sources` (seis plugins de coleta, com dependências de rede) só para isso, o que pesava no

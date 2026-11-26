@@ -2,7 +2,7 @@
 Status: Proposto · 2026-11-22
 
 ## Contexto
-`AGENTS.md` define `sources → ingest → repo → engine → graph → api → web`. No código há duas importações que parecem
+`docs/mapa-do-repositorio.md` define `sources → ingest → repo → engine → graph → api → web`. No código há duas importações que parecem
 violá-la: `ingest/resolve` importa `repo.links` (`EntityLink`, `Ambiguidade`) e `engine/run.py` importa `repo.store.Store`.
 
 ## Decisão
