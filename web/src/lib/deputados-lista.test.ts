@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { agrupaPorUf, SEM_UF } from "./deputados-lista";
 
-const d = (id: string, nome: string, uf: string | null, partido: string | null = "PXX") => ({ id, nome, uf, partido });
+const d = (id: string, nome: string, uf: string | null, partido: string | null = "PXX") => ({ id, nome, uf, partido, foto: null });
 
 describe("agrupaPorUf", () => {
   it("agrupa por UF, com as UFs e os nomes em ordem alfabética (sem ranking)", () => {
