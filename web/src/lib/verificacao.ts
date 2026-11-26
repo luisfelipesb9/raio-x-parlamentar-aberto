@@ -99,6 +99,10 @@ const METRICAS: Record<string, { rotulo: string; tipo: Tipo }> = {
   n_emendas: { rotulo: "Emendas", tipo: "inteiro" },
   valor_emendas: { rotulo: "Valor das emendas", tipo: "reais" },
   n_emendas_pix_pre_2027: { rotulo: "Emendas Pix", tipo: "inteiro" },
+  n_circuitos: { rotulo: "Casos de doador que é sócio de fornecedor", tipo: "inteiro" },
+  n_confirmados: { rotulo: "Casos com a identidade confirmada (CPF)", tipo: "inteiro" },
+  valor_ceap: { rotulo: "Pago da cota parlamentar a essas empresas", tipo: "reais" },
+  valor_doado: { rotulo: "Doado à campanha pelos sócios", tipo: "reais" },
   ano_eleicao: { rotulo: "Ano da eleição usada", tipo: "texto" },
 };
 
@@ -145,12 +149,19 @@ const teto = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumF
 /** Nível de certeza com até 3 casas (0,665 não pode virar 0,67); 0,95 continua com duas. */
 export const formataTeto = (cf: number): string => teto.format(cf);
 
-/** Espelha knowledge/rules/R01_*.yaml: CF base 0,95 e fator 0,7 quando há menos de 30 votações com orientação. */
-const R01_CF_BASE = 0.95;
-const R01_FATOR_POUCAS_VOTACOES = 0.7;
-const R01_VOTACOES_PARA_SEM_PENALIDADE = 30;
+/**
+ * Espelham knowledge/rules/R01_governismo.yaml (tests/unit/test_constantes_web.py falha se divergirem):
+ * CF base, limiar de "alinhado" e o fator aplicado quando o deputado tem poucos votos válidos.
+ */
+export const R01_CF_BASE = 0.95;
+export const R01_LIMIAR = 0.7;
+export const R01_FATOR_POUCOS_VOTOS = 0.7;
+export const R01_VOTOS_PARA_SEM_PENALIDADE = 30;
 
-/** Maior nível de certeza que a R01 pode atingir com `nVotacoes` votações nominais com orientação do governo. */
+/**
+ * Maior nível de certeza que a R01 pode atingir quando a janela tem `nVotacoes` votações com orientação do governo:
+ * ninguém tem mais votos válidos do que votações na janela, então abaixo de 30 a penalidade vale para todos.
+ */
 export function nivelMaximoR01(nVotacoes: number): number {
-  return nVotacoes < R01_VOTACOES_PARA_SEM_PENALIDADE ? R01_CF_BASE * R01_FATOR_POUCAS_VOTACOES : R01_CF_BASE;
+  return nVotacoes < R01_VOTOS_PARA_SEM_PENALIDADE ? R01_CF_BASE * R01_FATOR_POUCOS_VOTOS : R01_CF_BASE;
 }

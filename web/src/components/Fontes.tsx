@@ -3,13 +3,25 @@
 import Link from "next/link";
 import type { CoberturaResposta } from "@/types/contracts";
 import { useApi } from "@/lib/useApi";
-import { formataData, formataTeto, listaTipos, nivelMaximoR01, rotuloFonte } from "@/lib/verificacao";
+import { formataPercentual } from "@/lib/formato";
+import {
+  formataData,
+  formataTeto,
+  listaTipos,
+  nivelMaximoR01,
+  R01_CF_BASE,
+  R01_FATOR_POUCOS_VOTOS,
+  R01_LIMIAR,
+  R01_VOTOS_PARA_SEM_PENALIDADE,
+  rotuloFonte,
+} from "@/lib/verificacao";
 import { AvisoNaoAcusacao } from "./Aviso";
 import { Carregando, ErroApi } from "./Estados";
 import { ResumoJanela } from "./PainelDados";
 import { Termo } from "./Termo";
 
 const fmtInt = new Intl.NumberFormat("pt-BR");
+const fmtFator = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
 
 /** Página "Fontes e método": o que a base cobre (vindo da API) e como o sistema chega às conclusões. */
 export function Fontes() {
@@ -90,13 +102,13 @@ function Cobertura({ c }: { c: CoberturaResposta }) {
 function Metodo({ c, carregando }: { c: CoberturaResposta | null; carregando: boolean }) {
   const nOrientadas = c?.janela_votos.n_votacoes_com_orientacao ?? null;
   const maximo = nOrientadas === null ? null : nivelMaximoR01(nOrientadas);
-  const limitado = maximo !== null && maximo < 0.95;
+  const limitado = maximo !== null && maximo < R01_CF_BASE;
   return (
     <section className="bloco-pagina" aria-labelledby="h-metodo">
       <h2 id="h-metodo">Como o sistema chega às conclusões</h2>
       <p>
         O sistema é um <em>sistema especialista</em>: uma base de regras escritas por pessoas (por exemplo, &ldquo;se o deputado votou com o governo em
-        pelo menos 70% das votações em que o governo orientou, então o alinhamento é alto&rdquo;) aplicadas aos dados públicos. Ele não adivinha nem
+        pelo menos {formataPercentual(R01_LIMIAR)} das votações em que o governo orientou, então o alinhamento é alto&rdquo;) aplicadas aos dados públicos. Ele não adivinha nem
         usa opinião: cada conclusão aponta a regra, os dados e o link da fonte.
       </p>
       <p>
@@ -106,16 +118,19 @@ function Metodo({ c, carregando }: { c: CoberturaResposta | null; carregando: bo
       </p>
       <h3>Por que o nível de certeza tem um teto{maximo === null ? "" : ` (${formataTeto(maximo)} na regra de alinhamento)`}</h3>
       {maximo !== null && nOrientadas !== null ? (
-        <p>
-          A regra de alinhamento com o governo (R01) parte de 0,95. Com menos de 30 votações em que o governo orientou, ela reduz a certeza em 30%
-          (fator 0,7). A janela atual tem <strong>{nOrientadas}</strong> dessas votações, então o <Termo id="nivel-certeza-maximo">nível de certeza máximo</Termo>{" "}
-          é <strong>{formataTeto(maximo)}</strong>{limitado ? ": nenhum deputado passa disso, por mais claro que seja o padrão." : "."}{" "}
-          {limitado && (
-            <>
-              Ampliar a janela de votação é possível: coletar mais votações nominais eleva o teto até 0,95, sem mudar nenhuma regra.
-            </>
-          )}
-        </p>
+        <>
+          <p>
+            A regra de alinhamento com o governo (R01) parte de {formataTeto(R01_CF_BASE)}. Quando o deputado tem menos de {R01_VOTOS_PARA_SEM_PENALIDADE}{" "}
+            <Termo id="votos-validos">votos válidos</Termo>, a certeza é multiplicada por {fmtFator.format(R01_FATOR_POUCOS_VOTOS)}.
+          </p>
+          <p>
+            A janela atual tem <strong>{nOrientadas}</strong> votações em que o governo orientou, e ninguém tem mais votos válidos do que votações na
+            janela. Por isso o <Termo id="nivel-certeza-maximo">nível de certeza máximo</Termo> é <strong>{formataTeto(maximo)}</strong>
+            {limitado
+              ? ` (o teto enquanto os deputados tiverem poucos votos válidos): nenhum deputado passa disso, por mais claro que seja o padrão. Uma janela maior permite chegar a ${formataTeto(R01_CF_BASE)}, sem mudar nenhuma regra.`
+              : "."}
+          </p>
+        </>
       ) : carregando ? (
         <Carregando texto="Carregando a janela de votação…" />
       ) : (

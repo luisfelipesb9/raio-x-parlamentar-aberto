@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { formataData, formataTeto, linhasMetricas, listaTipos, nivelMaximoR01, nomeRegra, periodoColeta, rotuloFonte, rotuloMetrica } from "./verificacao";
+import {
+  formataData,
+  formataTeto,
+  linhasMetricas,
+  listaTipos,
+  nivelMaximoR01,
+  nomeRegra,
+  periodoColeta,
+  R01_CF_BASE,
+  R01_FATOR_POUCOS_VOTOS,
+  R01_LIMIAR,
+  R01_VOTOS_PARA_SEM_PENALIDADE,
+  rotuloFonte,
+  rotuloMetrica,
+} from "./verificacao";
 
 describe("formataData", () => {
   it("data pura (AAAA-MM-DD) não muda de dia por fuso", () => {
@@ -66,6 +80,18 @@ describe("rotuloMetrica e linhasMetricas", () => {
     expect(por["categoria_top"]).toBe("Combustíveis");
   });
 
+  it("métricas da R06/R06b têm rótulo de leigo e valores em reais", () => {
+    for (const chave of ["n_circuitos", "n_confirmados", "valor_ceap", "valor_doado"]) {
+      expect(rotuloMetrica(chave)).not.toBe(chave.replaceAll("_", " "));
+    }
+    const linhas = linhasMetricas({ n_circuitos: 2, n_confirmados: 1, valor_ceap: 15234.5, valor_doado: 3000 });
+    const por = Object.fromEntries(linhas.map((l) => [l.chave, l.valor]));
+    expect(por["n_circuitos"]).toBe("2");
+    expect(por["n_confirmados"]).toBe("1");
+    expect(por["valor_ceap"]).toMatch(/^R\$\s?15\.235$/);
+    expect(por["valor_doado"]).toMatch(/^R\$\s?3\.000$/);
+  });
+
   it("sem valores devolve lista vazia", () => {
     expect(linhasMetricas({})).toEqual([]);
   });
@@ -95,5 +121,19 @@ describe("nivelMaximoR01", () => {
   it("com 30 ou mais votações o teto é o CF base da regra (0,95)", () => {
     expect(nivelMaximoR01(30)).toBe(0.95);
     expect(nivelMaximoR01(150)).toBe(0.95);
+  });
+});
+
+describe("constantes e teto da R01", () => {
+  it("exporta os números da regra para o texto da página de fontes", () => {
+    expect(R01_CF_BASE).toBe(0.95);
+    expect(R01_LIMIAR).toBe(0.7);
+    expect(R01_FATOR_POUCOS_VOTOS).toBe(0.7);
+    expect(R01_VOTOS_PARA_SEM_PENALIDADE).toBe(30);
+  });
+
+  it("o teto é 0,665 com poucos votos possíveis e volta a 0,95 com 30 ou mais", () => {
+    expect(formataTeto(nivelMaximoR01(13))).toBe("0,665");
+    expect(nivelMaximoR01(30)).toBe(0.95);
   });
 });
