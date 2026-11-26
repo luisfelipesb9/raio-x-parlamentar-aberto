@@ -44,7 +44,7 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4  # a versão vem do campo packageManager de web/package.json
+      - uses: pnpm/action-setup@v6  # a versão vem do campo packageManager de web/package.json
         with:
           package_json_file: web/package.json
       - uses: actions/setup-node@v4
