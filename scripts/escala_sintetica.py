@@ -36,11 +36,13 @@ from repo.store import Store
 
 ROTULO = "SINTÉTICO"
 COPIAS_PADRAO = 513 / 20  # 25,65: a amostra tem 20 deputados
-# Cada deputado tem os seus; os demais (votações, proposições, empresas, sanções, sócios, PEP) são do mundo
-# e não se repetem (513 deputados votam nas mesmas votações e pagam as mesmas empresas).
+# Cada deputado tem os seus; votações, proposições e PEP são do mundo e não se repetem (513 deputados votam
+# nas mesmas votações). Empresas, sócios e sanções também são replicados, com CNPJ novo por réplica: o pior
+# caso para o grafo (cada deputado com fornecedores próprios, sem nó de empresa compartilhado).
 POR_REPLICA = ("deputado", "candidatura", "voto", "despesa_ceap", "doacao", "emenda", "autoria",
                "votos_municipio")
-COMPARTILHADOS = ("votacao", "proposicao", "empresa", "sancao", "socio", "pep")
+POR_REPLICA_EMPRESA = ("empresa", "socio", "sancao")  # sem dono: entram por fração da réplica
+COMPARTILHADOS = ("votacao", "proposicao", "pep")
 LIMITE_ARQUIVO_MB, LIMITE_RAM_MB, LIMITE_PARTIDA_S = 80, 1024, 10.0  # gatilho do plano B (ADR-011)
 
 
@@ -54,6 +56,14 @@ def _sq(valor: str, k: int) -> str:
 
 def _suf(valor: str, k: int) -> str:
     return valor if k == 0 else f"{valor}~{k}"
+
+
+def _cnpj(valor: str, k: int) -> str:
+    """CNPJ da réplica `k`: troca os 4 dígitos da ordem do estabelecimento (sem validar o DV)."""
+    d = re.sub(r"\D", "", str(valor))
+    if k == 0 or len(d) != 14 or "*" in str(valor):
+        return valor
+    return d[:8] + f"{(int(d[8:12]) + k * 100) % 10000:04d}" + d[12:]
 
 
 def _dono(f: Fact, sq_dep: dict[str, str]) -> str | None:
@@ -81,8 +91,24 @@ def _copiar(f: Fact, k: int) -> Fact:
         chave = f"{at['votacao_id']}:{at['deputado_id']}"
     elif f.tipo in ("despesa_ceap", "emenda"):
         at["deputado_id"] = _dep(str(at["deputado_id"]), k)
+        if at.get("cnpj"):
+            at["cnpj"] = _cnpj(at["cnpj"], k)
+        chave, id_oficial = _suf(f.chave, k), _suf(f.id_oficial, k)
+    elif f.tipo == "empresa":
+        chave = id_oficial = _cnpj(f.chave, k)
+    elif f.tipo == "socio":
+        antigo = str(at["cnpj"])
+        at["cnpj"] = _cnpj(antigo, k)
+        chave = at["cnpj"] + f.chave[len(antigo):] if f.chave.startswith(antigo) else _suf(f.chave, k)
+        id_oficial = (at["cnpj"] + f.id_oficial[len(antigo):] if f.id_oficial.startswith(antigo)
+                      else _suf(f.id_oficial, k))
+    elif f.tipo == "sancao":
+        if at.get("cnpj"):
+            at["cnpj"] = _cnpj(at["cnpj"], k)
         chave, id_oficial = _suf(f.chave, k), _suf(f.id_oficial, k)
     elif f.tipo == "doacao":
+        if at.get("tipo_doador") == "PJ" and at.get("doador_cpf_cnpj"):
+            at["doador_cpf_cnpj"] = _cnpj(str(at["doador_cpf_cnpj"]), k)
         at["sq_candidato"] = _sq(str(at["sq_candidato"]), k)
         chave, id_oficial = _suf(f.chave, k), _suf(f.id_oficial, k)
     elif f.tipo == "autoria":
@@ -118,13 +144,18 @@ def replicar(fatos: Sequence[Fact], copias: float = COPIAS_PADRAO) -> list[Fact]
         escolhidos = set(deputados if k < n_rep - 1 else deputados[:resto])
         saida += [_copiar(f, k) for f in fatos
                   if f.tipo in POR_REPLICA and _dono(f, sq_dep) in escolhidos]
+        for tipo in POR_REPLICA_EMPRESA:  # a última réplica leva a fração proporcional aos deputados
+            lista = [f for f in fatos if f.tipo == tipo]
+            if k == n_rep - 1:
+                lista = lista[:round(len(lista) * resto / len(deputados))]
+            saida += [_copiar(f, k) for f in lista]
     return saida
 
 
 def _ref(ref: str, k: int) -> str:
     tipo, _, chave = ref.partition(":")
     novo = {"deputado": _dep, "candidatura": _sq, "despesa_ceap": _suf, "doacao": _suf,
-            "emenda": _suf}.get(tipo)
+            "emenda": _suf, "empresa": _cnpj, "sancao": _suf}.get(tipo)
     return f"{tipo}:{novo(chave, k)}" if novo else ref
 
 

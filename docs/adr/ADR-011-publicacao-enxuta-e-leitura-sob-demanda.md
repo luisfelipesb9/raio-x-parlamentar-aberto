@@ -1,5 +1,5 @@
 # ADR-011 — Banco público enxuto e API sem snapshot global de fatos
-Status: Aceito · 2026-11-26 (desenho aprovado pelo dono; parte 1, o passo `publicar/`, implementada; a API sob demanda vem no PR seguinte)
+Status: Aceito · 2026-11-26. Implementado: o passo `publicar/` (PR #45) e a API sob demanda (PR #48). **NÃO implementado:** o item de `make verifica` no banco público (ver Consequências). Aceite com dados nacionais reais ainda pendente.
 
 ## Contexto
 A pesquisa de viabilidade ([`pesquisa.md`](../ampliacao/pesquisa.md)) e as medições ([`medicoes.md`](../ampliacao/medicoes.md))
@@ -66,8 +66,10 @@ passar de **10 s**. Qualquer custo exige novo ok do dono do projeto.
 
 ## Consequências
 - O banco público deixa de ser reprodutível por `make verifica` sozinho (faltam as despesas cruas): `verifica` continua rodando
-  no banco de trabalho completo; no público passa a conferir que findings, contagens (`publicacao_meta`) e ausência de CPF
-  batem com o banco de origem (hash registrado).
+  no banco de trabalho completo (a origem pseudonimizada). **A parte "no público passa a conferir que findings, contagens (`publicacao_meta`)
+  e ausência de CPF batem com o banco de origem (hash registrado)" NÃO foi implementada**: hoje `publicar` registra o hash em
+  `publicacao_meta.origem_sha256` e a varredura de CPF roda dentro dele, mas `scripts/verifica.py` não lê o banco público. Pendência aberta
+  em `docs/HANDOFF.md` (seção Pendências).
 - Menos dado pessoal publicado (minimização, LGPD): despesas e doações que não sustentam achado ficam só no banco local.
   Quem quiser tudo reproduz com `make ingest` (código aberto).
 - Mudança de arquitetura em `repo/`, `api/`, nova pasta `publicar/` e `Makefile`; migração do banco público atual por regeneração.

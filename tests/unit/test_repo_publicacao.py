@@ -212,3 +212,11 @@ def test_voto_de_votacao_simbolica_nao_vai_para_o_arquivo_publico(tmp_path):
     # (votação ausente) fica, como em `Store.contagem_votos`
     assert sorted(f.chave for f in pub.facts_by_tipo("voto")) == ["nom:1", "orfao:1"]
     pub.con.close()
+
+
+def test_fatos_leves_voltam_em_ordem_deterministica(store):
+    store.upsert_facts([F("emenda", "b"), F("despesa_ceap", "z"), F("despesa_ceap", "a"),
+                        F("emenda", "a")])
+    pares = {("emenda", "a"), ("emenda", "b"), ("despesa_ceap", "z"), ("despesa_ceap", "a")}
+    ordem = [(f.tipo, f.chave) for f in store.fatos_leves(pares)]
+    assert ordem == [("despesa_ceap", "a"), ("despesa_ceap", "z"), ("emenda", "a"), ("emenda", "b")]
