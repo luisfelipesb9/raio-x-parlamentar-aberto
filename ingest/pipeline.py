@@ -16,10 +16,10 @@ import argparse
 import inspect
 import json
 from collections import defaultdict
-from collections.abc import Callable, Collection, Iterable
+from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from contracts import Fact
 from ingest.pseudonimizar import pseudonimizar_fatos, salt_do_ambiente
@@ -70,6 +70,45 @@ def selecionar_escopo(deputados: Iterable[Fact], uf: str | None, amostra: int | 
     return set(ids[:amostra] if amostra else ids)
 
 
+# ---------- provedor de dados da Receita (ponto de extensão) ----------
+
+@dataclass
+class ResultadoCnpj:
+    """O que um provedor devolve: fatos `empresa`/`socio` e os CNPJs que não conseguiu obter
+    (a empresa fica sem dados da Receita; nada é inventado)."""
+
+    fatos: list[Fact]
+    indisponiveis: list[str] = field(default_factory=list)
+
+
+class ProvedorCnpj(Protocol):
+    """Quem entrega empresa e quadro societário de uma lista de CNPJs (14 posições, válidos).
+
+    `em_massa=False`: consulta um CNPJ por vez em serviço de terceiros (BrasilAPI); o pipeline
+    entrega só os `--limite-rfb` CNPJs de maior valor. `em_massa=True`: aguenta o conjunto inteiro
+    (ex.: um futuro provedor que varre o arquivo mensal filtrado da Receita em streaming); o
+    pipeline entrega todos e o limite não vale. `--limite-rfb 0` desliga a Receita em ambos.
+    Para plugar um provedor novo: implemente `buscar` e passe `Pipeline(provedor_rfb=...)`.
+    """
+
+    em_massa: bool
+
+    def buscar(self, cnpjs: Sequence[str], reusar_raw: bool) -> ResultadoCnpj: ...
+
+
+class ProvedorBrasilApi:
+    """Padrão: a fonte `rfb` do registro (BrasilAPI, uma consulta por CNPJ, com pausa e retry)."""
+
+    em_massa = False
+
+    def __init__(self, fonte: Any):
+        self.fonte = fonte
+
+    def buscar(self, cnpjs: Sequence[str], reusar_raw: bool) -> ResultadoCnpj:
+        raw = chamar_fetch(self.fonte, cnpjs=cnpjs, reusar_raw=reusar_raw)
+        return ResultadoCnpj(self.fonte.normalize(raw), list(raw.get("indisponiveis", [])))
+
+
 # ---------- opções e pipeline ----------
 
 @dataclass
@@ -98,6 +137,7 @@ class Pipeline:
     store: Store
     opcoes: Opcoes
     registry: dict = field(default_factory=lambda: dict(REGISTRY))
+    provedor_rfb: ProvedorCnpj | None = None  # None: BrasilAPI pela fonte `rfb` do registry
     log: Callable[[str], None] = print
     todos_deputados: list[Fact] = field(default_factory=list)
     escopo: set[str] | None = None
@@ -378,27 +418,27 @@ class Pipeline:
         if o.limite_rfb <= 0:
             self.relatorio["rfb"] = {"consultados": 0}
             return
-        src = self.registry["rfb"]()
-        cnpjs = self._cnpjs_para_rfb(o.limite_rfb)
+        provedor = self.provedor_rfb or ProvedorBrasilApi(self.registry["rfb"]())
+        cnpjs = self._cnpjs_para_rfb(None if provedor.em_massa else o.limite_rfb)
         if not cnpjs:
             self.relatorio["rfb"] = {"consultados": 0}
             return
-        raw = chamar_fetch(src, cnpjs=cnpjs, reusar_raw=o.reusar_raw)
-        fatos = src.normalize(raw)
+        res = provedor.buscar(cnpjs, o.reusar_raw)
+        fatos = res.fatos
         self.store.delete_facts("socio", onde={"cnpj": cnpjs})
         self._gravar(fatos)
-        indisponiveis = raw.get("indisponiveis", [])
-        if indisponiveis:
-            self.log(f"    ATENÇÃO: {len(indisponiveis)} CNPJ(s) sem dados da Receita (BrasilAPI "
-                     f"indisponível): {', '.join(indisponiveis)}")
+        if res.indisponiveis:
+            self.log(f"    ATENÇÃO: {len(res.indisponiveis)} CNPJ(s) sem dados da Receita "
+                     f"(provedor indisponível): {', '.join(res.indisponiveis)}")
         self.relatorio["rfb"] = {"consultados": len(cnpjs),
                                  "empresas": sum(1 for f in fatos if f.tipo == "empresa"),
                                  "socios": sum(1 for f in fatos if f.tipo == "socio"),
-                                 "indisponiveis": indisponiveis}
+                                 "indisponiveis": res.indisponiveis}
 
-    def _cnpjs_para_rfb(self, limite: int) -> list[str]:
-        """Os `limite` CNPJs válidos de maior valor vistos em despesa_ceap/doacao (PJ), menos os
-        que já têm `empresa` gravada: re-executar com o mesmo limite não consulta nada de novo."""
+    def _cnpjs_para_rfb(self, limite: int | None) -> list[str]:
+        """Os `limite` CNPJs válidos de maior valor vistos em despesa_ceap/doacao (PJ) (todos, se
+        `limite` for None), menos os que já têm `empresa` gravada: re-executar com o mesmo limite
+        não consulta nada de novo."""
         valor: dict[str, float] = defaultdict(float)
         for f in self.store.facts_by_tipo("despesa_ceap"):
             if f.atributos.get("cnpj") and self._no_escopo(f.atributos.get("deputado_id")):
