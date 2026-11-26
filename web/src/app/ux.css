@@ -1,0 +1,31 @@
+/* Raio-X Parlamentar — melhorias de usabilidade (faixa U). Usa só os tokens de globals.css:
+   claro é o padrão e o escuro vem de [data-theme="dark"], então nada aqui fixa cor. */
+
+/* ---------- /perguntar: resposta sem conclusão ---------- */
+.sem-conclusao {
+  margin: 16px 0;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--borda-forte);
+  border-left: 4px solid var(--acento);
+  border-radius: var(--raio);
+}
+.sem-conclusao h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+.sem-conclusao ul {
+  margin: 0 0 12px;
+  padding-left: 1.2em;
+}
+.sem-conclusao li {
+  margin: 4px 0;
+  max-width: 68ch;
+}
+.sem-conclusao-rotulo {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}

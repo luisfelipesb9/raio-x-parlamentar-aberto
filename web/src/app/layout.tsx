@@ -6,6 +6,7 @@ import { Nav, PausaToggle, TemaToggle } from "@/components/Nav";
 import { TLink, TransicaoProvider } from "@/components/Transicao";
 import { CONTRACT_VERSION } from "@/types/contracts";
 import "./globals.css";
+import "./ux.css";
 
 // Manrope variável (200–800): única família da identidade (ver DESIGN.md)
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", display: "swap" });

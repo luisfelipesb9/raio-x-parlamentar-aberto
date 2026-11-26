@@ -31,7 +31,7 @@ export const NIVEIS: Record<Nivel, InfoNivel> = {
     rotulo: "Inconclusivo",
     barras: 1,
     explicacao:
-      "O sistema não encontrou base suficiente para concluir. Isso não significa que esteja tudo certo: significa que não dá para afirmar nada com estes dados.",
+      "O sistema não encontrou base suficiente para concluir. Isso não significa que esteja tudo certo nem que haja algo errado: só que estes dados não permitem afirmar nada.",
   },
 };
 

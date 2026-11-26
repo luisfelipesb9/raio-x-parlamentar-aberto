@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useId, useState } from "react";
-import type { PerfilDeputado, PerguntarResposta } from "@/types/contracts";
+import { useId, useRef, useState } from "react";
+import type { PassoProva, PerfilDeputado, PerguntarResposta } from "@/types/contracts";
 import { OBJETIVOS } from "@/lib/formato";
+import { fraseDiagnostico, resumoDiagnosticos, type ProximoPasso } from "@/lib/diagnostico";
 import { formataCf, NIVEIS } from "@/lib/nivel";
 import { montaArvore, type NoProva } from "@/lib/trilha";
 import { useApi } from "@/lib/useApi";
@@ -24,6 +25,7 @@ export function Perguntar() {
   const [objetivo, setObjetivo] = useState(OBJETIVOS.some((o) => o.id === objetivoUrl) ? (objetivoUrl as string) : OBJETIVOS[0]!.id);
   const [feita, setFeita] = useState<string | null>(OBJETIVOS.some((o) => o.id === objetivoUrl) ? (objetivoUrl as string) : null);
   const selectId = useId();
+  const selectRef = useRef<HTMLSelectElement>(null);
 
   const perfil = useApi<PerfilDeputado>(deputado ? `/deputados/${encodeURIComponent(deputado)}` : null);
   const resposta = useApi<PerguntarResposta>(deputado && feita ? "/perguntar" : null, { deputado: deputado ?? undefined, objetivo: feita ?? undefined });
@@ -57,7 +59,7 @@ export function Perguntar() {
       <form className="form-perguntar" onSubmit={enviar}>
         <div className="campo">
           <label className="campo-rotulo" htmlFor={selectId}>O que você quer saber?</label>
-          <select id={selectId} value={objetivo} onChange={(e) => setObjetivo(e.target.value)}>
+          <select id={selectId} ref={selectRef} value={objetivo} onChange={(e) => setObjetivo(e.target.value)}>
             {OBJETIVOS.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.pergunta}
@@ -73,13 +75,14 @@ export function Perguntar() {
 
       {resposta.estado.status === "carregando" && <Carregando texto="O sistema está raciocinando…" />}
       {resposta.estado.status === "erro" && <ErroApi erro={resposta.estado.erro} onTentarDeNovo={resposta.recarregar} />}
-      {resposta.estado.status === "ok" && <Resultado r={resposta.estado.data} />}
+      {resposta.estado.status === "ok" && <Resultado r={resposta.estado.data} aoPerguntarOutra={() => selectRef.current?.focus()} />}
     </div>
   );
 }
 
-function Resultado({ r }: { r: PerguntarResposta }) {
+function Resultado({ r, aoPerguntarOutra }: { r: PerguntarResposta; aoPerguntarOutra: () => void }) {
   const arvore = montaArvore(r.trilha);
+  const semConclusao = r.regras_usadas.length === 0 ? resumoDiagnosticos(r.trilha) : null;
   return (
     <section className="resposta" aria-label="Resposta do sistema">
       <p className="eyebrow">Resposta do sistema</p>
@@ -102,7 +105,7 @@ function Resultado({ r }: { r: PerguntarResposta }) {
           Regras que sustentam a resposta: <strong>{r.regras_usadas.join(", ")}</strong>.
         </p>
       ) : (
-        <p>Nenhuma regra se confirmou com os dados atuais.</p>
+        <SemConclusao frases={semConclusao?.frases ?? []} proximos={semConclusao?.proximos ?? ["outra-pergunta", "cobertura"]} aoPerguntarOutra={aoPerguntarOutra} />
       )}
       <AvisoNaoAcusacao compacto />
 
@@ -144,11 +147,44 @@ function Resultado({ r }: { r: PerguntarResposta }) {
   );
 }
 
-function notaLegivel(nota: string): string {
-  const f = nota.match(/^finding (.+)$/);
+function notaLegivel(passo: PassoProva): string {
+  if (passo.diagnostico) return fraseDiagnostico(passo.diagnostico);
+  const f = passo.nota.match(/^finding (.+)$/);
   if (f) return `Gerou o alerta ${f[1]}.`;
-  if (nota === "condições não satisfeitas") return "Os dados atuais não ativam esta regra (isso não prova que esteja tudo certo).";
-  return nota;
+  if (passo.nota === "condições não satisfeitas") return fraseDiagnostico(null);
+  return passo.nota;
+}
+
+/** Quando nenhuma regra se confirmou: diz o motivo concreto e o que a pessoa pode fazer em seguida. */
+function SemConclusao({ frases, proximos, aoPerguntarOutra }: { frases: string[]; proximos: ProximoPasso[]; aoPerguntarOutra: () => void }) {
+  return (
+    <div className="sem-conclusao">
+      <h3>Por que o sistema não concluiu</h3>
+      {frases.length > 0 ? (
+        <ul>
+          {frases.map((f) => (
+            <li key={f}>{f}</li>
+          ))}
+        </ul>
+      ) : (
+        <p>Nenhuma regra se confirmou com os dados atuais.</p>
+      )}
+      <p className="sem-conclusao-rotulo">O que fazer agora:</p>
+      <div className="acoes">
+        {proximos.map((p) =>
+          p === "cobertura" ? (
+            <Link key={p} className="btn btn-sec" href="/fontes">
+              Ver a cobertura dos dados
+            </Link>
+          ) : (
+            <button key={p} type="button" className="btn btn-sec" onClick={aoPerguntarOutra}>
+              Fazer outra pergunta
+            </button>
+          ),
+        )}
+      </div>
+    </div>
+  );
 }
 
 function NoArvore({ no, nivel }: { no: NoProva; nivel: number }) {
@@ -163,7 +199,7 @@ function NoArvore({ no, nivel }: { no: NoProva; nivel: number }) {
           CF {formataCf(passo.cf)} · <strong>{confirmado ? "confirmado" : "não confirmado"}</strong>
         </span>
       </div>
-      <p className="no-nota">{notaLegivel(passo.nota)}</p>
+      <p className="no-nota">{notaLegivel(passo)}</p>
       {no.filhos.length > 0 && (
         <ul role="group">
           {no.filhos.map((f, i) => (
