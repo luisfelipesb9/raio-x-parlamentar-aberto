@@ -18,7 +18,7 @@ determinístico; o inglês é o idioma principal (português precisa de validaç
 são da própria empresa.
 
 ## Decisão
-- Criar a interface `engine/judge.py` (ainda **não existe**) com `decidir(pergunta, opcoes) -> Decisao(opcao, probabilidade, confianca)`.
+- Criar a interface `engine/judge.py` (hoje só com o `NullJudge`; o `JevJudge` **não existe** e `RAIO_X_JUDGE=jev` dá erro; nada está ligado ao `/perguntar`) com `decidir(pergunta, opcoes) -> Decisao(opcao, probabilidade, confianca)`.
 - `NullJudge` é o padrão: determinístico, sem rede (ex.: casa palavras-chave ou devolve "sem decisão"). `JevJudge` é opcional.
 - **O julgamento nunca altera CF, regras nem guardrails.** Ele só escolhe uma opção de roteamento, desempate ou ordenação; a
   conclusão continua sendo calculada por `engine/forward.py` e `engine/backward.py`.
