@@ -10,3 +10,4 @@
 | [007](ADR-007-contrato-v0-2-0.md) | Contrato v0.2.0: transparência do corte, diagnóstico, proveniência e cobertura | Proposto |
 | [008](ADR-008-jev-juiz-consultivo.md) | Jev como juiz consultivo opcional (extensão proposta) | Proposto |
 | [009](ADR-009-api-le-manifesto-do-bruto.md) | A API lê o manifesto do bruto (exceção a "a API só lê o banco") | Proposto |
+| [010](ADR-010-web-le-conteudo-no-build.md) | O web lê o conteúdo e as regras no build (exceção a "web só lê o banco") | Aceito |

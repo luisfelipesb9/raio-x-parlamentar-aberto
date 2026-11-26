@@ -149,7 +149,7 @@ export function termosLd(termos: ReadonlyArray<Termo>) {
       name: texto(t.termo),
       termCode: t.id,
       description: texto(t.porQueImporta ? `${t.definicao} ${t.porQueImporta}` : t.definicao),
-      url: `${urlGlossario}#${encodeURIComponent(t.id)}`,
+      url: `${urlGlossario}/${encodeURIComponent(t.id)}`,
       inDefinedTermSet: urlGlossario,
     })),
   };
@@ -166,5 +166,48 @@ export function faqLd(pares: ReadonlyArray<{ pergunta: string; resposta: string 
       name: texto(p.pergunta),
       acceptedAnswer: { "@type": "Answer", text: texto(p.resposta) },
     })),
+  };
+}
+
+/** AAAA-MM-DD que existe no calendário. "2026-02-31" não vale (o JavaScript a corrigiria para março em silêncio). */
+export function dataIsoValida(iso: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return false;
+  const [ano, mes, dia] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const d = new Date(Date.UTC(ano, mes - 1, dia));
+  return d.getUTCFullYear() === ano && d.getUTCMonth() === mes - 1 && d.getUTCDate() === dia;
+}
+
+/** Artigo técnico (método, regras, dados, guia). Só diz o que a página mostra; a data só entra se for AAAA-MM-DD válida. */
+export function artigoLd(opcoes: { titulo: string; descricao: string; caminho: string; atualizado?: string | null }) {
+  const url = urlAbsoluta(opcoes.caminho);
+  const atualizado = opcoes.atualizado && dataIsoValida(opcoes.atualizado) ? opcoes.atualizado : undefined;
+  return {
+    "@context": CONTEXTO,
+    "@type": "TechArticle",
+    headline: texto(opcoes.titulo),
+    description: texto(opcoes.descricao),
+    url,
+    mainEntityOfPage: { "@type": "WebPage", "@id": url },
+    inLanguage: "pt-BR",
+    isAccessibleForFree: true,
+    author: { "@id": ID_ORGANIZACAO },
+    publisher: { "@id": ID_ORGANIZACAO },
+    ...(atualizado ? { dateModified: atualizado } : {}),
+  };
+}
+
+/** Um termo do glossário na própria página. Mesmo texto que a página mostra. */
+export function termoLd(t: Termo) {
+  const urlGlossario = urlAbsoluta("/glossario");
+  return {
+    "@context": CONTEXTO,
+    "@type": "DefinedTerm",
+    name: texto(t.termo),
+    termCode: t.id,
+    description: texto(t.porQueImporta ? `${t.definicao} ${t.porQueImporta}` : t.definicao),
+    url: `${urlGlossario}/${encodeURIComponent(t.id)}`,
+    inLanguage: "pt-BR",
+    inDefinedTermSet: urlGlossario,
   };
 }

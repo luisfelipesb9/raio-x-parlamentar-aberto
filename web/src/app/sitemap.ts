@@ -1,5 +1,8 @@
 import type { MetadataRoute } from "next";
 import type { CoberturaResposta, DeputadoResumo } from "@/types/contracts";
+import { CONTEUDO } from "@/content/conteudo";
+import { rotasDeConteudo } from "@/content/rotas";
+import { GLOSSARIO } from "@/lib/glossario";
 import { servidorGet, servidorTodosDeputados } from "@/lib/server-api";
 import { fallbackSeBuild, montaSitemap, ultimaColeta } from "@/lib/sitemap";
 
@@ -11,6 +14,8 @@ export const revalidate = 3600;
  * em runtime relança o erro e o Next mantém o sitemap anterior.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // método, regras e glossário vêm dos arquivos do repositório: entram mesmo sem a API
+  const paginas = rotasDeConteudo(CONTEUDO, GLOSSARIO);
   try {
     const [deputados, cobertura] = await Promise.all([
       servidorTodosDeputados<DeputadoResumo>(),
@@ -19,8 +24,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return montaSitemap(
       deputados.map((d) => d.id),
       ultimaColeta(cobertura),
+      paginas,
     );
   } catch (e) {
-    return fallbackSeBuild(e, process.env.NEXT_PHASE);
+    return fallbackSeBuild(e, process.env.NEXT_PHASE, paginas);
   }
 }

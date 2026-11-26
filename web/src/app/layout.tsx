@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
+import { CONTEUDO } from "@/content/conteudo";
+import { linksSaibaMais } from "@/content/rotas";
 import { Efeitos } from "@/components/Efeitos";
 import { JsonLd } from "@/components/JsonLd";
 import { Logo } from "@/components/Logo";
@@ -80,8 +82,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Projeto acadêmico de Sistemas Especialistas (BSI/Unimontes). Usa só dados públicos abertos, principalmente da Câmara dos
               Deputados. Não substitui a consulta aos documentos oficiais e não é acusação contra ninguém.
             </p>
+            <nav aria-label="Saiba mais" className="rodape-meta">
+              Saiba mais:{" "}
+              {linksSaibaMais(CONTEUDO).map((l, i) => (
+                <span key={l.href}>
+                  {i > 0 && " · "}
+                  <TLink href={l.href}>{l.texto}</TLink>
+                </span>
+              ))}
+            </nav>
             <p className="rodape-meta">
-              <TLink href="/fontes">Fontes e método</TLink> · <TLink href="/glossario">Glossário</TLink> · Contratos de dados v{CONTRACT_VERSION}
+              <TLink href="/fontes">Fontes e método</TLink> · Contratos de dados v{CONTRACT_VERSION}
             </p>
           </div>
         </footer>

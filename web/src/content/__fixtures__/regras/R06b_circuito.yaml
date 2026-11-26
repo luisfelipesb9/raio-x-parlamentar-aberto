@@ -1,0 +1,7 @@
+id: R06b
+nome: Circuito (indício)
+tipo: inferencia
+categoria: integridade
+predicado: circuito_doador_socio
+parametros: {modo: indicio}
+cf: 0.85

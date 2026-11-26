@@ -1,0 +1,17 @@
+id: R01
+nome: Taxa de governismo
+tipo: inferencia
+categoria: votacao
+conclui: alinhado_governo
+predicado: taxa_governismo
+parametros: {minimo_votacoes: 10, limiar: 0.7}  # limiar = o mesmo número de `se`
+se: "taxa_governismo >= 0.7"
+entao: "Votou junto com o governo em {taxa_pct}% das votações."
+cf: 0.95
+penalidades:
+  - {se: "n_votacoes < 30", fator: 0.7, motivo: "Poucas votações nominais, no período"}
+por_que: "Mostra se o deputado costuma apoiar o governo."
+limitacoes:
+  - "Considera só votações nominais."
+  - "Abstenção e obstrução ficam fora da conta."
+fonte_metodologica: "Basômetro (Estadão)"

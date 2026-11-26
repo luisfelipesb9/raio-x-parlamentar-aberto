@@ -1,0 +1,7 @@
+id: R09
+nome: Merece atenção da fiscalização
+tipo: inferencia
+categoria: integridade
+conclui: merece_atencao
+requer: [risco_integridade]   # sub-objetivo
+cf: 0.8

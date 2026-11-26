@@ -6,12 +6,14 @@ import { GLOSSARIO } from "./glossario";
 import {
   LICENCAS_DADOS_URL,
   REPO_URL,
+  artigoLd,
   breadcrumbLd,
   datasetLd,
   faqLd,
   organizacaoLd,
   pessoaLd,
   siteLd,
+  termoLd,
   termosLd,
 } from "./jsonld";
 import { SITE_URL } from "./seo";
@@ -167,14 +169,14 @@ describe("pessoaLd", () => {
 });
 
 describe("termosLd", () => {
-  it("vira um DefinedTermSet com todos os termos do glossário e âncora de cada um", () => {
+  it("vira um DefinedTermSet com todos os termos do glossário e a página própria de cada um", () => {
     const t = ciclo(termosLd(GLOSSARIO));
     expect(t["@type"]).toBe("DefinedTermSet");
     expect(t.url).toBe(`${SITE_URL}/glossario`);
     const termos = t.hasDefinedTerm as Array<{ "@type": string; name: string; description: string; url: string }>;
     expect(termos).toHaveLength(GLOSSARIO.length);
     const primeiro = GLOSSARIO[0]!;
-    expect(termos[0]).toMatchObject({ "@type": "DefinedTerm", name: primeiro.termo, url: `${SITE_URL}/glossario#${primeiro.id}` });
+    expect(termos[0]).toMatchObject({ "@type": "DefinedTerm", name: primeiro.termo, url: `${SITE_URL}/glossario/${primeiro.id}` });
     expect(termos[0]!.description).toContain(primeiro.definicao);
     expect(termos[0]!.description).toContain(primeiro.porQueImporta!);
   });
@@ -203,6 +205,59 @@ describe("faqLd", () => {
     const q = (lido(html(f)).mainEntity as Array<{ name: string; acceptedAnswer: { text: string } }>)[0]!;
     expect(q.name).toBe("p<");
     expect(q.acceptedAnswer.text).toBe("<script>x</script>");
+  });
+});
+
+describe("artigoLd", () => {
+  const base = { titulo: "Como o sistema chega às conclusões", descricao: "O método, passo a passo.", caminho: "/metodo", atualizado: "2026-11-20" };
+
+  it("é um TechArticle em pt-BR, ligado à organização, com url absoluta https e data de atualização", () => {
+    const a = ciclo(artigoLd(base));
+    expect(a["@context"]).toBe("https://schema.org");
+    expect(a["@type"]).toBe("TechArticle");
+    expect(a.headline).toBe("Como o sistema chega às conclusões");
+    expect(a.description).toBe("O método, passo a passo.");
+    expect(a.url).toBe(`${SITE_URL}/metodo`);
+    expect(a.mainEntityOfPage).toEqual({ "@type": "WebPage", "@id": `${SITE_URL}/metodo` });
+    expect(a.inLanguage).toBe("pt-BR");
+    expect(a.dateModified).toBe("2026-11-20");
+    expect(a.author).toEqual({ "@id": `${SITE_URL}/#organizacao` });
+    expect(a.publisher).toEqual({ "@id": `${SITE_URL}/#organizacao` });
+    expect(a.isAccessibleForFree).toBe(true);
+  });
+
+  it("não inventa data: sem 'atualizado' (ou com data inválida) não há dateModified", () => {
+    expect(ciclo(artigoLd({ ...base, atualizado: undefined }))).not.toHaveProperty("dateModified");
+    expect(ciclo(artigoLd({ ...base, atualizado: "ontem" }))).not.toHaveProperty("dateModified");
+  });
+
+  it("data impossível (2026-02-31) não vira dateModified", () => {
+    expect(ciclo(artigoLd({ ...base, atualizado: "2026-02-31" }))).not.toHaveProperty("dateModified");
+  });
+
+  it("normaliza espaços e o HTML entregue não tem '<' dentro do script", () => {
+    const a = lido(html(artigoLd({ ...base, titulo: "  A   <b>B</b> ", descricao: "x\n y" })));
+    expect(a.headline).toBe("A <b>B</b>");
+    expect(a.description).toBe("x y");
+  });
+});
+
+describe("termoLd", () => {
+  const t = { id: "ceap", termo: "CEAP (cota parlamentar)", definicao: "Verba mensal.", porQueImporta: "É dinheiro público." };
+
+  it("é um DefinedTerm com a página própria do termo e o glossário como conjunto", () => {
+    const d = ciclo(termoLd(t));
+    expect(d["@type"]).toBe("DefinedTerm");
+    expect(d.name).toBe("CEAP (cota parlamentar)");
+    expect(d.termCode).toBe("ceap");
+    expect(d.description).toBe("Verba mensal. É dinheiro público.");
+    expect(d.url).toBe(`${SITE_URL}/glossario/ceap`);
+    expect(d.inDefinedTermSet).toBe(`${SITE_URL}/glossario`);
+    expect(d.inLanguage).toBe("pt-BR");
+  });
+
+  it("usa só a definição quando não há 'porQueImporta'", () => {
+    expect(ciclo(termoLd({ id: "x", termo: "X", definicao: "Def." })).description).toBe("Def.");
   });
 });
 
