@@ -18,7 +18,8 @@ function destinoSeguro(href: string): { href: string; externo: boolean } | null 
   if (href.startsWith("#")) return { href, externo: false };
   try {
     const u = new URL(href);
-    return u.protocol === "https:" ? { href: u.href, externo: true } : null;
+    // usuário/senha na URL (https://camara.leg.br@evil.com) disfarça o destino real: não vira link
+    return u.protocol === "https:" && !u.username && !u.password ? { href: u.href, externo: true } : null;
   } catch {
     return null;
   }
@@ -49,6 +50,7 @@ function emLinha(texto: string, chave = "i"): ReactNode[] {
         saida.push(
           <a key={k} href={destino.href} rel="noopener noreferrer" target="_blank">
             {emLinha(interno, k)}
+            <span className="visually-hidden"> (abre em nova aba)</span>
           </a>,
         );
       else
@@ -83,7 +85,24 @@ function iniciaBloco(linha: string): boolean {
   return TITULO.test(linha) || ITEM_NAO_ORDENADO.test(linha) || ITEM_ORDENADO.test(linha) || linha.startsWith("```");
 }
 
-export function markdownParaReact(md: string): ReactNode[] {
+/** Ids que a moldura das páginas já usa: título do corpo com o mesmo texto ganha sufixo. */
+const IDS_RESERVADOS = ["veja-tambem", "parametros-regra"];
+
+export type OpcoesMarkdown = {
+  /** Em respostas de FAQ: ## e ### viram negrito em parágrafo, para não criar títulos soltos dentro do details. */
+  rebaixaTitulos?: boolean;
+};
+
+export function markdownParaReact(md: string, opcoes: OpcoesMarkdown = {}): ReactNode[] {
+  const usados = new Set<string>(IDS_RESERVADOS);
+  const idUnico = (texto: string): string | undefined => {
+    const base = ancora(texto);
+    if (!base) return undefined;
+    let id = base;
+    for (let n = 2; usados.has(id); n++) id = `${base}-${n}`;
+    usados.add(id);
+    return id;
+  };
   const linhas = md.replace(/\r\n?/g, "\n").split("\n");
   const saida: ReactNode[] = [];
   let i = 0;
@@ -105,7 +124,16 @@ export function markdownParaReact(md: string): ReactNode[] {
     } else if (TITULO.test(linha)) {
       const m = TITULO.exec(linha)!;
       const texto = m[2] ?? "";
-      const id = ancora(texto) || undefined;
+      if (opcoes.rebaixaTitulos) {
+        saida.push(
+          <p key={k}>
+            <strong>{emLinha(texto, k)}</strong>
+          </p>,
+        );
+        i++;
+        continue;
+      }
+      const id = idUnico(texto);
       saida.push(
         m[1]!.length === 2 ? (
           <h2 key={k} id={id}>

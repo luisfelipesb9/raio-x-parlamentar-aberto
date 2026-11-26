@@ -49,7 +49,7 @@ describe("markdownParaReact: texto em linha", () => {
 
   it("converte link https externo com rel noopener noreferrer", () => {
     expect(html("fonte: [Câmara](https://dadosabertos.camara.leg.br/)")).toBe(
-      '<p>fonte: <a href="https://dadosabertos.camara.leg.br/" rel="noopener noreferrer" target="_blank">Câmara</a></p>',
+      '<p>fonte: <a href="https://dadosabertos.camara.leg.br/" rel="noopener noreferrer" target="_blank">Câmara<span class="visually-hidden"> (abre em nova aba)</span></a></p>',
     );
   });
 
@@ -83,7 +83,28 @@ describe("markdownParaReact: segurança", () => {
   it("não produz atributos fora de href, rel, target e id", () => {
     const saida = html("## T\n\n[a](/x) [b](https://exemplo.test/y) **c**");
     const atributos = [...saida.matchAll(/<[a-z0-9]+ ([^>]*)>/g)].flatMap((m) => [...(m[1] ?? "").matchAll(/([a-z-]+)=/g)].map((x) => x[1]));
-    for (const a of atributos) expect(["href", "rel", "target", "id"]).toContain(a);
+    for (const a of atributos) expect(["href", "rel", "target", "id", "class"]).toContain(a);
+  });
+});
+
+describe("markdownParaReact: casos extras", () => {
+  it("recusa https com usuário e senha (https://camara.leg.br@evil.com)", () => {
+    expect(html("[a](https://camara.leg.br@evil.com/x) [b](https://u:p@evil.com/)")).toBe("<p>a b</p>");
+  });
+
+  it("gera ids de âncora únicos (sufixo -2) e sem colidir com ids da moldura", () => {
+    expect(html("## Dados\n\n## Dados\n\n## Veja também\n\n## Parametros regra")).toBe(
+      '<h2 id="dados">Dados</h2><h2 id="dados-2">Dados</h2><h2 id="veja-tambem-2">Veja também</h2><h2 id="parametros-regra-2">Parametros regra</h2>',
+    );
+  });
+
+  it("título sem letras fica sem id", () => {
+    expect(html("## ???")).toBe("<h2>???</h2>");
+  });
+
+  it("com rebaixaTitulos, ## e ### viram negrito em parágrafo (sem h2/h3 soltos)", () => {
+    const saida = renderToStaticMarkup(createElement(Fragment, null, markdownParaReact("## A\n\n### B\n\ntexto", { rebaixaTitulos: true })));
+    expect(saida).toBe("<p><strong>A</strong></p><p><strong>B</strong></p><p>texto</p>");
   });
 });
 

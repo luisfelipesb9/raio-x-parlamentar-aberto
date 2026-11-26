@@ -68,6 +68,13 @@ describe("PaginaFaq", () => {
     expect(h).toContain("De onde vêm os dados?");
   });
 
+  it("### dentro de uma resposta não vira título solto: sai como negrito dentro do details", () => {
+    const pagina = { ...C.paginas.faq!, corpo: "## Pergunta?\n\n### Detalhe\n\nTexto." };
+    const h2 = html(createElement(PaginaFaq, { pagina, conteudo: C }));
+    expect(h2).toContain("<strong>Detalhe</strong>");
+    expect(h2).not.toContain("<h3");
+  });
+
   it("o FAQPage do JSON-LD tem exatamente as perguntas visíveis, com a resposta em texto puro", () => {
     const faq = ld(h).find((d) => d["@type"] === "FAQPage")!;
     const q = faq.mainEntity as Array<{ name: string; acceptedAnswer: { text: string } }>;

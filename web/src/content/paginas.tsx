@@ -7,7 +7,7 @@ import type { Termo } from "@/lib/glossario";
 import { markdownParaReact, markdownParaTexto, perguntasDoFaq } from "@/lib/markdown";
 import { canonical, limitaDescricao } from "@/lib/seo";
 import { PaginaConteudo, type Migalha } from "./PaginaConteudo";
-import { ROTA_DA_PAGINA } from "./rotas";
+import { NOME_DA_PAGINA as NOMES, ROTA_DA_PAGINA } from "./rotas";
 import type { ArquivoPagina, Conteudo, PaginaConteudo as Pagina, RegraConteudo } from "./tipos";
 
 const INICIO: Migalha = { nome: "Início", caminho: "/" };
@@ -22,12 +22,6 @@ export function metadadosDe(o: { titulo: string; descricao: string; caminho: str
   };
 }
 
-export const NOMES: Record<ArquivoPagina, string> = {
-  metodo: "Método",
-  "para-estudantes": "Para estudantes",
-  "dados-e-api": "Dados e API",
-  faq: "Perguntas frequentes",
-};
 
 /** Links para as outras páginas de conteúdo que existem (menos a atual). */
 function vejaTambem(c: Conteudo, atual: string): Migalha[] {
@@ -78,10 +72,10 @@ export function PaginaFaq({ pagina, conteudo }: { pagina: Pagina; conteudo: Cont
       vejaTambem={vejaTambem(conteudo, caminho)}
     >
       <div className="faq-lista">
-        {perguntas.map((p) => (
-          <details key={p.pergunta}>
+        {perguntas.map((p, i) => (
+          <details key={i}>
             <summary>{p.pergunta}</summary>
-            <div>{markdownParaReact(p.resposta)}</div>
+            <div>{markdownParaReact(p.resposta, { rebaixaTitulos: true })}</div>
           </details>
         ))}
       </div>
@@ -142,8 +136,8 @@ function ParametrosDaRegra({ regra }: { regra: RegraConteudo }) {
     linhas.push([
       "Quando a certeza diminui",
       <ul key="pen">
-        {regra.penalidades.map((p) => (
-          <li key={p.se}>
+        {regra.penalidades.map((p, i) => (
+          <li key={i}>
             Se <code>{p.se}</code>: × {numero(p.fator)}. {p.motivo}.
           </li>
         ))}
@@ -153,8 +147,8 @@ function ParametrosDaRegra({ regra }: { regra: RegraConteudo }) {
     linhas.push([
       "Limitações",
       <ul key="lim">
-        {regra.limitacoes.map((l) => (
-          <li key={l}>{l}</li>
+        {regra.limitacoes.map((l, i) => (
+          <li key={i}>{l}</li>
         ))}
       </ul>,
     ]);
