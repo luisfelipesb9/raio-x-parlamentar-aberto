@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
+import { canonical } from "@/lib/seo";
 import { Suspense } from "react";
 import { Carregando } from "@/components/Estados";
 import { GrafoPagina } from "@/components/GrafoPagina";
 import { AvisoNaoAcusacao } from "@/components/Aviso";
 
-export const metadata: Metadata = { title: "Mapa de relações" };
+export const metadata: Metadata = {
+  title: "Mapa de relações",
+  description: "Quem se liga a quem nos dados públicos: empresas, municípios e emendas ligados a cada deputado, cada ligação com a fonte oficial.",
+  alternates: canonical("/grafo"),
+};
 
 export default function PaginaGrafo() {
   return (
