@@ -25,18 +25,22 @@ commits do PR pela API e sem isso o evento `pull_request` dá 403.
 
 | Página | Esperado |
 |---|---|
-| `/deputado/9900001` | 200, `<h1` e o nome "Alice Fictícia (demo)" no HTML fora de `<script>`, `rel="canonical"` = `NEXT_PUBLIC_SITE_URL` + caminho, JSON-LD válido |
+| `/deputado/9900001` | 200; o nome "Alice Fictícia (demo)" **dentro de um `<h1>` do `<body>`**, fora de `<script>` (nome só no `<title>`/meta ou um `<h1>Carregando…</h1>` reprovam); `rel="canonical"` = `NEXT_PUBLIC_SITE_URL` + caminho; JSON-LD com `@context` schema.org e `@type` (`{}` reprova) |
 | `/deputado/99999999` | 404 de verdade |
-| `/deputados` | 200 e links `href="/deputado/` no HTML |
+| `/deputados` | 200 e o link `href="/deputado/9900001"` no HTML |
 | `/robots.txt` | 200, cita `GPTBot` e tem `Sitemap:` |
 | `/sitemap.xml` | 200 e lista `https://exemplo.test/deputado/9900001` |
 | `/llms.txt` | 200, não vazio |
-| `/` | 200 e JSON-LD válido |
+| `/` | 200 e JSON-LD com `@context` schema.org e `@type` |
 
 Saída: `OK`/`FALHA` por checagem com o motivo; código 1 se alguma falhar, 2 se o ambiente não subiu
-(porta ocupada, banco da demo ausente, build quebrado). Recusa porta já ocupada para não testar
-servidor alheio e mata os processos que iniciou (inclusive em Ctrl+C ou SIGTERM do CI). Timeout do
-job: 15 min.
+(porta ocupada, banco da demo ausente, build quebrado ou mais lento que `--timeout-build`, padrão
+600 s). Recusa porta já ocupada para não testar servidor alheio. Sempre mata o **grupo** de
+processos que iniciou, mesmo se o líder (`pnpm`) já saiu e deixou o `next` vivo, inclusive em
+Ctrl+C, SIGTERM do CI e timeout do build. Timeout do job: 15 min.
+
+Testes do próprio script: `tests/unit/test_seo_smoke.py`, com controle positivo (HTML com SSR de
+verdade passa) e negativo (o falso positivo acima reprova), além da limpeza de processos.
 
 Rodar localmente (portas livres à escolha):
 
@@ -47,7 +51,7 @@ uv run python -m scripts.seo_smoke --api-porta 8103 --site-porta 3103 --build
 uv run python -m scripts.seo_smoke --so-checar https://preview.exemplo.test --site-publico https://preview.exemplo.test
 ```
 
-Na `main` de 26/11/2026 o smoke reprova 15 de 17 checagens (só passam o 200 da ficha e o da home): a ficha é renderizada no navegador
+Na `main` de 26/11/2026 o smoke reprova 14 de 16 checagens (só passam o 200 da ficha e o da home): a ficha é renderizada no navegador
 (sem `<h1`, nome, canonical ou JSON-LD no HTML), o id inexistente devolve 200, e `/deputados`,
 `/robots.txt`, `/sitemap.xml` e `/llms.txt` não existem. O job fica verde quando os PRs de SEO
 (a partir do #27) forem mesclados.
@@ -64,6 +68,11 @@ abertos por vez.
 - **uv (raiz)**: minor/patch em um grupo, no máximo 2 abertos.
 - **Majors ignorados** (revisão manual): `typescript` (muda opções do tsconfig), `@types/node`
   (acompanha o Node do `.nvmrc`, hoje 22) e `@playwright/test`.
+
+As actions ficam fixadas por **tag de major** (`@v4`), que é o padrão do repositório; o
+Dependabot propõe os majors novos (grupo `actions`). Fixar por SHA seria mais rígido contra
+ataque à cadeia de suprimentos e fica como opção futura. Exceção já conhecida: a `setup-uv` não
+publica tag de major a partir da v8, então lá será preciso a versão completa.
 
 Para fazer um major ignorado: branch própria, `pnpm add -D <pacote>@<versão>`, a mesma bateria
 abaixo e PR normal.
@@ -99,6 +108,7 @@ leituras); aplica só com `--aplicar`. Idempotente. Requer `gh` autenticado com 
 scripts/gh_publicar.sh                                   # dry-run em luisfelipesb9/raio-x-parlamentar-aberto
 scripts/gh_publicar.sh owner/repo --aplicar              # aplica
 scripts/gh_publicar.sh owner/repo --aplicar --historico-linear
+scripts/gh_publicar.sh owner/repo --aplicar --exigir-seo-smoke   # só depois dos PRs de SEO na main
 ```
 
 | Passo | Chamada | Efeito |
@@ -109,14 +119,20 @@ scripts/gh_publicar.sh owner/repo --aplicar --historico-linear
 | 4 | `PUT /repos/{r}/automated-security-fixes` | PRs automáticos de correção de segurança |
 | 5 | `PATCH /repos/{r}` com `delete_branch_on_merge: true` | apaga a branch do PR depois do merge |
 | 6 | `POST /repos/{r}/labels` (só se `GET .../labels/dependencias` der 404) | cria o rótulo usado pelo `dependabot.yml` |
-| 7 | `POST /repos/{r}/rulesets` ou `PUT /repos/{r}/rulesets/{id}` (procura pelo nome "main protegida") | ruleset da branch padrão (abaixo) |
+| 7 | `GET /repos/{r}/rulesets`, depois `POST /repos/{r}/rulesets` ou `PUT /repos/{r}/rulesets/{id}` (procura pelo nome "main protegida") | ruleset da branch padrão (abaixo). Se a listagem falhar no `--aplicar`, o passo **aborta** em vez de criar um ruleset duplicado |
 
-Ruleset "main protegida" (alvo `~DEFAULT_BRANCH`, sem bypass):
+Ruleset "main protegida" (alvo `~DEFAULT_BRANCH`):
 
 - PR obrigatório com **0 aprovações**: são 2 mantenedores e um deles pode ser quem abriu o PR (com
   1 aprovação obrigatória, um PR do único mantenedor disponível ficaria travado). Conversas precisam
   estar resolvidas.
-- Checks obrigatórios: `python`, `web`, `gitleaks`, `seo-smoke`, exigidos da app GitHub Actions
+- **Bypass**: papel `admin` do repositório (`RepositoryRole`, `actor_id` 5; maintain = 2, write = 4,
+  conforme a documentação do provider Terraform do GitHub, já que a doc REST não traz os ids) com
+  `bypass_mode: "pull_request"`. Um administrador pode mesclar um PR com check vermelho ou check que
+  não roda (ex.: CI fora do ar), então os mantenedores nunca ficam travados. Mesmo assim, nem ele faz
+  push direto, force-push ou apaga a `main`. Para liberar também o push direto, troque para `"always"`
+  no script (não recomendado).
+- Checks obrigatórios: `python`, `web`, `gitleaks` e, só com `--exigir-seo-smoke`, `seo-smoke`; exigidos da app GitHub Actions
   (`integration_id` 15368), para que outro app não satisfaça o check com o mesmo nome. Sem exigir
   branch atualizada (`strict: false`), para não forçar rebase a cada merge.
 - Bloqueia force-push (`non_fast_forward`) e deleção da branch.
@@ -130,8 +146,11 @@ Rollback: no GitHub, Settings > Rules > Rulesets > "main protegida" > Delete (ou
 `gh api -X DELETE repos/{r}/rulesets/{id}`); os demais passos se desligam em Settings > Code security
 e Settings > General. Verificação: `gh api repos/{r}/rulesets` e `gh api repos/{r} --jq .security_and_analysis`.
 
-O `seo-smoke` só deve entrar como check obrigatório depois que os PRs de SEO estiverem na `main`
-(antes disso ele reprova e travaria todo merge).
+**Atenção: o `seo-smoke` trava merges se for exigido cedo.** Enquanto os PRs de SEO não estiverem na
+`main`, ele reprova em todo PR. Exigido nesse estado, só um admin, via bypass, conseguiria mesclar.
+Por isso ele só entra no ruleset com `--exigir-seo-smoke`: rode o script de novo com a flag quando o
+job estiver verde na `main` (o passo 7 atualiza o ruleset existente). Vale o mesmo para qualquer job
+renomeado no `ci.yml`: um check exigido que nunca roda fica "pendente" para sempre e trava o merge.
 
 ## O que continua manual
 
@@ -150,7 +169,21 @@ O `seo-smoke` só deve entrar como check obrigatório depois que os PRs de SEO e
 - há outro `*.duckdb`/`*.duckdb.wal` na árvore;
 - há `.env`/`.env.*` local na árvore (só `.env.example`, `.env.sample` e `.env.template` passam);
 - `RAIO_X_ID_SALT` do ambiente (o mesmo sal que gerou a base pública) está ausente, tem menos de 32
-  caracteres ou é um valor público conhecido (`raio-x-v1`, o sal da demo, os sais de teste).
+  caracteres, tem menos de 8 caracteres distintos ou é um valor público conhecido (`raio-x-v1`, o sal
+  da demo, os sais de teste).
+
+Qualquer `.env*` reprova **de propósito**, inclusive o `.env.local` criado pelo `vercel env pull`,
+que traz os valores de produção. O `.vercelignore` já tira esses arquivos do envio, mas o check
+segue o princípio de "nada de segredo na árvore que vai ao ar". Antes do `make deploy-check`, limpe
+assim:
+
+```bash
+git status --ignored --short | grep -E '(^|/)\.env' # lista os .env* ignorados pelo git
+rm -f .env .env.local web/.env.local               # ou mova para fora do repositório
+```
+
+A mensagem de erro já traz o `rm` de cada arquivo encontrado. Para desenvolver depois do deploy,
+recrie com `vercel env pull`.
 
 O valor do sal nunca é impresso. Rode com o sal exportado:
 `RAIO_X_ID_SALT=<segredo> make deploy-check`. Um sal forte: `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
