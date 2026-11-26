@@ -36,6 +36,8 @@ test.describe("busca -> ficha -> 'Como sabemos disso?'", () => {
     await expect(trilha).toBeVisible();
     await expect(trilha.getByText(/passo a passo|como chegamos/i).first()).toBeVisible();
     await expect(trilha.getByText(/limitações/i).first()).toBeVisible();
+    // a trilha aponta, com link interno, para o botão "Verificar na fonte" do mesmo alerta
+    await expect(trilha.getByRole("link", { name: /verificar na fonte/i })).toHaveAttribute("href", /^#verificar-fonte-/);
 
     // "Verificar na fonte": link oficial, identificador e data de coleta de cada documento
     await page.getByRole("button", { name: /verificar na fonte/i }).first().click();

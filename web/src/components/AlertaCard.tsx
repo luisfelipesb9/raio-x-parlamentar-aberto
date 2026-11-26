@@ -13,7 +13,10 @@ import { Termo } from "./Termo";
 
 const EVIDENCIAS_VISIVEIS = 5;
 
-function Trilha({ finding, titulo }: { finding: Finding; titulo: string }) {
+/** Id estável do botão "Verificar na fonte" de um alerta (alvo do link dentro da trilha). */
+const idVerificar = (findingId: string) => `verificar-fonte-${findingId}`;
+
+function Trilha({ finding, titulo, aoVerificar }: { finding: Finding; titulo: string; aoVerificar: () => void }) {
   const { estado, recarregar } = useApi<Explanation>(`/findings/${encodeURIComponent(finding.id)}/explicar`);
 
   if (estado.status === "carregando" || estado.status === "ocioso") return <Carregando texto="Buscando o passo a passo…" />;
@@ -62,6 +65,11 @@ function Trilha({ finding, titulo }: { finding: Finding; titulo: string }) {
       ) : (
         <p>Nenhuma limitação específica registrada para esta regra.</p>
       )}
+
+      <p className="nota trilha-verificar">
+        Quer conferir os documentos oficiais? Use <a href={`#${idVerificar(finding.id)}`} onClick={aoVerificar}>Verificar na fonte</a>, neste mesmo
+        alerta.
+      </p>
     </div>
   );
 }
@@ -142,13 +150,20 @@ export function AlertaCard({ finding }: { finding: Finding }) {
         <button type="button" className="btn" aria-expanded={aberto} aria-controls={painelId} onClick={() => setAberto((a) => !a)}>
           Como sabemos disso?
         </button>
-        <button type="button" className="btn btn-sec" aria-expanded={fonteAberta} aria-controls={fonteId} onClick={() => setFonteAberta((a) => !a)}>
+        <button
+          type="button"
+          id={idVerificar(finding.id)}
+          className="btn btn-sec"
+          aria-expanded={fonteAberta} 
+          aria-controls={fonteId}
+          onClick={() => setFonteAberta((a) => !a)}
+        >
           Verificar na fonte ({finding.evidencias.length})
         </button>
       </div>
       {aberto && (
         <section id={painelId} className="trilha" aria-label={`Como sabemos disso? Regra ${finding.regra}`}>
-          <Trilha finding={finding} titulo={finding.conclusao} />
+          <Trilha finding={finding} titulo={finding.conclusao} aoVerificar={() => setFonteAberta(true)} />
         </section>
       )}
       {fonteAberta && (

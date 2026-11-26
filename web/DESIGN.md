@@ -55,7 +55,7 @@ Escala 4/8/12/16/24/32/48/72/112 px. Container `72rem`, gutter 16 px mobile e 24
 Assimetria controlada: texto alinhado à esquerda, elementos decorativos sangram para fora da coluna sem causar overflow (`overflow: clip` no contêiner).
 
 ## 6. Components
-Logo/símbolo próprio (SVG: anel + crosshair + linha de varredura) com favicon (`icon.svg`) e imagem OG (`opengraph-image`). Botões (sólido com acento, secundário translúcido, mini). Cartão de deputado (vidro + holofote que segue o ponteiro). Cartão de alerta (vidro, borda luminosa em gradiente, selo). Selo de certeza (texto + 4 barras). Tooltip de termo. Ranking, árvore de prova, tabela de comparação. Contador animado. Ticker. Cursor-halo (só ponteiro fino). Estados: carregando (spinner + esqueleto), erro, vazio.
+Logo/símbolo próprio (SVG: anel + crosshair + linha de varredura) com favicon (`icon.svg`) e imagem OG (`opengraph-image`). Botões (sólido com acento, secundário translúcido, mini). Cartão de deputado (vidro + holofote que segue o ponteiro). Cartão de alerta (vidro, borda luminosa em gradiente, selo) com dois botões que abrem painéis separados: "Como sabemos disso?" mostra só o raciocínio (passo a passo da regra, por que importa e limitações) e fecha com uma frase e um link interno para "Verificar na fonte"; "Verificar na fonte (N)" mostra os documentos oficiais, com link, identificador, data de coleta e impressão digital do arquivo de cada um. Selo de certeza (texto + 4 barras). Tooltip de termo. Ranking, árvore de prova, tabela de comparação. Contador animado. Ticker. Cursor-halo (só ponteiro fino). Estados: carregando (spinner + esqueleto), erro, vazio.
 
 ## 7. Motion & Interaction
 Easing padrão `cubic-bezier(.23, 1, .32, 1)`; entradas 280–420 ms, microinterações 120–180 ms; só `transform` e `opacity`.
@@ -69,7 +69,7 @@ Easing padrão `cubic-bezier(.23, 1, .32, 1)`; entradas 280–420 ms, microinter
 - Efeitos pesados (cursor, magnético, animação de arestas) só carregam depois da hidratação e só com `pointer: fine` quando aplicável.
 
 ## 8. Voice & Brand
-Português simples, direto, sem juridiquês e sem sensacionalismo. "Isto não é acusação; é o que os dados públicos mostram" aparece em toda tela com conclusão. Nunca "culpado", "suspeito" ou "esquema". Termos técnicos viram `<Termo>` com tooltip. Microcopy de botão é verbo: "Como sabemos disso?", "Perguntar", "Ver mapa de relações".
+Português simples, direto, sem juridiquês e sem sensacionalismo. "Isto não é acusação; é o que os dados públicos mostram" aparece em toda tela com conclusão. Nunca "culpado", "suspeito" ou "esquema". Termos técnicos viram `<Termo>` com tooltip. Microcopy de botão é verbo: "Como sabemos disso?" (o raciocínio), "Verificar na fonte" (os documentos oficiais), "Perguntar", "Ver mapa de relações".
 
 ## 9. Anti-patterns
 - Verde/vermelho para certeza; certeza só por cor.
