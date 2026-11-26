@@ -12,7 +12,8 @@ export const ROTA_DA_PAGINA: Record<ArquivoPagina, string> = {
 
 export type RotaDeConteudo = { caminho: string; nome: string; atualizado?: string };
 
-const NOME_DA_PAGINA: Record<ArquivoPagina, string> = {
+/** Nome de cada página: única fonte (rotas, rodapé, breadcrumb e "Veja também"). */
+export const NOME_DA_PAGINA: Record<ArquivoPagina, string> = {
   metodo: "Método",
   "para-estudantes": "Para estudantes",
   "dados-e-api": "Dados e API",
@@ -38,14 +39,14 @@ export function rotasDeConteudo(c: Conteudo, termos: readonly Termo[]): RotaDeCo
 /** Links da seção "Saiba mais" do rodapé: só o que existe, em ordem fixa. */
 export function linksSaibaMais(c: Conteudo): { href: string; texto: string }[] {
   const links: { href: string; texto: string }[] = [];
-  const pagina = (a: ArquivoPagina, texto: string) => {
-    if (c.paginas[a]) links.push({ href: ROTA_DA_PAGINA[a], texto });
+  const pagina = (a: ArquivoPagina) => {
+    if (c.paginas[a]) links.push({ href: ROTA_DA_PAGINA[a], texto: NOME_DA_PAGINA[a] });
   };
-  pagina("metodo", "Método");
+  pagina("metodo");
   if (c.regras.length > 0) links.push({ href: "/regras", texto: "Regras" });
-  pagina("faq", "Perguntas frequentes");
+  pagina("faq");
   links.push({ href: "/glossario", texto: "Glossário" });
-  pagina("dados-e-api", "Dados e API");
-  pagina("para-estudantes", "Para estudantes");
+  pagina("dados-e-api");
+  pagina("para-estudantes");
   return links;
 }

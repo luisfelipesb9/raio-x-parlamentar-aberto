@@ -15,6 +15,7 @@ sources → ingest → repo(fatos) → engine → graph → api → web
 - Tudo que atravessa camadas é um tipo de `contracts/`. Mudou contrato → ADR em `docs/adr/` + bump `CONTRACT_VERSION`.
 - `api/` e `web/` só **leem** o banco. Nunca chamam API externa. Única exceção: a API lê, opcionalmente, o
   `data/raw/manifest.json` para completar `sha256_bruto` (`docs/adr/ADR-009-api-le-manifesto-do-bruto.md`).
+  O `web/` também lê `knowledge/rules/` e `docs/conteudo/`, só no build, via gerador (`docs/adr/ADR-010-web-le-conteudo-no-build.md`).
 
 ## Mapa de pastas e donos
 | Pasta | Responsabilidade |

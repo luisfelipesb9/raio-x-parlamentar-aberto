@@ -92,7 +92,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               ))}
             </nav>
             <p className="rodape-meta">
-              <TLink href="/fontes">Fontes e método</TLink> · <TLink href="/glossario">Glossário</TLink> · Contratos de dados v{CONTRACT_VERSION}
+              <TLink href="/fontes">Fontes e método</TLink> · Contratos de dados v{CONTRACT_VERSION}
             </p>
           </div>
         </footer>
