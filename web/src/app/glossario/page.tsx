@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { JsonLd } from "@/components/JsonLd";
 import { termosLd } from "@/lib/jsonld";
 import { canonical } from "@/lib/seo";
@@ -23,7 +24,10 @@ export default function Glossario() {
             <dt>{t.termo}</dt>
             <dd>
               {t.definicao}
-              {t.porQueImporta && <span className="glossario-importa"> {t.porQueImporta}</span>}
+              {t.porQueImporta && <span className="glossario-importa"> {t.porQueImporta}</span>}{" "}
+              <Link href={`/glossario/${t.id}`} aria-label={`Página do termo ${t.termo}`}>
+                Página do termo
+              </Link>
             </dd>
           </div>
         ))}
