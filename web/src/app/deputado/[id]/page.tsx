@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { Ficha } from "@/components/Ficha";
+import { JsonLd } from "@/components/JsonLd";
 import type { Finding, GrafoResposta, PerfilDeputado } from "@/types/contracts";
 import { descricaoFicha, tituloFicha } from "@/lib/ficha-seo";
 import { idValido } from "@/lib/id-deputado";
+import { breadcrumbLd, pessoaLd } from "@/lib/jsonld";
 import { canonical, NOME_SITE, urlAbsoluta } from "@/lib/seo";
 import { servidorGet, servidorGetOuNull } from "@/lib/server-api";
 
@@ -58,6 +60,14 @@ export default async function PaginaFicha({ params }: Props) {
   if (dados === null) notFound();
   return (
     <div className="pagina">
+      <JsonLd data={pessoaLd(dados.perfil)} />
+      <JsonLd
+        data={breadcrumbLd([
+          { nome: "Início", caminho: "/" },
+          { nome: "Deputados", caminho: "/deputados" },
+          { nome: dados.perfil.nome, caminho: `/deputado/${encodeURIComponent(dados.perfil.id)}` },
+        ])}
+      />
       <Ficha perfil={dados.perfil} findings={dados.findings} grafo={dados.grafo} />
     </div>
   );
