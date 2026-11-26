@@ -33,3 +33,21 @@ export function limitaDescricao(texto: string, max = 160): string {
   const ultimoEspaco = corte.lastIndexOf(" ");
   return `${(ultimoEspaco > max * 0.6 ? corte.slice(0, ultimoEspaco) : corte).replace(/[\s.,;:]+$/, "")}…`;
 }
+
+/** Id de deputado aceito pela API em /deputados/{id}; vale também para montar URLs e consultas com segurança. */
+export const ID_SEGURO = /^[A-Za-z0-9_-]{1,32}$/;
+
+/**
+ * O site pode ser indexado? Só quando há endereço público de fato: não em localhost (nem `*.localhost`) e
+ * não em deploy de pré-visualização da Vercel (VERCEL_ENV === "preview"). Caso contrário a página sai com noindex.
+ */
+export function permiteIndexar(siteUrl: string, vercelEnv?: string): boolean {
+  if (vercelEnv === "preview") return false;
+  let host: string;
+  try {
+    host = new URL(siteUrl).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return !(host === "localhost" || host.endsWith(".localhost") || host === "127.0.0.1" || host === "[::1]" || host === "::1");
+}
