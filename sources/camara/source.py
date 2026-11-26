@@ -3,19 +3,24 @@ from __future__ import annotations
 
 import re
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import date
 from typing import Any
 
 import httpx
 
 from contracts import Fact
+from sources import manifest
 from sources.base import Source
+from sources.camara.janelas import fatiar_janela
+from sources.camara.parcial import Parcial
 
 BASE = "https://dadosabertos.camara.leg.br/api/v2"
 FONTE = "camara_api_v2"
 
 _RE_DEPUTADO_URI = re.compile(r"/deputados/(\d+)$")
+_ESPERA_MAX = 60.0
+LOTE_CHECKPOINT = 25  # votações (ou detalhes de deputado) entre duas gravações do parcial
 
 
 def _deputado_id(uri: Any) -> str | None:
@@ -35,42 +40,89 @@ class CamaraSource(Source):
     nome = "camara"
     fontes_fato = (FONTE,)
 
-    def __init__(self, client: httpx.Client | None = None, pausa: float = 0.2):
+    def __init__(self, client: httpx.Client | None = None, pausa: float = 0.2,
+                 max_tentativas: int = 5, espera_base: float = 2.0,
+                 dormir: Callable[[float], None] | None = None):
+        """`pausa`: segundos entre chamadas (a API não documenta limite; já devolveu 429).
+        429, 5xx e erro de rede/timeout são retentados até `max_tentativas` vezes, com espera
+        `espera_base * 2**(n-1)` (no máximo 60 s) ou o `Retry-After` do servidor."""
         self.client = client or httpx.Client(timeout=30, headers={"Accept": "application/json"})
-        self.pausa = pausa
+        self.pausa, self.max_tentativas, self.espera_base = pausa, max_tentativas, espera_base
+        # resolvido na hora de dormir (e não aqui): quem troca `time.sleep` em teste é obedecido
+        self._dormir = dormir or (lambda segundos: time.sleep(segundos))
+
+    # ---------- HTTP com nova tentativa ----------
+
+    def _espera(self, r: httpx.Response | None, tentativa: int) -> float:
+        retry_after = r.headers.get("retry-after", "") if r is not None else ""
+        if re.fullmatch(r"\d+(\.\d+)?", retry_after.strip()):
+            return min(float(retry_after), _ESPERA_MAX)
+        return min(self.espera_base * 2 ** (tentativa - 1), _ESPERA_MAX)
+
+    def _tentar(self, operacao: Callable[[], httpx.Response]) -> httpx.Response:
+        """Roda `operacao` até uma resposta que não seja 429/5xx nem erro de rede. Outro 4xx sobe
+        na hora (nova tentativa não resolve). Esgotadas as tentativas, o último erro sobe."""
+        for tentativa in range(1, self.max_tentativas + 1):
+            try:
+                r = operacao()
+            except httpx.TransportError:  # inclui timeout
+                if tentativa == self.max_tentativas:
+                    raise
+                self._dormir(self._espera(None, tentativa))
+                continue
+            if r.status_code == 429 or r.status_code >= 500:
+                if tentativa == self.max_tentativas:
+                    r.raise_for_status()
+                self._dormir(self._espera(r, tentativa))
+                continue
+            r.raise_for_status()
+            return r
+        raise AssertionError("inalcançável")  # pragma: no cover
+
+    def _get(self, url: str, params: dict | None = None) -> httpx.Response:
+        r = self._tentar(lambda: self.client.get(url, params=params))
+        self._dormir(self.pausa)
+        return r
 
     def _get_all(self, path: str, paginar: bool = True, **params: Any) -> list[dict]:
         if paginar:
             params = {"itens": 100, **params}
         out, url = [], f"{BASE}{path}"
         while url:
-            r = self.client.get(url, params=params)
-            r.raise_for_status()
-            body = r.json()
+            body = self._get(url, params or None).json()
             out += body.get("dados", [])
             url = next((link["href"] for link in body.get("links", [])
                         if link.get("rel") == "next"), None)
             params = None  # o link "next" já traz os parâmetros
-            time.sleep(self.pausa)
         return out
 
     def fetch(self, legislatura: int = 57, data_inicio: str = "2025-01-01",
               data_fim: str = "2025-03-31", max_votacoes: int | None = None,
               incluir_proposicoes: bool = False, siglas_tipo: Iterable[str] | None = None,
               max_proposicoes: int | None = None,
-              detalhar_deputados: bool | Iterable[str | int] = False) -> dict:
-        """`detalhar_deputados`: True = GET /deputados/{id} de todos os deputados baixados;
+              detalhar_deputados: bool | Iterable[str | int] = False,
+              legislatura_completa: bool = False, retomar: bool = True) -> dict:
+        """Coleta deputados, votações de Plenário (com votos e orientações) e, opcionalmente,
+        proposições. Grava `data/raw/camara/camara_<início>_<fim>.json` (formato de sempre).
+
+        Escopo: os deputados EM EXERCÍCIO (513). `legislatura_completa=True` baixa todos os da
+        `legislatura` (878 na 57ª, com suplentes que já passaram), só por opção explícita.
+
+        Janela: a API de votações recusa mais de 3 meses, então `data_inicio`..`data_fim` é
+        fatiada em trimestres. `max_votacoes` vale para a janela toda.
+
+        Checkpoint: cada etapa é guardada em `data/raw/camara/parcial/` ao terminar. Se a coleta
+        cair, a chamada seguinte retoma dali (`retomar=False` ignora e refaz); coleta concluída
+        apaga o parcial.
+
+        `detalhar_deputados`: True = GET /deputados/{id} de todos os deputados baixados;
         uma lista de ids = só os que estiverem nela e no escopo. Acrescenta `cpf` e `nome_civil`
         ao fato `deputado` (1 chamada por deputado, com `pausa`). Opt-in."""
-        deputados = self._get_all("/deputados", idLegislatura=legislatura)
-        erros_det = self._detalhar_deputados(deputados, detalhar_deputados)
-        votacoes = self._get_all("/votacoes", dataInicio=data_inicio, dataFim=data_fim,
-                                 ordem="ASC", ordenarPor="dataHoraRegistro")
-        votacoes = [v for v in votacoes if v.get("siglaOrgao") == "PLEN"][:max_votacoes]
-        for v in votacoes:
-            v["_votos"] = self._get_all(f"/votacoes/{v['id']}/votos", paginar=False)
-            v["_orientacoes"] = self._get_all(f"/votacoes/{v['id']}/orientacoes",
-                                             paginar=False)
+        parcial = Parcial(manifest.raw_dir_padrao() / self.nome / "parcial", retomar)
+        escopo = f"legislatura_{legislatura}" if legislatura_completa else "exercicio"
+        deputados = self._deputados(legislatura, legislatura_completa, parcial, escopo)
+        erros_det = self._detalhar_deputados(deputados, detalhar_deputados, parcial, escopo)
+        votacoes = self._votacoes_api(data_inicio, data_fim, max_votacoes, parcial)
         raw = {"deputados": deputados, "votacoes": votacoes}
         if erros_det:
             raw["deputados_erros"] = erros_det
@@ -82,34 +134,102 @@ class CamaraSource(Source):
             if prop["erros"]:
                 raw["proposicoes_erros"] = prop["erros"]
         self.save_raw(f"camara_{data_inicio}_{data_fim}.json", raw)
+        parcial.limpar()
         return raw
 
-    def _detalhar_deputados(self, deputados: list[dict],
-                            quais: bool | Iterable[str | int]) -> list[dict]:
-        """Anexa `_detalhe` {cpf, nomeCivil} a cada deputado pedido. Devolve os erros HTTP."""
+    # ---------- deputados ----------
+
+    def _deputados(self, legislatura: int, legislatura_completa: bool, parcial: Parcial,
+                   escopo: str) -> list[dict]:
+        """Deputados EM EXERCÍCIO (513; `GET /deputados` sem `idLegislatura`) por padrão. Com
+        `legislatura_completa`, todos os que exerceram mandato na `legislatura` (878 na 57ª:
+        inclui suplentes que já passaram pela cadeira)."""
+        nome = f"deputados_{escopo}"
+        if (guardado := parcial.ler(nome)) is not None:
+            return guardado
+        deputados = (self._get_all("/deputados", idLegislatura=legislatura)
+                     if legislatura_completa else self._get_all("/deputados"))
+        parcial.gravar(nome, deputados)
+        return deputados
+
+    def _detalhar_deputados(self, deputados: list[dict], quais: bool | Iterable[str | int],
+                            parcial: Parcial | None = None,
+                            escopo: str = "exercicio") -> list[dict]:
+        """Anexa `_detalhe` {cpf, nomeCivil} a cada deputado pedido. Devolve os erros HTTP.
+        CPF e nome civil são só o que a API pública devolve. O que já foi buscado fica guardado
+        (erro HTTP não: é tentado de novo na retomada)."""
         if quais is False:
             return []
         ids = None if quais is True else {str(i) for i in quais}
+        nome = f"deputados_detalhe_{escopo}"
+        guardados: dict[str, dict] = ((parcial.ler(nome) or {}).get("detalhes", {})
+                                      if parcial else {})
         erros: list[dict] = []
-        vistos: dict[Any, dict] = {}  # a listagem repete deputados: 1 chamada por id
-        for d in deputados:
-            if ids is not None and str(d["id"]) not in ids:
-                continue
-            if d["id"] not in vistos:
-                try:
-                    r = self.client.get(f"{BASE}/deputados/{d['id']}")
-                    r.raise_for_status()
-                    dados = r.json().get("dados", {})
-                except httpx.HTTPError as e:  # sem detalhe: segue sem cpf/nome_civil
-                    erros.append({"id": d["id"], "erro": str(e)})
-                    vistos[d["id"]] = {}
-                else:
-                    vistos[d["id"]] = {"cpf": dados.get("cpf"),
-                                       "nomeCivil": dados.get("nomeCivil")}
-                time.sleep(self.pausa)
-            if vistos[d["id"]]:
-                d["_detalhe"] = vistos[d["id"]]
+        vistos: dict[str, dict] = dict(guardados)  # a listagem repete deputados: 1 chamada por id
+        novos = 0
+        try:
+            for d in deputados:
+                chave = str(d["id"])
+                if ids is not None and chave not in ids:
+                    continue
+                if chave not in vistos:
+                    try:
+                        dados = self._get(f"{BASE}/deputados/{d['id']}").json().get("dados", {})
+                    except httpx.HTTPError as e:  # sem detalhe: segue sem cpf/nome_civil
+                        erros.append({"id": d["id"], "erro": str(e)})
+                        vistos[chave] = {}
+                    else:
+                        vistos[chave] = guardados[chave] = {"cpf": dados.get("cpf"),
+                                                           "nomeCivil": dados.get("nomeCivil")}
+                        novos += 1
+                        if parcial and novos % LOTE_CHECKPOINT == 0:
+                            parcial.gravar(nome, {"detalhes": guardados})
+                if vistos[chave]:
+                    d["_detalhe"] = vistos[chave]
+        finally:
+            if parcial and novos:
+                parcial.gravar(nome, {"detalhes": guardados})
         return erros
+
+    # ---------- votações (API; janela fatiada em trimestres) ----------
+
+    def _votacoes_api(self, data_inicio: str, data_fim: str, max_votacoes: int | None,
+                      parcial: Parcial) -> list[dict]:
+        """Votações de Plenário da janela, com `_votos` e `_orientacoes`, em ordem cronológica.
+        `max_votacoes` vale para a janela toda: fatia que não é mais necessária nem é listada."""
+        out: list[dict] = []
+        for ini, fim in fatiar_janela(data_inicio, data_fim):
+            restante = None if max_votacoes is None else max_votacoes - len(out)
+            if restante is not None and restante <= 0:
+                break
+            out += self._votacoes_da_fatia(ini, fim, restante, parcial)
+        return out
+
+    def _votacoes_da_fatia(self, ini: str, fim: str, restante: int | None,
+                           parcial: Parcial) -> list[dict]:
+        nome = f"votacoes_{ini}_{fim}"
+        lista = parcial.ler(nome)
+        if lista is None:
+            lista = [v for v in self._get_all("/votacoes", dataInicio=ini, dataFim=fim,
+                                              ordem="ASC", ordenarPor="dataHoraRegistro")
+                     if v.get("siglaOrgao") == "PLEN"]
+            parcial.gravar(nome, lista)
+        alvo = lista[:restante]
+        feitas = 0
+        try:
+            for v in alvo:
+                if "_votos" in v:  # já veio numa tentativa anterior
+                    continue
+                v["_votos"] = self._get_all(f"/votacoes/{v['id']}/votos", paginar=False)
+                v["_orientacoes"] = self._get_all(f"/votacoes/{v['id']}/orientacoes",
+                                                  paginar=False)
+                feitas += 1
+                if feitas % LOTE_CHECKPOINT == 0:
+                    parcial.gravar(nome, lista)
+        finally:
+            if feitas:
+                parcial.gravar(nome, lista)
+        return alvo
 
     # ---------- proposições (proposicao + autoria) ----------
 
