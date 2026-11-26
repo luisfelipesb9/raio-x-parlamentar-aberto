@@ -5,6 +5,7 @@ import { AvisoNaoAcusacao } from "@/components/Aviso";
 import type { DeputadoResumo } from "@/types/contracts";
 import { agrupaPorUf } from "@/lib/deputados-lista";
 import { canonical } from "@/lib/seo";
+import { nomeDaUf } from "@/lib/ufs";
 import { servidorTodosDeputados } from "@/lib/server-api";
 
 /** ISR de uma hora (literal exigido pelo Next; igualdade com REVALIDAR_SEGUNDOS é checada em isr-literal.test.ts). */
@@ -21,17 +22,26 @@ export const metadata: Metadata = {
 };
 
 /**
- * Sem API não há o que listar. Em requisição, o erro sobe para o error.tsx (nada fica em cache).
- * No `next build` (CI sem API), `connection()` tira a página do pré-render: ela não quebra o build nem
- * congela uma lista vazia no cache; vira dinâmica nesse build. Com API no build, sai estática com ISR.
+ * Sem API (ou com lista vazia, banco ainda sem carga) não há o que listar: tratado como falha.
+ * Em requisição, o erro sobe para o error.tsx (nada fica em cache). No `next build` (CI sem API),
+ * `connection()` tira a página do pré-render: ela não quebra o build nem congela "0 deputados" por 1 h;
+ * vira dinâmica nesse build. Com API e dados no build, sai estática com ISR.
  */
 async function carrega(): Promise<DeputadoResumo[]> {
   try {
-    return await servidorTodosDeputados<DeputadoResumo>();
+    const lista = await servidorTodosDeputados<DeputadoResumo>();
+    if (lista.length === 0) throw new Error("A API devolveu a lista de deputados vazia");
+    return lista;
   } catch (e) {
     await connection();
     throw e;
   }
+}
+
+/** Rótulo acessível do link do índice: contém a sigla visível (WCAG 2.5.3) e o nome por extenso. */
+function rotuloUf(uf: string): string | undefined {
+  const nome = nomeDaUf(uf);
+  return nome ? `${nome} (${uf})` : undefined;
 }
 
 export default async function ListaDeputados() {
@@ -51,7 +61,9 @@ export default async function ListaDeputados() {
         <ul className="acoes acoes-lista">
           {grupos.map((g) => (
             <li key={g.uf}>
-              <a href={`#uf-${encodeURIComponent(g.uf)}`}>{g.uf}</a>
+              <a href={`#uf-${encodeURIComponent(g.uf)}`} aria-label={rotuloUf(g.uf)}>
+                {g.uf}
+              </a>
             </li>
           ))}
         </ul>
