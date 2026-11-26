@@ -337,3 +337,34 @@ def test_fetch_devolve_a_resposta_da_api_sem_alterar(raw_dir, bb):
     original = copy.deepcopy(bb)
     rfb, _ = _rfb(Servidor({BB: [_ok(bb)]}))
     assert rfb.fetch([BB])["cnpjs"] == [original]
+
+
+# ---------- reaproveitar o bruto (--reusar-raw) ----------
+
+def test_fetch_reusar_raw_nao_consulta_cnpj_que_ja_esta_em_disco(raw_dir, bb, petro):
+    (raw_dir / "rfb").mkdir()
+    (raw_dir / "rfb" / f"{BB}.json").write_text(json.dumps(bb), encoding="utf-8")
+    srv = Servidor({PETRO: [_ok(petro)]})
+    rfb, sono = _rfb(srv)
+    out = rfb.fetch([BB, PETRO], reusar_raw=True)
+    assert srv.chamadas == [f"{BASE}/{PETRO}"]  # BB veio do disco: nenhuma requisição
+    assert [e["cnpj"] for e in out["cnpjs"]] == [BB, PETRO]
+    assert sono == []  # sem pausa antes da única consulta de rede (a pausa só vale entre consultas)
+
+
+def test_fetch_sem_reusar_raw_consulta_mesmo_com_arquivo_em_disco(raw_dir, bb):
+    (raw_dir / "rfb").mkdir()
+    (raw_dir / "rfb" / f"{BB}.json").write_text(json.dumps(bb), encoding="utf-8")
+    srv = Servidor({BB: [_ok(bb)]})
+    rfb, _ = _rfb(srv)
+    rfb.fetch([BB])
+    assert srv.chamadas == [f"{BASE}/{BB}"]
+
+
+def test_fetch_reusar_raw_ignora_arquivo_corrompido_e_consulta(raw_dir, bb):
+    (raw_dir / "rfb").mkdir()
+    (raw_dir / "rfb" / f"{BB}.json").write_text("{não é json", encoding="utf-8")
+    srv = Servidor({BB: [_ok(bb)]})
+    rfb, _ = _rfb(srv)
+    out = rfb.fetch([BB], reusar_raw=True)
+    assert srv.chamadas == [f"{BASE}/{BB}"] and [e["cnpj"] for e in out["cnpjs"]] == [BB]

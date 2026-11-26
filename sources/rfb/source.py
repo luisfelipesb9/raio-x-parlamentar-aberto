@@ -10,6 +10,7 @@ preservado assim; sócio PJ traz o CNPJ inteiro.
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
@@ -100,7 +101,16 @@ class RfbSource(Source):
             return r.json()
         raise AssertionError("inalcançável")  # pragma: no cover
 
-    def fetch(self, cnpjs: Iterable[str]) -> dict:
+    def _ler_raw(self, cnpj: str) -> dict | None:
+        """Resposta já gravada em disco para este CNPJ, ou None (ausente, ilegível ou de outro CNPJ)."""
+        caminho = self.raw_path(f"{cnpj}.json")
+        try:
+            dados = json.loads(caminho.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return dados if isinstance(dados, dict) and _digitos(str(dados.get("cnpj", ""))) == cnpj else None
+
+    def fetch(self, cnpjs: Iterable[str], reusar_raw: bool = False) -> dict:
         """Consulta cada CNPJ (14 dígitos, com ou sem máscara) uma vez; guarda cada resposta em
         data/raw/rfb/<cnpj>.json. Devolve {"cnpjs": [respostas], "nao_encontrados": [cnpj], "invalidos": [texto recebido],
         "indisponiveis": [cnpj]}. CNPJ inválido é só registrado em "invalidos" e o resto do lote segue.
@@ -108,7 +118,9 @@ class RfbSource(Source):
         (a empresa fica sem dados da Receita; nada é inventado) e o lote segue. Com
         `max_indisponiveis_seguidos` falhas seguidas, levanta RuntimeError: é queda do serviço ou da
         rede, e terminar "com sucesso" geraria uma base sem empresas. 429 persistente e erros 4xx
-        continuam abortando: indicam limite de uso ou requisição errada, não falha pontual."""
+        continuam abortando: indicam limite de uso ou requisição errada, não falha pontual.
+        Com `reusar_raw`, CNPJ que já tem data/raw/rfb/<cnpj>.json legível é lido do disco, sem consultar
+        a BrasilAPI (respeita o limite de uso do serviço); arquivo ausente ou corrompido é consultado."""
         lista: dict[str, None] = {}
         invalidos: list[str] = []
         for c in cnpjs:  # inválido (formato ou DV) não gasta requisição nem aborta o lote
@@ -120,9 +132,14 @@ class RfbSource(Source):
         raw: dict[str, list] = {"cnpjs": [], "nao_encontrados": [], "invalidos": invalidos,
                                 "indisponiveis": []}
         seguidos = 0
-        for i, cnpj in enumerate(lista):
-            if i:
+        consultou = False  # a pausa vale entre consultas de REDE, não entre leituras de disco
+        for cnpj in lista:
+            if reusar_raw and (do_disco := self._ler_raw(cnpj)) is not None:
+                raw["cnpjs"].append(do_disco)
+                continue
+            if consultou:
                 self._dormir(self.pausa)
+            consultou = True
             try:
                 dados = self._consultar(cnpj)
             except (httpx.TransportError, httpx.HTTPStatusError) as e:
