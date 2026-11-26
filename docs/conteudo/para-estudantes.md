@@ -30,7 +30,7 @@ Uma regra é um arquivo YAML curto, com a condição, a frase para o leitor e as
 - `conclui`: o objetivo que a regra prova, usado no encadeamento regressivo;
 - `predicado`: o nome da função que calcula os valores, registrada em `engine/predicates/`;
 - `parametros`: limiares e mínimos;
-- `se`: a condição sobre os valores calculados, avaliada por um avaliador seguro (só comparações e aritmética, sem `eval`);
+- `se`: a condição sobre os valores calculados, avaliada por um avaliador seguro (comparações, aritmética e lógica com and, or e not, sem `eval`);
 - `entao`: a frase em linguagem simples, com variáveis;
 - `cf`: a confiança do especialista na regra, de 0 a 1;
 - `penalidades`: fatores que reduzem o `cf` quando o dado é incerto, cada um com motivo;
@@ -48,7 +48,7 @@ O fator de certeza (CF) do sistema segue o modelo do MYCIN (Shortliffe e Buchana
 
 No sistema, a conta fica: CF final = cf da regra × menor premissa × produto das penalidades. Depois o número vira um nível: alta a partir de 0,7, média a partir de 0,4, indício a partir de 0,2 e inconclusivo abaixo disso.
 
-Exemplo 1, R01: 0,95 × 0,7 = 0,665, que dá o nível média. Exemplo 2, [R06b](/regras/R06b): 0,85 × 0,4 = 0,34, que dá o nível indício. Exemplo 3, combinação: dois sinais de 0,34 e 0,4 para o mesmo objetivo dão 0,34 + 0,4 × (1 − 0,34) = 0,604. Veja o termo [fator de certeza](/glossario#fator-de-certeza).
+Exemplo 1, R01: 0,95 × 0,7 = 0,665, que dá o nível média. Exemplo 2, [R06b](/regras/R06b): 0,85 × 0,4 = 0,34, que dá o nível indício. Exemplo 3, combinação: dois sinais de 0,34 e 0,4 para o mesmo objetivo dão 0,34 + 0,4 × (1 − 0,34) = 0,604. Veja o termo [fator de certeza](/glossario#cf).
 
 Os CF são graus ordinais de confiança, não probabilidades.
 
@@ -56,7 +56,7 @@ Os CF são graus ordinais de confiança, não probabilidades.
 
 O encadeamento progressivo vai dos fatos às conclusões, e o motor o executa em dois passos. Ele está em `engine/forward.py`:
 
-1. **Guardrails primeiro.** As regras de prioridade abaixo de 10 rodam e podam a base de fatos.
+1. **Guardrails primeiro.** As regras com `tipo` guardrail (R02, prioridade 1, e R08, prioridade 2) rodam e podam a base de fatos.
 2. **Regras de inferência.** Para cada regra não composta, o motor chama o predicado, avalia o `se`, calcula o CF e emite um `Finding` com uma `Explanation`.
 
 O comando `make infer` faz isso para todos os deputados e grava os achados. As regras compostas são ignoradas nesse modo.
@@ -71,13 +71,13 @@ O encadeamento regressivo parte de um objetivo e busca os fatos que o provam, e 
 4. Quando várias regras concluem o mesmo objetivo, combina os CF pela fórmula do MYCIN.
 5. Detecta ciclos pela pilha de objetivos: um ramo cíclico vale CF 0 e fica registrado na trilha.
 
-Exemplo: a [R09](/regras/R09) tem `requer: [risco_integridade]`, e esse objetivo é provado por R03, R04, R06 e R06b. A tela [Perguntar](/perguntar) usa esse caminho. A decisão está no ADR-004. Veja [encadeamento progressivo](/glossario#encadeamento-progressivo) e [regressivo](/glossario#encadeamento-regressivo).
+Exemplo: a [R09](/regras/R09) tem `requer: [risco_integridade]`, e esse objetivo é provado por R03, R04, R06 e R06b. A tela [Perguntar](/perguntar) usa esse caminho. A decisão está no ADR-004. Veja encadeamento progressivo e regressivo.
 
 ## O que são guardrails?
 
 Guardrails são regras que impedem conclusões indevidas e, por isso, rodam antes das outras. A [R02](/regras/R02) retira as votações simbólicas, porque nelas não há voto individual. A [R08](/regras/R08) retira processos sem trânsito em julgado e registra deputados sem dado, sem inventar valor.
 
-Eles têm prioridade menor que 10 e não geram conclusão própria. A [R08](/regras/R08) mostra um limite honesto: nenhum plugin produz ainda o fato "processo", então ela removeu 0 na amostra. Veja o termo [guardrail](/glossario#guardrail).
+Eles são escolhidos pelo `tipo` e não geram conclusão própria. A [R08](/regras/R08) mostra um limite honesto: nenhum plugin produz ainda o fato "processo", então ela removeu 0 na amostra. Veja o termo [guardrail](/glossario#guardrail).
 
 ## Como o sistema explica uma conclusão?
 
@@ -93,7 +93,7 @@ De cada fonte foram extraídas a pergunta, a fórmula e a ressalva, e tudo ficou
 
 ## Isso é inteligência artificial?
 
-O motor é um sistema especialista clássico: não aprende com dados, aplica regras escritas por pessoas. Não há aprendizado de máquina no cálculo dos achados. Cada resultado é determinístico e pode ser refeito à mão, como nos exemplos acima.
+Sim, no sentido clássico: é IA simbólica (sistema especialista), sem aprendizado de máquina. O motor não aprende com dados e aplica regras escritas por pessoas. Cada resultado é determinístico e pode ser refeito à mão, como nos exemplos acima.
 
 O projeto tem uma extensão **proposta**, ainda não construída, no ADR-008 (status "Proposto"): um "juiz consultivo" que escolheria entre opções fechadas, como mapear uma pergunta em texto livre a um dos objetivos de `/perguntar`. Hoje existe só a interface e o `NullJudge`, determinístico e sem rede, que não está ligado ao `/perguntar`. Mesmo na proposta, o julgamento nunca altera CF, regras nem guardrails.
 

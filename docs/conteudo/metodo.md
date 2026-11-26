@@ -1,7 +1,7 @@
 ---
 slug: metodo
 titulo: "Como o Raio-X Parlamentar chega às conclusões"
-descricao: "Regras abertas aplicadas a dados oficiais, com nível de certeza, caminho do raciocínio e link da fonte em cada conclusão. Sem acusação e sem ranking."
+descricao: "Regras abertas aplicadas a dados oficiais, com nível de certeza, caminho do raciocínio e link da fonte em cada conclusão; sem acusação e sem ranking."
 resposta: "O Raio-X Parlamentar aplica regras escritas em arquivos abertos a dados públicos oficiais e mostra, em cada conclusão, o nível de certeza, o caminho do raciocínio e o link da fonte. Não acusa ninguém e não faz ranking."
 atualizado: 2026-11-26
 ---
@@ -49,7 +49,7 @@ O número vira um de quatro níveis:
 - **indício:** a partir de 0,2;
 - **inconclusivo:** abaixo de 0,2.
 
-A conta é simples: a confiança da regra, multiplicada pela confiança nos dados e pelas penalidades por dado incerto. Na R01, por exemplo, a confiança da regra é 0,95. Com menos de 30 votações, ela é multiplicada por 0,7, e o resultado é 0,665, nível média. Veja o termo [fator de certeza](/glossario#fator-de-certeza).
+A conta é simples: a confiança da regra, multiplicada pela confiança nos dados e pelas penalidades por dado incerto. Na R01, por exemplo, a confiança da regra é 0,95. Com menos de 30 votações, ela é multiplicada por 0,7, e o resultado é 0,665, nível média. Veja o termo [fator de certeza](/glossario#cf).
 
 ## O que impede conclusões indevidas?
 
@@ -61,7 +61,7 @@ Na amostra, a R02 retirou 121 votações simbólicas. A R08 retirou 0 processos,
 
 Cada conclusão vem com uma trilha que mostra o caminho até ela. A trilha lista os guardrails aplicados, a regra e os valores calculados, as penalidades com o motivo de cada uma, as limitações e as evidências com link para o documento oficial.
 
-Na tela **Perguntar** você escolhe um deputado e um objetivo, e o sistema monta a prova passo a passo. Se não houver conclusão, ele diz por quê, por exemplo "poucos votos válidos" ou "abaixo do limite".
+Na tela **Perguntar** você escolhe um deputado e um objetivo, e o sistema monta a prova passo a passo. Se não houver conclusão, a R01 diz o motivo, por exemplo "poucos votos válidos" ou "abaixo do limite"; nas demais regras, o sistema informa que os dados não ativam a regra.
 
 ## O que o sistema não faz?
 
@@ -71,13 +71,13 @@ Ausência de achado também não é atestado: o sistema só olha para o que as f
 
 ## O que já foi conferido e o que não foi?
 
-Os números do sistema foram conferidos contra os arquivos brutos, mas as regras ainda não foram validadas por especialistas nem por leigos. A conferência de 26/11/2026 fez 44 verificações (votações, governismo da R01 e despesas da cota) e não achou nenhuma divergência. Isso prova que o sistema reproduz o dado oficial. Não prova que o dado oficial esteja certo.
+Os números do sistema foram conferidos contra os arquivos brutos, mas as regras ainda não foram validadas por especialistas nem por leigos. A conferência de 26/11/2026 fez 44 verificações (votações, governismo da R01, despesas da cota e manifesto do bruto) e não achou nenhuma divergência. Isso prova que o sistema reproduz o dado oficial. Não prova que o dado oficial esteja certo.
 
 Só a R01 foi comparada com uma ferramenta externa, o Radar do Congresso, em consulta de 25/11/2026. Houve a mesma classificação em 13 de 14 deputados, com diferença média de 12,6 pontos percentuais. A diferença pode vir do período curto e de critérios diferentes, mas isso é hipótese e não foi verificado. As outras regras não têm validação externa. Os fatores de certeza e os limites não foram calibrados.
 
 ## Que outros projetos existem e no que este difere?
 
-Existem outros projetos abertos sobre o Congresso, e o Raio-X Parlamentar usa as metodologias deles como ponto de partida. O que ele tenta somar é o cruzamento de várias fontes com explicação e incerteza visíveis. Nas descrições que consultamos em 26/11/2026, o relatório do projeto identifica essa lacuna, e essa avaliação pode estar incompleta.
+Existem outros projetos abertos sobre o Congresso, e o Raio-X Parlamentar usa as metodologias deles como ponto de partida. O que ele tenta somar é o cruzamento de várias fontes com explicação e incerteza visíveis. O relatório do projeto (seção 2) aponta essa lacuna, e essa avaliação pode estar incompleta.
 
 - **Operação Serenata de Amor:** analisa gastos da cota com modelos estatísticos. Inspirou a regra [R04](/regras/R04).
 - **Basômetro (Estadão):** calcula taxa de governismo. É a base metodológica da [R01](/regras/R01). O repositório registrou a última atualização exibida em 20/01/2020, em consulta de 25/11/2026.
