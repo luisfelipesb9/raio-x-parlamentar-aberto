@@ -12,7 +12,7 @@ const MENSAGENS: Record<TipoErro, string> = {
   interno: "Algo deu errado do nosso lado. Tente de novo.",
 };
 
-function classifica(status: number): TipoErro {
+export function classifica(status: number): TipoErro {
   if (status === 404) return "nao_encontrado";
   if (status === 400 || status === 422) return "invalido";
   if (status === 503) return "indisponivel";
