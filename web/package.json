@@ -1,8 +1,13 @@
 {
   "name": "raio-x-web",
   "version": "0.1.0",
+  "description": "Interface web do Raio-X Parlamentar: fichas em linguagem simples, mapa de relações e explicação das conclusões.",
+  "license": "MIT",
   "private": true,
   "packageManager": "pnpm@12.21.0",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
