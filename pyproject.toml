@@ -1,6 +1,6 @@
 [project]
 name = "raio-x-parlamentar"
-version = "0.2.0"
+version = "0.3.0"
 description = "Sistema especialista que documenta dados públicos de deputados federais e correlaciona as informações num grafo navegável, com nível de certeza e fonte oficial em cada conclusão."
 readme = "README.md"
 license = "MIT"

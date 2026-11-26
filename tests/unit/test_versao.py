@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 RAIZ = Path(__file__).resolve().parents[2]
-ALVO = "0.2.0"
+ALVO = "0.3.0"
 
 
 def _pyproject() -> str:
