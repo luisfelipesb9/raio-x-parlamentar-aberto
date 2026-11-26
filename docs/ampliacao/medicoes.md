@@ -80,3 +80,36 @@ para carregar os fatos, linear (não medi a inferência em escala).
 - Tempo da inferência (`make infer`) em escala nacional: só depois do ingest nacional.
 - Tamanho real do banco enxuto da [ADR-011](../adr/ADR-011-publicacao-enxuta-e-leitura-sob-demanda.md): medir no teste
   sintético de escala e depois com dados nacionais reais.
+
+## 5. Teste sintético de escala (SINTÉTICO: não são dados reais)
+
+Data: **2026-11-26**, mesma máquina das seções anteriores (macOS, Apple Silicon, 10 núcleos, 16 GB; DuckDB 2.0.1).
+Script: `scripts/escala_sintetica.py` (`RAIO_X_ID_SALT=teste uv run python -m scripts.escala_sintetica --base <cópia da base pública> --saida <dir>`).
+Método: a amostra real de 20 deputados é **replicada 25,65 vezes** com chaves e ids distintos (513 deputados exatos; a última réplica é
+parcial). Votações, proposições, empresas, sanções, sócios e PEP **não** se repetem (os 513 votam nas mesmas votações e pagam as mesmas
+empresas). Roda o motor sobre o resultado, depois `python -m publicar`, e mede a API em processos novos (3 rodadas; vale a mediana do tempo
+e o maior pico de memória, via `/usr/bin/time -l`). Caminho antigo = a API sobre o banco completo sintético; novo = sobre o arquivo de `publicar`.
+
+| Medida (SINTÉTICO, 513 deputados) | Caminho antigo (banco completo) | Caminho novo (banco enxuto) | Gatilho do plano B |
+|---|---|---|---|
+| Fatos no arquivo | 808.800 | 13.772 | |
+| Tamanho do arquivo | 164,9 MB | **8,9 MB** | > 80 MB |
+| Pico de memória da API | 2.585 MB | **324 MB** | > 1 GB |
+| Partida a frio (1ª `/deputados` + 1ª `/grafo`) | 7,87 s (7,82 a 7,95) | **0,37 s** (0,36 a 0,37) | > 10 s |
+| 1ª `/perguntar` | 4,63 s | 0,01 s | |
+| 1ª `/comparar` | 0,19 s | 0,02 s | |
+| `python -m publicar` (roda local) | | 12,0 s, pico de 2.144 MB | |
+
+Nenhum gatilho do plano B foi acionado. O caminho antigo passa de 2 GB (teto da função no Hobby) já com ~0,8 M de fatos, como a
+extrapolação da seção 3 previa; o novo fica em 324 MB. Grafo materializado: 2.890 nós e 77.294 arestas; 1.056 findings.
+
+**Sensibilidade a votos (também sintética).** Somando 200 votações nominais novas × 513 deputados (102.800 votos, ~10× a densidade de votos
+da amostra): arquivo de **11,8 MB** (≈ 28 bytes por voto), pico da API 324 MB, partida 0,34 s.
+
+**Limites desta medição (leia antes de citar os números):**
+- É replicação da amostra de MG (CEAP de 2024, um trimestre de votos), não o dado nacional. A distribuição real (fornecedores, emendas, votos)
+  será diferente; repetir com dados reais é o critério de aceite final da ADR-011.
+- As réplicas **compartilham empresas**, então o grafo sintético tem poucos nós (2.890). No dado real cada deputado tem fornecedores próprios,
+  e os nós podem ir à casa de dezenas de milhares (estimativa da ADR: 60 a 80 mil nós e arestas). Como a memória do grafo é por objeto,
+  espere o pico da API acima de 324 MB, ainda longe do gatilho de 1 GB (não medido).
+- A partida foi medida em processo local (cliente de teste, sem rede nem partida de função serverless da Vercel).
