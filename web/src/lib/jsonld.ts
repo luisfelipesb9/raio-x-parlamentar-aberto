@@ -168,3 +168,37 @@ export function faqLd(pares: ReadonlyArray<{ pergunta: string; resposta: string 
     })),
   };
 }
+
+/** Artigo técnico (método, regras, dados, guia). Só diz o que a página mostra; a data só entra se for AAAA-MM-DD válida. */
+export function artigoLd(opcoes: { titulo: string; descricao: string; caminho: string; atualizado?: string | null }) {
+  const url = urlAbsoluta(opcoes.caminho);
+  const atualizado = opcoes.atualizado && /^\d{4}-\d{2}-\d{2}$/.test(opcoes.atualizado) && !Number.isNaN(new Date(opcoes.atualizado).getTime()) ? opcoes.atualizado : undefined;
+  return {
+    "@context": CONTEXTO,
+    "@type": "TechArticle",
+    headline: texto(opcoes.titulo),
+    description: texto(opcoes.descricao),
+    url,
+    mainEntityOfPage: { "@type": "WebPage", "@id": url },
+    inLanguage: "pt-BR",
+    isAccessibleForFree: true,
+    author: { "@id": ID_ORGANIZACAO },
+    publisher: { "@id": ID_ORGANIZACAO },
+    ...(atualizado ? { dateModified: atualizado } : {}),
+  };
+}
+
+/** Um termo do glossário na própria página. Mesmo texto que a página mostra. */
+export function termoLd(t: Termo) {
+  const urlGlossario = urlAbsoluta("/glossario");
+  return {
+    "@context": CONTEXTO,
+    "@type": "DefinedTerm",
+    name: texto(t.termo),
+    termCode: t.id,
+    description: texto(t.porQueImporta ? `${t.definicao} ${t.porQueImporta}` : t.definicao),
+    url: `${urlGlossario}/${encodeURIComponent(t.id)}`,
+    inLanguage: "pt-BR",
+    inDefinedTermSet: urlGlossario,
+  };
+}
