@@ -4,6 +4,17 @@ const pct = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDi
 export const formataReais = (v: number): string => brl.format(v);
 export const formataPercentual = (fracao: number): string => pct.format(fracao);
 
+/**
+ * O texto das conclusões vem pronto do motor, com ponto decimal ("5.8 de 40"). Aqui o decimal vira
+ * vírgula (pt-BR). Só troca "dígitos.dígitos" isolados: milhar (1.234.567), CNPJ, versão (v1.2) e
+ * ponto final de frase ficam como estão.
+ */
+export const decimaisPtBr = (texto: string): string => texto.replace(/(?<![\w.,])(\d+)\.(\d+)(?!\d|\.\d)/g, "$1,$2");
+
+/** De onde vêm o cadastro e a foto: a foto só é citada quando há URL real (senão a ficha mostra iniciais). */
+export const origemDoCadastro = (foto: string | null | undefined): string =>
+  foto?.trim() ? "Cadastro e foto oficiais da Câmara dos Deputados." : "Cadastro oficial da Câmara dos Deputados.";
+
 export function iniciais(nome: string): string {
   const partes = nome.trim().split(/\s+/).filter(Boolean);
   const a = partes[0]?.[0] ?? "?";

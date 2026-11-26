@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import type { Explanation, Finding } from "@/types/contracts";
 import { useApi } from "@/lib/useApi";
 import { formataCf } from "@/lib/nivel";
-import { rotuloCategoria, rotuloEvidencia } from "@/lib/formato";
+import { decimaisPtBr, rotuloCategoria, rotuloEvidencia } from "@/lib/formato";
 import { formataData } from "@/lib/verificacao";
 import { urlSegura } from "@/lib/url";
 import { Carregando, ErroApi } from "./Estados";
@@ -140,7 +140,7 @@ export function AlertaCard({ finding }: { finding: Finding }) {
         <SeloCerteza nivel={finding.nivel} />
       </header>
       <h3 id={tituloId} className="alerta-conclusao">
-        {finding.conclusao}
+        {decimaisPtBr(finding.conclusao)}
       </h3>
       <p className="alerta-cf">
         <Termo id="cf">Nível de certeza (CF)</Termo>: <strong>{formataCf(finding.cf)}</strong> de 1,00
@@ -163,7 +163,7 @@ export function AlertaCard({ finding }: { finding: Finding }) {
       </div>
       {aberto && (
         <section id={painelId} className="trilha" aria-label={`Como sabemos disso? Regra ${finding.regra}`}>
-          <Trilha finding={finding} titulo={finding.conclusao} aoVerificar={() => setFonteAberta(true)} />
+          <Trilha finding={finding} titulo={decimaisPtBr(finding.conclusao)} aoVerificar={() => setFonteAberta(true)} />
         </section>
       )}
       {fonteAberta && (

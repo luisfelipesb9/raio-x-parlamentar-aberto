@@ -5,7 +5,7 @@ import { useMemo, type ReactNode } from "react";
 import type { Finding, GrafoResposta, PerfilDeputado } from "@/types/contracts";
 import { useApi } from "@/lib/useApi";
 import { resumoDoGrafo, type BlocoValor, type Parecido } from "@/lib/resumo";
-import { formataPercentual, formataReais } from "@/lib/formato";
+import { decimaisPtBr, formataPercentual, formataReais, origemDoCadastro } from "@/lib/formato";
 import { formataCf } from "@/lib/nivel";
 import { AlertaCard } from "./AlertaCard";
 import { AvisoNaoAcusacao } from "./Aviso";
@@ -101,7 +101,7 @@ export function Ficha({ id }: { id: string }) {
           <SecaoFicha id="quem" titulo="Quem é">
             <p>
               Deputado(a) federal pelo <strong>{p.partido ?? "partido não informado"}</strong>
-              {p.uf ? <>, eleito(a) por <strong>{p.uf}</strong></> : null}. Cadastro e foto oficiais da Câmara dos Deputados.
+              {p.uf ? <>, eleito(a) por <strong>{p.uf}</strong></> : null}. {origemDoCadastro(p.foto)}
             </p>
             <p>
               <a href={`https://www.camara.leg.br/deputados/${encodeURIComponent(p.id)}`} target="_blank" rel="noopener noreferrer">
@@ -200,7 +200,7 @@ function AlertasDaSecao({ secao, lista, vazio }: { secao: Secao; lista: Finding[
         <li key={f.id}>
           <SeloCerteza nivel={f.nivel} />
           <span>
-            {f.conclusao}{" "}
+            {decimaisPtBr(f.conclusao)}{" "}
             <a href={`#alerta-${f.id}`}>
               Ver detalhes<span className="visually-hidden"> do alerta {f.regra}</span>
             </a>

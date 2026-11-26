@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ComparacaoResposta, Finding, PerfilDeputado, ResumoCategoria } from "@/types/contracts";
-import { formataPercentual, rotuloCategoria } from "@/lib/formato";
+import { decimaisPtBr, formataPercentual, rotuloCategoria } from "@/lib/formato";
 import { formataCf } from "@/lib/nivel";
 import { TIPOS_NO } from "@/lib/grafo";
 import { useApi } from "@/lib/useApi";
@@ -167,7 +167,7 @@ function ListaAlertas({ titulo, id, lista }: { titulo: string; id: string; lista
             <li key={f.id}>
               <SeloCerteza nivel={f.nivel} />
               <span>
-                {f.conclusao}{" "}
+                {decimaisPtBr(f.conclusao)}{" "}
                 <Link href={`/deputado/${encodeURIComponent(id)}#alerta-${encodeURIComponent(f.id)}`}>
                   Ver na ficha<span className="visually-hidden"> o alerta {f.regra}</span>
                 </Link>
