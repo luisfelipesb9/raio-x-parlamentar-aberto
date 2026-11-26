@@ -2497,3 +2497,8 @@ select {
 .pagina-grafo > .eyebrow {
   margin-bottom: 4px;
 }
+
+/* o painel de detalhes cresce acima da lista de nós; sem isto o navegador "ancora" na lista e empurra a rolagem, tirando o painel da tela */
+.grafo-pagina {
+  overflow-anchor: none;
+}
