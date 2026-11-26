@@ -3,6 +3,9 @@
   "version": "0.2.0",
   "description": "Interface web do Raio-X Parlamentar: fichas em linguagem simples, mapa de relações e explicação das conclusões.",
   "license": "MIT",
+  "homepage": "https://github.com/luisfelipesb9/raio-x-parlamentar-aberto",
+  "repository": { "type": "git", "url": "git+https://github.com/luisfelipesb9/raio-x-parlamentar-aberto.git" },
+  "bugs": { "url": "https://github.com/luisfelipesb9/raio-x-parlamentar-aberto/issues" },
   "private": true,
   "packageManager": "pnpm@12.21.0",
   "engines": {

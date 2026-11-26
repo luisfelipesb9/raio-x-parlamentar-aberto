@@ -44,6 +44,8 @@ que o provam). Detalhes em [docs/arquitetura.md](docs/arquitetura.md).
 Pré-requisitos: Python (3.11+ suportado, 3.12 recomendado) com [uv](https://docs.astral.sh/uv/), Node 22 com pnpm 12.
 
 ```
+git clone https://github.com/luisfelipesb9/raio-x-parlamentar-aberto.git
+cd raio-x-parlamentar-aberto
 make setup     # instala as dependências Python
 make demo      # gera o banco fictício, offline (passo a passo em docs/demo.md)
 make test      # testes

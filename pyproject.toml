@@ -31,6 +31,11 @@ dependencies = [
   "tzdata>=2024.1; sys_platform == 'win32'",
 ]
 
+[project.urls]
+Homepage = "https://github.com/luisfelipesb9/raio-x-parlamentar-aberto"
+Repository = "https://github.com/luisfelipesb9/raio-x-parlamentar-aberto"
+Issues = "https://github.com/luisfelipesb9/raio-x-parlamentar-aberto/issues"
+
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.5"]
 

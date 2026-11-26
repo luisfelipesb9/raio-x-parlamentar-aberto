@@ -11,6 +11,8 @@ chaining, rules in YAML). The code is MIT licensed.
 ## Quick start
 Requirements: Python (3.11+ supported, 3.12 recommended) with uv, Node 22 with pnpm 12.
 ```
+git clone https://github.com/luisfelipesb9/raio-x-parlamentar-aberto.git
+cd raio-x-parlamentar-aberto
 make setup
 make demo    # builds the fictional database, offline (see docs/demo.md)
 make test
