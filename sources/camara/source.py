@@ -1,4 +1,7 @@
-"""Câmara dos Deputados — API v2 (dadosabertos.camara.leg.br/api/v2). Sem autenticação."""
+"""Câmara dos Deputados — API v2 (dadosabertos.camara.leg.br/api/v2) e dumps anuais. Sem autenticação.
+
+Escopo, nova tentativa, checkpoint, janela de votos e dump: `sources/camara/README.md`.
+"""
 from __future__ import annotations
 
 import hashlib
