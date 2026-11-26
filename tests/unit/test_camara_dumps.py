@@ -155,9 +155,8 @@ def test_normalize_do_dump_marca_simbolica_como_nao_nominal_e_sem_voto():
 
 def test_aceita_mais_de_um_arquivo_por_conjunto(tmp_path):
     outra = tmp_path / "votacoes2.csv"
-    texto = VOTACOES.read_text(encoding="utf-8-sig").splitlines()
-    outra.write_text("﻿" + "\n".join([texto[0], texto[0].replace("id", "x")[:0]]),
-                     encoding="utf-8")  # só o cabeçalho: ano sem votações
+    cabecalho = VOTACOES.read_text(encoding="utf-8-sig").splitlines()[0]
+    outra.write_text(cabecalho + "\n", encoding="utf-8")  # só o cabeçalho: ano sem votações
     v = votacoes_do_dump([VOTACOES, outra], [VOTOS], [ORIENTACOES], *Q1)
     assert [x["id"] for x in v] == ["2458405-38", "2458405-40", "2442848-52"]
 
