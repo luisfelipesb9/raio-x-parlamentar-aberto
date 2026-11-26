@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const ITENS = [
-  { href: "/", texto: "Deputados" },
+  { href: "/", texto: "Início" },
+  { href: "/deputados", texto: "Deputados" },
   { href: "/grafo", texto: "Mapa de relações" },
   { href: "/perguntar", texto: "Perguntar" },
   { href: "/comparar", texto: "Comparar" },
@@ -15,7 +16,8 @@ const ITENS = [
 ];
 
 function ativo(path: string, href: string): boolean {
-  if (href === "/") return path === "/" || path.startsWith("/deputado");
+  if (href === "/") return path === "/";
+  if (href === "/deputados") return path === "/deputados" || path.startsWith("/deputado/");
   return path.startsWith(href);
 }
 
