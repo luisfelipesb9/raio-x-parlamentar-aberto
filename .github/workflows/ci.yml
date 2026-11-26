@@ -61,3 +61,30 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
+
+  # O que um buscador/robô de IA recebe SEM JavaScript: SSR da ficha, 404 real, robots, sitemap,
+  # llms.txt e JSON-LD. Usa só o banco de DEMONSTRAÇÃO FICTÍCIO (sem rede, sem dado real).
+  seo-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --locked
+      - run: uv run python -m scripts.seed_demo
+      - uses: pnpm/action-setup@v4  # a versão vem do campo packageManager de web/package.json
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: web
+      # sobe a API (sal PÚBLICO da demo, não é segredo), roda `pnpm build` com ela no ar,
+      # sobe `next start` e confere por HTTP puro; mata os dois processos no fim
+      - run: uv run python -m scripts.seo_smoke --build --site-publico https://exemplo.test
