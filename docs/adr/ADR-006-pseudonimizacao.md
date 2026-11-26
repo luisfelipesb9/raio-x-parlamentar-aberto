@@ -1,5 +1,5 @@
 # ADR-006 — Pseudonimização da base pública
-Status: Proposto · 2026-11-22
+Status: Aceito · 2026-11-22
 
 ## Contexto
 A base de amostra contém CPF de terceiros (doadores, sócios, fornecedores PF). Publicá-la violaria a minimização da LGPD,
