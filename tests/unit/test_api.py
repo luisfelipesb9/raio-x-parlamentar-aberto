@@ -212,6 +212,21 @@ def test_grafo_trunca_pelo_limite_de_nos(store):
     assert body["truncado"] is True and len(body["nodes"]) == 2
 
 
+def test_grafo_informa_totais_e_o_que_o_corte_ocultou(store):
+    with TestClient(create_app(store=store, max_nos_grafo=2)) as c:
+        body = c.get("/grafo", params={"centro": "deputado:1", "profundidade": 2}).json()
+    assert body["total_nos"] > len(body["nodes"]) and body["total_arestas"] >= len(body["edges"])
+    ocultos = body["ocultos"]
+    assert ocultos and all({"tipo", "relacao", "quantidade"} <= set(o) for o in ocultos)
+    assert len(body["nodes"]) + sum(o["quantidade"] for o in ocultos) == body["total_nos"]
+
+
+def test_grafo_sem_corte_tem_totais_iguais_e_nenhum_oculto(client):
+    body = client.get("/grafo", params={"centro": "deputado:3", "profundidade": 1}).json()
+    assert body["truncado"] is False and body["ocultos"] == []
+    assert body["total_nos"] == len(body["nodes"]) and body["total_arestas"] == len(body["edges"])
+
+
 def test_backlinks_do_no(client):
     r = client.get("/grafo/backlinks/partido:ABC")
     assert r.status_code == 200

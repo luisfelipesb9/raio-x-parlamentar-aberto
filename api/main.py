@@ -25,6 +25,7 @@ from api.schemas import (
     Diagnostico,
     GrafoResposta,
     MetricasDeputadoResposta,
+    OcultoResumo,
     PaginaDeputados,
     PassoProva,
     PerfilDeputado,
@@ -35,7 +36,7 @@ from api.schemas import (
 )
 from api.state import AppState, Snapshot
 from contracts import CONTRACT_VERSION, Explanation, Finding, GraphNode, Nivel
-from graph import RELACOES, afinidade_votos, backlinks, normaliza_nome, subgrafo
+from graph import RELACOES, afinidade_votos, backlinks, normaliza_nome, recorte
 from repo.store import Store
 
 log = logging.getLogger("raio_x.api")
@@ -210,10 +211,13 @@ def create_app(db_path: str | Path | None = None, *, store: Store | None = None,
         snap = state.snapshot()
         if centro not in snap.nos_por_id:
             raise HTTPException(404, f"Nó {centro} não encontrado no grafo.")
-        nos, arestas, truncado = subgrafo(snap.nodes, snap.edges, centro, profundidade,
-                                          relacoes=_relacoes(relacoes), max_nos=max_nos_grafo)
-        return GrafoResposta(centro=centro, profundidade=profundidade, nodes=nos, edges=arestas,
-                             truncado=truncado)
+        r = recorte(snap.nodes, snap.edges, centro, profundidade,
+                    relacoes=_relacoes(relacoes), max_nos=max_nos_grafo)
+        return GrafoResposta(
+            centro=centro, profundidade=profundidade, nodes=r.nos, edges=r.arestas,
+            truncado=r.truncado, total_nos=r.total_nos, total_arestas=r.total_arestas,
+            ocultos=[OcultoResumo(tipo=o.tipo, relacao=o.relacao, quantidade=o.quantidade)
+                     for o in r.ocultos])
 
     @app.get("/grafo/backlinks/{node_id}", response_model=BacklinksResposta,
              responses=NAO_ENCONTRADO)

@@ -13,6 +13,7 @@ from graph import (
     backlinks,
     build_graph,
     project,
+    recorte,
     subgrafo,
 )
 
@@ -462,6 +463,79 @@ def test_limite_de_nos_trunca_e_sinaliza(rede):
     assert all(e.origem in ids(nodes) and e.destino in ids(nodes) for e in edges)
     _, _, truncado = subgrafo(*project(rede, []), "deputado:1", 2, max_nos=100)
     assert truncado is False
+
+
+# --------------------------------------------------------------------------- corte justo (recorte)
+@pytest.fixture
+def hub():
+    """Deputado 1 com 40 empresas (R$ 1..40), 5 municípios, 5 proposições e 1 partido."""
+    fs = [F("deputado", "1", nome="Ana", partido="ABC", uf="MG")]
+    for i in range(1, 41):
+        fs.append(F("despesa_ceap", f"d{i}", deputado_id="1", cnpj=f"{i:014d}", fornecedor=f"E{i}",
+                    valor=float(i)))
+    for i in range(5):
+        fs.append(F("emenda", f"e{i}", deputado_id="1", valor_empenhado=100.0 + i,
+                    municipio_ibge=f"31{i:05d}"))
+        fs.append(F("proposicao", f"p{i}", sigla_tipo="PL", numero=str(i), ano="2024"))
+        fs.append(F("autoria", f"a{i}", deputado_id="1", proposicao_id=f"p{i}", papel="autor"))
+    return fs
+
+
+def test_hub_com_muitas_empresas_nao_esconde_partido_municipios_e_proposicoes(hub):
+    r = recorte(*project(hub, []), "deputado:1", 1, max_nos=20)
+    tipos = {n.tipo for n in r.nos}
+    assert {"partido", "municipio", "proposicao", "empresa"} <= tipos
+    assert len(r.nos) == 20 and r.truncado is True
+    assert sum(n.tipo == "municipio" for n in r.nos) == 5
+    assert sum(n.tipo == "proposicao" for n in r.nos) == 5
+    assert sum(n.tipo == "empresa" for n in r.nos) == 8  # o que sobra da cota
+
+
+def test_o_corte_mantem_as_empresas_de_maior_valor(hub):
+    r = recorte(*project(hub, []), "deputado:1", 1, max_nos=20)
+    empresas = sorted(int(n.id.split(":")[1]) for n in r.nos if n.tipo == "empresa")
+    assert empresas == list(range(33, 41))  # R$ 33..40
+
+
+def test_ocultos_resumem_o_que_foi_cortado_por_tipo_e_relacao(hub):
+    r = recorte(*project(hub, []), "deputado:1", 1, max_nos=20)
+    assert [(o.tipo, o.relacao, o.quantidade) for o in r.ocultos] == [("empresa", "recebeu", 32)]
+    assert r.total_nos == 1 + 40 + 5 + 5 + 1
+    assert r.total_arestas == 40 + 5 + 5 + 1
+    assert len(r.nos) + sum(o.quantidade for o in r.ocultos) == r.total_nos
+
+
+def test_sem_corte_nao_ha_ocultos_e_os_totais_batem(hub):
+    r = recorte(*project(hub, []), "deputado:1", 1, max_nos=500)
+    assert r.truncado is False and r.ocultos == []
+    assert r.total_nos == len(r.nos) and r.total_arestas == len(r.arestas)
+
+
+def test_nenhuma_relacao_monopoliza_o_corte(hub):
+    r = recorte(*project(hub, []), "deputado:1", 1, max_nos=14)
+    por_tipo = {t: sum(n.tipo == t for n in r.nos) for t in ("empresa", "municipio", "proposicao")}
+    assert por_tipo["municipio"] >= 3 and por_tipo["proposicao"] >= 3 and por_tipo["empresa"] >= 3
+
+
+def test_profundidade_2_reserva_vaga_para_o_segundo_salto(hub):
+    fs = hub + [F("despesa_ceap", "x", deputado_id="2", cnpj=f"{40:014d}", fornecedor="E40",
+                  valor=1.0), F("deputado", "2", nome="Beto", partido="XYZ", uf="SP")]
+    r = recorte(*project(fs, []), "deputado:1", 2, max_nos=20)
+    assert "deputado:2" in {n.id for n in r.nos}  # 2 saltos não vira cópia de 1 salto
+
+
+def test_recorte_e_deterministico(hub):
+    a = recorte(*project(hub, []), "deputado:1", 1, max_nos=15)
+    b = recorte(*project(list(reversed(hub)), []), "deputado:1", 1, max_nos=15)
+    assert [n.id for n in a.nos] == [n.id for n in b.nos]
+    assert a.ocultos == b.ocultos
+
+
+def test_subgrafo_continua_devolvendo_a_tupla_de_tres(hub):
+    nos, arestas, truncado = subgrafo(*project(hub, []), "deputado:1", 1, max_nos=20)
+    assert len(nos) == 20 and truncado is True
+    assert all(e.origem in {n.id for n in nos} and e.destino in {n.id for n in nos}
+               for e in arestas)
 
 
 def test_saida_e_deterministica(rede):

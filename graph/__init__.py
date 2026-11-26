@@ -5,11 +5,14 @@ from graph.build import (
     SIMETRICAS,
     Afinidade,
     Backlink,
+    Oculto,
+    Recorte,
     afinidade_votos,
     backlinks,
     build_graph,
     normaliza_nome,
     project,
+    recorte,
     subgrafo,
 )
 
@@ -19,10 +22,13 @@ __all__ = [
     "SIMETRICAS",
     "Afinidade",
     "Backlink",
+    "Oculto",
+    "Recorte",
     "afinidade_votos",
     "backlinks",
     "build_graph",
     "normaliza_nome",
     "project",
+    "recorte",
     "subgrafo",
 ]

@@ -22,8 +22,9 @@ import hashlib
 import heapq
 import re
 import unicodedata
-from collections import defaultdict, deque
+from collections import Counter, defaultdict, deque
 from collections.abc import Iterable
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
@@ -34,7 +35,7 @@ from contracts import Fact, Finding, GraphEdge, GraphNode, Nivel
 RELACOES: tuple[str, ...] = (
     "filiado_a", "doou", "recebeu", "enviou_emenda", "socio_de", "votou_com", "relator_de",
     "autor_de",
-)  # também é a prioridade de expansão quando o limite de nós trunca o subgrafo
+)  # também é a ordem de desempate das vagas quando o limite de nós corta o subgrafo
 SIMETRICAS: frozenset[str] = frozenset({"votou_com"})
 
 VOTOS_VALIDOS = {"sim": "Sim", "nao": "Não", "abstencao": "Abstenção", "obstrucao": "Obstrução"}
@@ -378,13 +379,59 @@ def _valida_relacoes(relacoes: Iterable[str] | None) -> frozenset[str] | None:
     return rels
 
 
-def subgrafo(nodes: list[GraphNode], edges: list[GraphEdge], centro: str, profundidade: int = 1,
-             *, relacoes: Iterable[str] | None = None, max_nos: int | None = None
-             ) -> tuple[list[GraphNode], list[GraphEdge], bool]:
+@dataclass(frozen=True)
+class Oculto:
+    """Quantos nós de um tipo ficaram fora do recorte e por qual relação entrariam nele."""
+
+    tipo: str
+    relacao: str | None
+    quantidade: int
+
+
+@dataclass
+class Recorte:
+    """Vizinhança de um nó, já cortada em `max_nos`, com o resumo do que ficou de fora."""
+
+    nos: list[GraphNode]
+    arestas: list[GraphEdge]
+    truncado: bool
+    total_nos: int  # tamanho da vizinhança completa, na profundidade pedida
+    total_arestas: int
+    ocultos: list[Oculto] = field(default_factory=list)
+
+
+RESERVA_PROXIMO_SALTO = 0.25  # fatia de `max_nos` guardada para o salto seguinte
+
+
+def _reparte(grupos: dict[str, list[str]], limite: int, prio: dict[str, int]) -> list[str]:
+    """Divide `limite` vagas entre os grupos (um por relação) em partes iguais; o que um grupo
+    pequeno não usa passa para os maiores. Dentro do grupo vale a ordem recebida (maior valor)."""
+    cotas = dict.fromkeys(grupos, 0)
+    abertos = sorted(grupos, key=lambda r: prio.get(r, len(prio)))
+    restante = limite
+    while restante > 0 and abertos:
+        parte = max(restante // len(abertos), 1)
+        proximos = []
+        for r in abertos:
+            if restante <= 0:
+                break
+            dar = min(parte, len(grupos[r]) - cotas[r], restante)
+            cotas[r] += dar
+            restante -= dar
+            if cotas[r] < len(grupos[r]):
+                proximos.append(r)
+        abertos = proximos
+    return [i for r, itens in grupos.items() for i in itens[:cotas[r]]]
+
+
+def recorte(nodes: list[GraphNode], edges: list[GraphEdge], centro: str, profundidade: int = 1,
+            *, relacoes: Iterable[str] | None = None, max_nos: int | None = None) -> Recorte:
     """Vizinhança de `centro` até `profundidade` saltos (arestas tratadas como não-direcionadas).
 
-    Devolve (nós, arestas, truncado). `truncado` = o limite `max_nos` cortou a expansão; os nós
-    são admitidos por prioridade (RELACOES, depois maior peso)."""
+    Com `max_nos`, o corte é justo: salto a salto, as vagas se dividem em partes iguais entre as
+    relações (nenhuma monopoliza) e, dentro de cada uma, ficam os nós de maior valor (peso da
+    aresta: R$; em `votou_com` é a %). Parte das vagas fica guardada para o salto seguinte, para
+    "2 saltos" não ser uma cópia de "1 salto". O resultado diz o tamanho completo e o que sumiu."""
     if profundidade < 0:
         raise ValueError("profundidade deve ser >= 0")
     rels = _valida_relacoes(relacoes)
@@ -393,29 +440,92 @@ def subgrafo(nodes: list[GraphNode], edges: list[GraphEdge], centro: str, profun
         raise KeyError(centro)
     usadas = [e for e in edges if rels is None or e.relacao in rels]
     prio = {r: i for i, r in enumerate(RELACOES)}
-    adj: dict[str, list[tuple[tuple[int, float, str], str]]] = defaultdict(list)
+    adj: dict[str, list[tuple[str, GraphEdge]]] = defaultdict(list)
     for e in usadas:
-        adj[e.origem].append(((prio[e.relacao], -e.peso, e.destino), e.destino))
-        adj[e.destino].append(((prio[e.relacao], -e.peso, e.origem), e.origem))
+        adj[e.origem].append((e.destino, e))
+        adj[e.destino].append((e.origem, e))
 
-    visitados = {centro}
-    truncado = False
-    fila: deque[tuple[str, int]] = deque([(centro, 0)])
+    # vizinhança completa: salto de cada nó e a relação mais prioritária que o trouxe
+    salto = {centro: 0}
+    via: dict[str, str] = {}
+    fila: deque[str] = deque([centro])
     while fila:
-        atual, d = fila.popleft()
-        if d >= profundidade:
+        atual = fila.popleft()
+        if salto[atual] >= profundidade:
             continue
-        for _, viz in sorted(adj[atual]):
-            if viz in visitados:
-                continue
-            if max_nos is not None and len(visitados) >= max_nos:
-                truncado = True
-                continue
-            visitados.add(viz)
-            fila.append((viz, d + 1))
-    sub_nos = sorted((por_id[i] for i in visitados), key=lambda n: n.id)
-    sub_arestas = [e for e in usadas if e.origem in visitados and e.destino in visitados]
-    return sub_nos, sub_arestas, truncado
+        for viz, e in adj[atual]:
+            if viz not in salto:
+                salto[viz] = salto[atual] + 1
+                fila.append(viz)
+            if salto[viz] == salto[atual] + 1 and prio[e.relacao] < prio.get(via.get(viz), 99):
+                via[viz] = e.relacao
+    total_nos = len(salto)
+    total_arestas = sum(1 for e in usadas if e.origem in salto and e.destino in salto)
+
+    escolhidos = {centro: 0}  # id -> salto em que entrou
+
+    def candidatos(fontes: list[str]) -> dict[str, list[str]]:
+        """Nós de fora ligados às `fontes`, agrupados pela relação e ordenados por valor."""
+        achados: dict[str, tuple[int, float]] = {}
+        for u in fontes:
+            for viz, e in adj[u]:
+                if viz in escolhidos:
+                    continue
+                antigo = achados.get(viz)
+                chave = (prio[e.relacao], -abs(e.peso))
+                if antigo is None or chave < antigo:
+                    achados[viz] = chave
+        grupos: dict[str, list[tuple[float, str]]] = defaultdict(list)
+        rotulo = {i: r for r, i in prio.items()}
+        for viz, (p, v) in achados.items():
+            grupos[rotulo[p]].append((v, viz))
+        return {r: [i for _, i in sorted(itens)] for r, itens in grupos.items()}
+
+    if max_nos is None or total_nos <= max_nos:
+        escolhidos = dict.fromkeys(salto, 0)
+    else:
+        vagas = max(max_nos, 1) - 1
+        for d in range(1, profundidade + 1):
+            if vagas <= 0:
+                break
+            grupos = candidatos([i for i, s in escolhidos.items() if s == d - 1])
+            n_cand = sum(len(g) for g in grupos.values())
+            guarda = int(max_nos * RESERVA_PROXIMO_SALTO) if d < profundidade else 0
+            limite = max(vagas - guarda, 1) if any(s > d for s in salto.values()) else vagas
+            tomados = ([i for itens in grupos.values() for i in itens] if n_cand <= limite
+                       else _reparte(grupos, limite, prio))
+            for i in tomados:
+                escolhidos[i] = d
+            vagas -= len(tomados)
+        while vagas > 0:  # sobra de vagas: completa com o que ficou de fora dos saltos anteriores
+            fontes = [i for i, s in escolhidos.items() if s < profundidade]
+            grupos = candidatos(fontes)
+            if not grupos:
+                break
+            tomados = _reparte(grupos, vagas, prio)
+            niveis = {}
+            for u in fontes:
+                for viz, _ in adj[u]:
+                    niveis[viz] = min(niveis.get(viz, 99), escolhidos[u] + 1)
+            for i in tomados:
+                escolhidos[i] = niveis[i]
+            vagas -= len(tomados)
+
+    ocultos = Counter((por_id[i].tipo, via.get(i)) for i in salto if i not in escolhidos)
+    return Recorte(
+        nos=sorted((por_id[i] for i in escolhidos), key=lambda n: n.id),
+        arestas=[e for e in usadas if e.origem in escolhidos and e.destino in escolhidos],
+        truncado=len(escolhidos) < total_nos, total_nos=total_nos, total_arestas=total_arestas,
+        ocultos=[Oculto(t, r, q) for (t, r), q in
+                 sorted(ocultos.items(), key=lambda kv: (-kv[1], kv[0][0], kv[0][1] or ""))])
+
+
+def subgrafo(nodes: list[GraphNode], edges: list[GraphEdge], centro: str, profundidade: int = 1,
+             *, relacoes: Iterable[str] | None = None, max_nos: int | None = None
+             ) -> tuple[list[GraphNode], list[GraphEdge], bool]:
+    """Como `recorte`, mas devolve só (nós, arestas, truncado)."""
+    r = recorte(nodes, edges, centro, profundidade, relacoes=relacoes, max_nos=max_nos)
+    return r.nos, r.arestas, r.truncado
 
 
 def build_graph(facts: list[Fact], findings: list[Finding], centro: str | None = None,
