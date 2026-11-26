@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
       # Em repositório de ORGANIZAÇÃO, a gitleaks-action exige a secret GITLEAKS_LICENSE
       # (gratuita para uso aberto; ver gitleaks.com). Em conta pessoal não é necessária.
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}  # descomente se o repo for de uma organização
