@@ -28,12 +28,13 @@ com CPF mascarado não carregam nome. `RAIO_X_ID_SALT` troca o sal dos ids de pe
 Dependências: `fastapi`, `uvicorn` (e `httpx` para testes) — ver `pyproject.toml`.
 
 `/perguntar`: um único `forward.run` (todas as regras, guardrails aplicados) por processo, passado a
-`backward.prove(..., resultado=)`. Cada passo da trilha sem conclusão (`cf = 0`) traz `diagnostico`
+`backward.prove(..., resultado=)`. Um passo da trilha sem conclusão (`cf = 0`) pode trazer `diagnostico`
 `{motivo, detalhes}`: `dados_insuficientes` (menos votos válidos que o mínimo; `n_votos_validos`,
 `minimo_votos`, `taxa` se calculável), `abaixo_do_limiar` (`n_votos_validos`, `minimo_votos`, `taxa`,
-`limiar`) ou `sem_regra_aplicavel` (qualquer outro caso, inclusive regras sem diagnosticador). Só a R01
-tem diagnosticador; para outra regra, registre um com `@diagnostico("<predicado>")`. O campo `nota`
-(texto) não mudou.
+`limiar`) ou `sem_regra_aplicavel` (só quando nenhuma regra conclui o objetivo). Só a R01 tem
+diagnosticador; passo de regra sem diagnosticador, regra composta (R09) ou ciclo vem com
+`diagnostico: null` e mantém a `nota` (ex.: "sub-objetivos: ..."). Para outra regra, registre um com
+`@diagnostico("<predicado>")`. O campo `nota` (texto) não mudou.
 
 ### Cobertura e métricas
 - **Janela de votos** (`JanelaVotos`): `inicio`/`fim` = menor e maior `data` dos fatos `votacao`;

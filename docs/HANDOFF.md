@@ -4,7 +4,7 @@
 
 ## Como rodar
 ```
-make setup && make test          # testes Python (pytest); web: 50 unit + 45 e2e
+make setup && make test          # testes Python (pytest); web: `pnpm test` (unit) e `pnpm e2e` (Playwright), em web/
 make sample                      # ingere 20 deputados de MG (votações de fev–mar/2025, CEAP do arquivo de 2024, TSE 2022) + roda o motor -> data/sample/raio_x_sample.duckdb
 make verifica                    # confere governismo e CEAP contra os brutos (ver "Cobertura e verificação")
 RAIO_X_DB=data/sample/raio_x_sample.duckdb make dev    # API em http://localhost:8000 (/docs)
@@ -21,9 +21,9 @@ cd web && pnpm install && pnpm dev                     # web em http://localhost
 | engine: CF MYCIN, loader YAML, forward, backward com `requer` e detecção de ciclo, explain | pronto |
 | Regras R01–R09 e R06b | prontas (R09 só no regressivo) |
 | graph/ (projeção, subgrafo, backlinks, afinidade de votos) | pronto |
-| api/ (8 endpoints GET, RFC 7807, cache por impressão digital do banco) | pronto |
+| api/ (endpoints GET somente leitura, ver `api/README.md`; RFC 7807, cache por impressão digital do banco) | pronto |
 | DB de amostra (`data/sample/raio_x_sample.duckdb`) | pronto, gerado por `make sample` |
-| web/ (ficha, grafo Cytoscape, perguntar/comparar, glossário) | **pronto**: 7 rotas (busca, ficha, grafo, perguntar, comparar, glossário); lint/test/build e e2e Playwright, 45 ok, em desktop e 375px; identidade visual "raio-x" em `web/DESIGN.md` |
+| web/ (ficha, grafo Cytoscape, perguntar/comparar, glossário) | **pronto**: rotas em `web/src/app` (busca, ficha, grafo, perguntar, comparar, glossário, fontes); lint/test/build e e2e Playwright em desktop e 375px; identidade visual "raio-x" em `web/DESIGN.md` |
 | Relatório e roteiro de apresentação | `docs/relatorio/` (este commit) |
 
 ## O que falta
@@ -45,15 +45,22 @@ Escopo da amostra: 2.083 emendas ligadas (o total global da CGU é 37.297 ligada
 - **Endpoints** (somente leitura, ver `api/README.md`): `GET /cobertura` (janela das votações, agregado por fonte com
   menor/maior `coletado_em`, nº de deputados e findings) e `GET /deputados/{id}/metricas` (votos do deputado e `valores` de
   cada regra; 404 se o deputado não existe). `/perguntar` agora traz `diagnostico` nos passos sem conclusão
-  (`dados_insuficientes`, `abaixo_do_limiar`, `sem_regra_aplicavel`; só a R01 tem diagnosticador).
+  (`dados_insuficientes`, `abaixo_do_limiar`, `sem_regra_aplicavel`; só a R01 tem diagnosticador; regra composta, ciclo e regra sem
+  diagnosticador ficam com `diagnostico: null` e mantêm a `nota`; `sem_regra_aplicavel` só quando nenhuma regra conclui o objetivo).
 - **Manifest** `data/raw/manifest.json`: sha256, tamanho e data de cada arquivo bruto, gravado por `save_raw`/`registrar_raw`.
   `Evidence.coletado_em` vem do fato; `Evidence.sha256_bruto` só quando a fonte tem UM arquivo no manifest (Câmara, CGU e RFB
-  têm vários e ficam sem hash). Findings gravados antes disso são completados pela API na leitura.
+  têm vários e ficam sem hash). Findings gravados antes disso são completados pela API na leitura, lendo só o manifesto
+  (exceção documentada no ADR-009; o hash é o do manifesto atual, e `python -m engine.run --raw PASTA` o grava na evidência na hora da inferência).
 - **`make verifica`** (`scripts/verifica.py`): recalcula, sem usar o motor, o governismo e o total CEAP de cada deputado do
-  banco a partir dos brutos e confronta com banco e findings; confere o manifest. Opções via `ARGS=`: `--gerar-manifesto`
-  (manifest retroativo para brutos que já existiam, `origem: retroativo`), `--online` (amostra a contagem de votos na API da
-  Câmara; desligado por padrão). Escreve `docs/relatorio/verificacao.md`; sai com código 1 se houver divergência.
-  Última rodada na amostra: 44 conferências, 0 divergências (a conferência `--online` não foi executada).
+  banco a partir dos brutos e confronta com banco e findings; confere o manifest. Opções via `ARGS=`, por exemplo
+  `make verifica ARGS="--gerar-manifesto"`: `--gerar-manifesto` (manifest retroativo para brutos que já existiam,
+  `origem: retroativo`), `--online` (amostra a contagem de votos na API da Câmara; desligado por padrão), `--raw PASTA`,
+  `--saida ARQUIVO.md`. Escreve `docs/relatorio/verificacao.md`; sai com código 1 se houver divergência.
+  Sem `data/raw/manifest.json` (instalação limpa), o manifesto vira UMA linha "não verificado" ("manifesto ausente: rode com
+  `--gerar-manifesto`") e não reprova; arquivo fora de um manifesto que existe continua sendo divergência. Com mais de um
+  `camara_<início>_<fim>.json`, usa o que cobre a janela das votações do banco e avisa se não houver como decidir.
+  Última rodada na amostra: 44 conferências, 0 divergências; ela exigiu `--gerar-manifesto` (a conferência `--online`
+  não foi executada).
 
 ## Operação e privacidade
 - A base de amostra **não é versionada**: contém CPF de terceiros (minimização, LGPD). Gere com `make sample`.

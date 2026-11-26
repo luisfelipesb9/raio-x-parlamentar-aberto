@@ -9,3 +9,4 @@
 | [006](ADR-006-pseudonimizacao.md) | Pseudonimização da base pública | Proposto |
 | [007](ADR-007-contrato-v0-2-0.md) | Contrato v0.2.0: transparência do corte, diagnóstico, proveniência e cobertura | Proposto |
 | [008](ADR-008-jev-juiz-consultivo.md) | Jev como juiz consultivo opcional (extensão proposta) | Proposto |
+| [009](ADR-009-api-le-manifesto-do-bruto.md) | A API lê o manifesto do bruto (exceção a "a API só lê o banco") | Proposto |

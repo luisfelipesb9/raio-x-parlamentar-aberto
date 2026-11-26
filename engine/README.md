@@ -7,7 +7,8 @@ Motor de inferência do Sistema Especialista.
 - `backward.py`: encadeamento regressivo com sub-objetivos (`requer`), ciclo detectado, trilha de prova.
 - `explain.py`: trilha "como" e "por quê".
 - `diagnostico.py` + `@diagnostico` (em `predicates/registry.py`): por que um passo da prova ficou sem conclusão
-  (`dados_insuficientes`, `abaixo_do_limiar`, `sem_regra_aplicavel`). Só a R01 tem diagnosticador; regra nova cai em
-  `sem_regra_aplicavel` até registrar o seu. Nunca muda CF nem decisão.
+  (`dados_insuficientes`, `abaixo_do_limiar`, `sem_regra_aplicavel`). Só a R01 tem diagnosticador; regra sem
+  diagnosticador (e regra composta ou ciclo) fica com `diagnostico` vazio e mantém a `nota`; `sem_regra_aplicavel` só
+  quando nenhuma regra conclui o objetivo. Nunca muda CF nem decisão.
 - `proveniencia.py`: preenche `Evidence.coletado_em` (do fato de origem) e `sha256_bruto` (só se a fonte tem um único arquivo bruto no manifesto).
 Entrada: `FactBase`. Saída: list[Finding]. Dono: Luis (núcleo), Pedro (backward).
