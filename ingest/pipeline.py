@@ -11,7 +11,8 @@ escopo), mas nunca grava link para deputado fora do escopo.
 Cada passo apaga o que vai reafirmar (INSERT OR REPLACE não remove chave que sumiu) e regrava.
 
 Modo nacional (sem --uf nem --amostra): o TSE é processado uma UF por vez (baixa, normaliza, grava e
-solta antes da próxima; bruto por UF em data/raw/tse/) e `--reusar-raw` pula a UF já baixada.
+solta antes da próxima; bruto por UF em data/raw/tse/) e `--reusar-raw` pula a UF já baixada. O
+CEAP aceita vários anos (`--anos-ceap 2023,2024`), um zip por ano lido uma única vez.
 Ver docs/ampliacao/ingest-nacional.md.
 """
 from __future__ import annotations
@@ -120,6 +121,7 @@ class Opcoes:
     fontes: tuple[str, ...] = ("camara",)
     uf: str | None = None
     ano: int | None = None  # ano do arquivo CEAP
+    anos_ceap: tuple[int, ...] = ()  # vários anos do CEAP (vale no lugar de `ano`)
     ano_eleicao: int = 2022
     amostra: int | None = None
     limite_rfb: int = 50
@@ -154,8 +156,8 @@ class Pipeline:
         desconhecidas = [f for f in self.opcoes.fontes if f not in self.registry]
         if desconhecidas:
             raise ValueError(f"fonte desconhecida: {desconhecidas} (use {sorted(self.registry)})")
-        if "ceap" in self.opcoes.fontes and self.opcoes.ano is None:
-            raise ValueError("a fonte ceap precisa de --ano")
+        if "ceap" in self.opcoes.fontes and not self._anos_ceap():
+            raise ValueError("a fonte ceap precisa de --ano (ou --anos-ceap)")
         if self.opcoes.incluir_proposicoes and "camara" in self.opcoes.fontes and not callable(
                 getattr(self.registry["camara"], "fetch_proposicoes", None)):
             raise ValueError("--incluir-proposicoes: a fonte camara não tem fetch_proposicoes")
@@ -316,19 +318,39 @@ class Pipeline:
         return all("_detalhe" in d for d in cache.get("deputados", [])
                    if pedido is True or str(d.get("id")) in pedido)
 
-    def _passo_ceap(self) -> None:
+    def _anos_ceap(self) -> tuple[int, ...]:
+        """Anos do CEAP a processar: `anos_ceap` se vier, senão `ano`; sem repetição, em ordem."""
         o = self.opcoes
+        return tuple(dict.fromkeys(o.anos_ceap or (() if o.ano is None else (o.ano,))))
+
+    def _passo_ceap(self) -> None:
+        """Um zip por ano, lido uma única vez (a leitura não depende de quantos deputados há no
+        escopo: o filtro é um conjunto em memória). Os anos são processados em sequência, e só um
+        ano fica em memória por vez."""
         src = self.registry["ceap"]()
-        raw = chamar_fetch(src, ano=o.ano)
-        fatos = [f for f in src.normalize(raw) if f.tipo == "despesa_ceap"
-                 and self._no_escopo(f.atributos.get("deputado_id"))]
-        if fatos:
-            self.store.delete_facts(
-                "despesa_ceap", fonte=fatos[0].fonte, ano_data=o.ano,
-                onde={"deputado_id": self.escopo} if self.escopo is not None else None)
-        self._gravar(fatos)
-        self.relatorio["ceap"] = {"despesas": len(fatos),
-                                  "com_cnpj": sum(1 for f in fatos if f.atributos.get("cnpj"))}
+        por_ano: dict[int, int] = {}
+        com_cnpj = 0
+        sem_data_anteriores: list[Fact] = []
+        for ano in self._anos_ceap():
+            raw = chamar_fetch(src, ano=ano)
+            fatos = [f for f in src.normalize(raw) if f.tipo == "despesa_ceap"
+                     and self._no_escopo(f.atributos.get("deputado_id"))]
+            del raw
+            if fatos:
+                self.store.delete_facts(
+                    "despesa_ceap", fonte=fatos[0].fonte, ano_data=ano,
+                    onde={"deputado_id": self.escopo} if self.escopo is not None else None)
+            self._gravar(fatos)
+            if sem_data_anteriores:
+                # o delete por ano também apaga fatos sem data (não dá para saber de que carga
+                # são): regrava os dos anos anteriores desta rodada, que acabaram de ser apagados
+                self.store.upsert_facts(self._p(sem_data_anteriores))
+            sem_data_anteriores += [f for f in fatos if f.atributos.get("data") is None]
+            por_ano[ano] = len(fatos)
+            com_cnpj += sum(1 for f in fatos if f.atributos.get("cnpj"))
+            del fatos  # o ano seguinte não pode começar com este ainda em memória
+        self.relatorio["ceap"] = {"despesas": sum(por_ano.values()), "com_cnpj": com_cnpj,
+                                  "por_ano": por_ano}
 
     def _passo_cgu(self) -> None:
         src = self.registry["cgu"]()
@@ -494,12 +516,24 @@ class Pipeline:
 
 # ---------- CLI ----------
 
+def _lista_de_anos(texto: str) -> tuple[int, ...]:
+    """'2023,2024' -> (2023, 2024), sem repetição e na ordem dada."""
+    partes = [p.strip() for p in texto.split(",")]
+    if not all(re.fullmatch(r"\d{4}", p) and 2000 <= int(p) <= 2100 for p in partes):
+        raise argparse.ArgumentTypeError(
+            f"anos inválidos: {texto!r} (esperado ANO[,ANO...] com 4 dígitos, ex.: 2023,2024)")
+    return tuple(dict.fromkeys(int(p) for p in partes))
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--fontes", "--fonte", default="camara",
                     help=f"lista separada por vírgula de: {','.join(ORDEM)}")
     ap.add_argument("--uf", help="restringe a uma UF (ex.: MG)")
-    ap.add_argument("--ano", type=int, help="ano do arquivo CEAP (obrigatório com ceap)")
+    ap.add_argument("--ano", type=int, help="ano do arquivo CEAP (com ceap: --ano ou --anos-ceap)")
+    ap.add_argument("--anos-ceap", type=_lista_de_anos, default=(), metavar="ANO[,ANO...]",
+                    help="vários anos do CEAP, ex.: 2023,2024 (um zip por ano, um ano de cada vez; "
+                         "vale no lugar de --ano)")
     ap.add_argument("--ano-eleicao", type=int, default=2022)
     ap.add_argument("--amostra", type=int, help="só os N primeiros deputados (da UF, se dada)")
     ap.add_argument("--limite-rfb", type=int, default=50, help="máx. de CNPJs consultados (0=nenhum)")
@@ -522,7 +556,8 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--db", help="arquivo DuckDB (padrão: $RAIO_X_DB ou data/raio_x.duckdb)")
     a = ap.parse_args(argv)
     fontes = tuple(f.strip() for f in a.fontes.split(",") if f.strip())
-    op = Opcoes(fontes=fontes, uf=a.uf, ano=a.ano, ano_eleicao=a.ano_eleicao, amostra=a.amostra,
+    op = Opcoes(fontes=fontes, uf=a.uf, ano=a.ano, anos_ceap=a.anos_ceap,
+                ano_eleicao=a.ano_eleicao, amostra=a.amostra,
                 limite_rfb=a.limite_rfb, max_votacoes=a.max_votacoes,
                 janela_inicio=a.janela_inicio, janela_fim=a.janela_fim, max_pep=a.max_pep,
                 reusar_raw=a.reusar_raw, detalhar_deputados=a.detalhar_deputados,
