@@ -86,6 +86,12 @@ Passo a passo:
 5. Projeto web: `cd web`, `vercel link`, apontar `NEXT_PUBLIC_API_URL` para o domínio do passo 4.
 
 Local equivalente: `uv run uvicorn api.index:app`.
+
+**Dois modos de leitura (ADR-011).** Se o banco foi gerado por `make publicar` (`publicacao_meta.gerado_em` existe), a API lê o
+grafo materializado (`graph_node`/`graph_edge`), consulta findings e votos por deputado, usa `inferencia` em `/perguntar` e
+`publicacao_meta` em `/cobertura`, e **nunca** carrega todos os fatos. Com o banco de trabalho completo (`make ingest`/`make dev`),
+mantém o caminho antigo (snapshot de todos os fatos). As respostas são as mesmas nos dois modos (teste de regressão
+`tests/unit/test_api_publicado.py`).
 Limites/riscos: banco é aberto read-only (o filesystem da função é somente leitura), sem
 atualização em tempo de execução: dado novo = novo deploy. Bundle < 500 MB (DuckDB ~40 MB + banco).
 Validado em produção em 2026-11-25. A entrada é declarada em `[tool.vercel]` no `pyproject.toml`.

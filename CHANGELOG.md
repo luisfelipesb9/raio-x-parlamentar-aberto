@@ -3,6 +3,14 @@
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Correções de dado
 (veja a [política](docs/politica-de-uso-e-correcao.md)) também são registradas aqui.
 
+## [Não lançado]
+### Adicionado
+- Banco público enxuto ([ADR-011](docs/adr/ADR-011-publicacao-enxuta-e-leitura-sob-demanda.md)): `make publicar` materializa grafo,
+  inferência e contagens do banco completo e grava só os fatos que a API lê, sem chave primária, para caber na Vercel Hobby com 513 deputados.
+### Alterado
+- A API, quando o banco foi gerado por `make publicar`, deixa de carregar todos os fatos na partida: lê o grafo materializado e consulta
+  o DuckDB por deputado. Com o banco de trabalho completo (`make dev`) continua no caminho antigo. As respostas não mudam.
+
 ## [0.3.0] - 2026-11-26
 ### Adicionado
 - Fichas e lista de deputados renderizadas no servidor (ISR): o HTML já traz nome, resumo, alertas com nível de certeza

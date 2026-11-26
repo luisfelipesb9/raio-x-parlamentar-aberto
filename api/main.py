@@ -34,9 +34,9 @@ from api.schemas import (
     ResumoCategoria,
     Saude,
 )
-from api.state import AppState, Snapshot
+from api.state import AppState, Snapshot, SnapshotPublicado
 from contracts import CONTRACT_VERSION, Explanation, Finding, GraphNode, Nivel
-from graph import RELACOES, afinidade_votos, backlinks, normaliza_nome, recorte
+from graph import RELACOES, backlinks, normaliza_nome, recorte
 from repo.store import Store
 
 log = logging.getLogger("raio_x.api")
@@ -63,11 +63,11 @@ def _problem(status: int, detail: str | None = None, **extra) -> JSONResponse:
                         media_type="application/problem+json")
 
 
-def _perfil(snap: Snapshot, dep_id: str) -> PerfilDeputado:
+def _perfil(snap: Snapshot | SnapshotPublicado, dep_id: str) -> PerfilDeputado:
     base = snap.deputados.get(dep_id)
     if base is None:
         raise HTTPException(404, f"Deputado {dep_id} não encontrado.")
-    fs = snap.findings.get(dep_id, [])
+    fs = snap.findings_de(dep_id)
     return PerfilDeputado(**base.model_dump(), n_findings=len(fs), categorias=_categorias(fs))
 
 
@@ -177,7 +177,7 @@ def create_app(db_path: str | Path | None = None, *, store: Store | None = None,
         snap = state.snapshot()
         if deputado_id not in snap.deputados:
             raise HTTPException(404, f"Deputado {deputado_id} não encontrado.")
-        return snap.findings.get(deputado_id, [])
+        return snap.findings_de(deputado_id)
 
     @app.get("/deputados/{deputado_id}/metricas", response_model=MetricasDeputadoResposta,
              responses=NAO_ENCONTRADO)
@@ -267,9 +267,9 @@ def create_app(db_path: str | Path | None = None, *, store: Store | None = None,
                  ) - {f"deputado:{a}", f"deputado:{b}"}
         em_comum: list[GraphNode] = [snap.nos_por_id[i] for i in sorted(comum)][:MAX_EM_COMUM]
         return ComparacaoResposta(
-            a=pa, b=pb, categorias=categorias, afinidade_votos=afinidade_votos(snap.facts, a, b),
-            em_comum=em_comum, findings_a=snap.findings.get(a, []),
-            findings_b=snap.findings.get(b, []))
+            a=pa, b=pb, categorias=categorias, afinidade_votos=snap.afinidade(a, b),
+            em_comum=em_comum, findings_a=snap.findings_de(a),
+            findings_b=snap.findings_de(b))
 
     return app
 

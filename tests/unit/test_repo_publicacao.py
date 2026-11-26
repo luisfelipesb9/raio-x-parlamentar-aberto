@@ -167,3 +167,30 @@ def test_arquivo_publico_nao_tem_chave_primaria_nem_indice(tmp_path, origem):
 def test_novo_publico_nao_sobrescreve_arquivo_existente(tmp_path, origem):
     with pytest.raises(FileExistsError):
         Store.novo_publico(origem)
+
+
+# ---------- leituras por deputado (API sob demanda) ----------
+def test_votos_do_deputado_traz_so_os_dele_como_fatos_completos(store):
+    store.upsert_facts([
+        F("voto", "v1:1", votacao_id="v1", deputado_id="1", voto="Sim"),
+        F("voto", "v1:2", votacao_id="v1", deputado_id="2", voto="Não"),
+        F("voto", "v2:1", votacao_id="v2", deputado_id="1", voto="Não"),
+        F("votacao", "v1", nominal=True)])
+    votos = store.votos_do_deputado("1")
+    assert [(f.chave, f.atributos["voto"]) for f in votos] == [("v1:1", "Sim"), ("v2:1", "Não")]
+    assert store.votos_do_deputado("999") == []
+
+
+def test_fatos_leves_acham_pelo_par_tipo_id_oficial_sem_atributos(store):
+    store.upsert_facts([F("despesa_ceap", "c1", valor=10), F("despesa_ceap", "c2", valor=20),
+                        F("emenda", "c1", valor=30)])
+    achados = store.fatos_leves({("despesa_ceap", "c1"), ("emenda", "c1"), ("emenda", "zzz")})
+    assert sorted((f.tipo, f.id_oficial) for f in achados) == [("despesa_ceap", "c1"), ("emenda", "c1")]
+    assert all(f.atributos == {} and f.fonte == "teste" and f.coletado_em for f in achados)
+    assert store.fatos_leves(set()) == []
+
+
+def test_fatos_leves_com_muitos_pares_usa_lotes(store):
+    store.upsert_facts([F("despesa_ceap", f"c{i}") for i in range(1200)])
+    achados = store.fatos_leves({("despesa_ceap", f"c{i}") for i in range(0, 1200, 2)})
+    assert len(achados) == 600
