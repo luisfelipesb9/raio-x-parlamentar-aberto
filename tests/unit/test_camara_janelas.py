@@ -64,3 +64,9 @@ def test_janela_invertida_e_erro():
 def test_data_invalida_e_erro():
     with pytest.raises(ValueError):
         fatiar_janela("2025-13-01", "2025-12-31")
+
+
+@pytest.mark.parametrize("meses", [0, -1])
+def test_meses_por_fatia_menor_que_um_e_erro_em_vez_de_laco_infinito(meses):
+    with pytest.raises(ValueError, match="meses"):
+        fatiar_janela("2025-01-01", "2025-12-31", meses=meses)

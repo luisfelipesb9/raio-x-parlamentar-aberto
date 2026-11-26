@@ -57,6 +57,8 @@ class CamaraSource(Source):
         """`pausa`: segundos entre chamadas (a API não documenta limite; já devolveu 429).
         429, 5xx e erro de rede/timeout são retentados até `max_tentativas` vezes, com espera
         `espera_base * 2**(n-1)` (no máximo 60 s) ou o `Retry-After` do servidor."""
+        if max_tentativas < 1:
+            raise ValueError(f"max_tentativas deve ser >= 1, recebi {max_tentativas}")
         self.client = client or httpx.Client(timeout=30, headers={"Accept": "application/json"})
         self.pausa, self.max_tentativas, self.espera_base = pausa, max_tentativas, espera_base
         # resolvido na hora de dormir (e não aqui): quem troca `time.sleep` em teste é obedecido
@@ -155,7 +157,15 @@ class CamaraSource(Source):
             if prop["erros"]:
                 raw["proposicoes_erros"] = prop["erros"]
         self.save_raw(f"camara_{data_inicio}_{data_fim}.json", raw)
-        parcial.limpar()
+        # só o que ESTE fetch guardou: o pipeline roda `fetch_proposicoes` depois, e o parcial
+        # pendente dele (de uma coleta que caiu) tem de sobreviver
+        meus = [f"deputados_{escopo}", f"deputados_detalhe_{escopo}"]
+        meus += [f"votacoes_{ini}_{fim}" for ini, fim in fatiar_janela(data_inicio, data_fim)]
+        if incluir_proposicoes:
+            meus.append(self._nome_parcial_proposicoes(
+                data_inicio, data_fim, [str(d["id"]) for d in deputados], siglas_tipo,
+                max_proposicoes))
+        parcial.limpar(meus)
         return raw
 
     # ---------- deputados ----------
@@ -397,15 +407,13 @@ class CamaraSource(Source):
         for extra in consultas:
             for p in self._get_all("/proposicoes", **params, **extra):
                 achadas.setdefault(p["id"], p)
-            if max_proposicoes is not None and len(achadas) >= max_proposicoes:
-                break
         lista = [achadas[i] for i in sorted(achadas)][:max_proposicoes]
-        if max_proposicoes is not None and len(achadas) >= max_proposicoes:
+        if max_proposicoes is not None and len(achadas) > max_proposicoes:
             _log.warning(
-                "max_proposicoes=%s atingido: a coleta parou aqui e guardou só %s proposições, "
-                "em ordem de id entre os primeiros autores consultados. É amostra de "
-                "demonstração, enviesada; no modo nacional use max_proposicoes=None.",
-                max_proposicoes, len(lista))
+                "max_proposicoes=%s cortou a coleta: ficaram %s das %s proposições achadas, as de "
+                "menor id (as mais antigas da janela). É amostra de demonstração, enviesada; "
+                "no modo nacional use max_proposicoes=None.",
+                max_proposicoes, len(lista), len(achadas))
         return lista
 
     def _normalize_proposicao(self, p: dict) -> list[Fact]:

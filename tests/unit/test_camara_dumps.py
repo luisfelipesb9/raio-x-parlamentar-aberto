@@ -164,3 +164,44 @@ def test_aceita_mais_de_um_arquivo_por_conjunto(tmp_path):
 def test_janela_invertida_e_erro():
     with pytest.raises(ValueError, match="início"):
         _dump("2025-04-01", "2025-03-31")
+
+
+# ---------- arquivo fora do formato: erro claro com o nome do arquivo ----------
+
+def _csv(tmp_path, nome, texto):
+    f = tmp_path / nome
+    f.write_text("\ufeff" + texto, encoding="utf-8")
+    return f
+
+
+def test_coluna_obrigatoria_ausente_aponta_arquivo_e_coluna(tmp_path):
+    ruim = _csv(tmp_path, "votacoesVotos-2025.csv", '"idVotacao";"voto"\n"1-1";"Sim"\n')
+    with pytest.raises(ValueError, match=r"votacoesVotos-2025\.csv.*deputado_id"):
+        votacoes_do_dump([VOTACOES], [ruim], [ORIENTACOES], *Q1)
+
+
+def test_colunas_da_listagem_de_votacoes_tambem_sao_conferidas(tmp_path):
+    ruim = _csv(tmp_path, "votacoes-2025.csv", '"id";"data"\n"1-1";"2025-01-02"\n')
+    with pytest.raises(ValueError, match=r"votacoes-2025\.csv.*siglaOrgao"):
+        votacoes_do_dump([ruim], [VOTOS], [ORIENTACOES], *Q1)
+
+
+def test_colunas_de_orientacoes_tambem_sao_conferidas(tmp_path):
+    ruim = _csv(tmp_path, "votacoesOrientacoes-2025.csv", '"idVotacao";"orientacao"\n')
+    with pytest.raises(ValueError, match=r"votacoesOrientacoes-2025\.csv.*siglaBancada"):
+        votacoes_do_dump([VOTACOES], [VOTOS], [ruim], *Q1)
+
+
+def test_arquivo_vazio_e_erro_claro(tmp_path):
+    vazio = tmp_path / "votacoesVotos-2025.csv"
+    vazio.write_bytes(b"")
+    with pytest.raises(ValueError, match=r"votacoesVotos-2025\.csv.*vazio"):
+        votacoes_do_dump([VOTACOES], [vazio], [ORIENTACOES], *Q1)
+
+
+def test_linha_curta_de_download_truncado_e_erro_com_arquivo_e_linha(tmp_path):
+    cabecalho = VOTOS.read_text(encoding="utf-8-sig").splitlines()[0]
+    truncado = _csv(tmp_path, "votacoesVotos-2025.csv",
+                    cabecalho + '\n"2442848-52";"u";"2025-03-27T20:10:00";"Sim"\n')
+    with pytest.raises(ValueError, match=r"votacoesVotos-2025\.csv.*linha 2"):
+        votacoes_do_dump([VOTACOES], [truncado], [ORIENTACOES], *Q1)

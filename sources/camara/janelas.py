@@ -20,6 +20,8 @@ def _soma_meses(d: date, meses: int) -> date:
 
 def fatiar_janela(inicio: str, fim: str, meses: int = MESES_POR_FATIA) -> list[tuple[str, str]]:
     """[(início, fim)] em ISO, fatias contíguas de até `meses` meses cobrindo `inicio`..`fim`."""
+    if meses < 1:
+        raise ValueError(f"meses por fatia deve ser >= 1, recebi {meses}")
     ini, ate = date.fromisoformat(inicio), date.fromisoformat(fim)
     if ini > ate:
         raise ValueError(f"início ({inicio}) depois do fim ({fim})")

@@ -29,10 +29,35 @@ def url_dump(conjunto: str, ano: int) -> str:
     return f"{BASE_DUMPS}/{conjunto}/csv/{conjunto}-{ano}.csv"
 
 
-def ler_csv(caminho: Path | str) -> Iterator[dict[str, str]]:
-    """Linhas do CSV, uma a uma (o arquivo de votos de um ano passa de 50 MiB: nada de ler tudo)."""
+COLUNAS = {
+    "votacoes": ("id", "uri", "data", "dataHoraRegistro", "siglaOrgao", "descricao", "aprovacao"),
+    "votacoesVotos": ("idVotacao", "voto", "deputado_id"),
+    "votacoesOrientacoes": ("idVotacao", "siglaBancada", "orientacao"),
+}
+
+
+def ler_csv(caminho: Path | str, obrigatorias: Iterable[str] = ()) -> Iterator[dict[str, str]]:
+    """Linhas do CSV, uma a uma (o arquivo de votos de um ano passa de 50 MiB: nada de ler tudo).
+
+    Com `obrigatorias`, confere o cabeçalho e cada linha: coluna ausente, arquivo vazio ou linha
+    curta (download truncado) levantam ValueError com o nome do arquivo, em vez de um KeyError
+    ou de um `None` perdido lá na frente."""
+    obrigatorias = tuple(obrigatorias)
+    nome = Path(caminho).name
     with open(caminho, encoding="utf-8-sig", newline="") as f:
-        yield from csv.DictReader(f, delimiter=";")
+        leitor = csv.DictReader(f, delimiter=";")
+        if obrigatorias:
+            if leitor.fieldnames is None:
+                raise ValueError(f"{nome}: arquivo vazio (sem cabeçalho)")
+            faltam = [c for c in obrigatorias if c not in leitor.fieldnames]
+            if faltam:
+                raise ValueError(f"{nome}: faltam as colunas {faltam}; "
+                                 f"o cabeçalho tem {list(leitor.fieldnames)}")
+        for linha in leitor:
+            if any(linha.get(c) is None for c in obrigatorias):
+                raise ValueError(f"{nome}, linha {leitor.line_num}: linha curta "
+                                 "(download truncado?)")
+            yield linha
 
 
 def _id_deputado(texto: str) -> int | str:
@@ -51,7 +76,7 @@ def votacoes_do_dump(arq_votacoes: Iterable[Path | str], arq_votos: Iterable[Pat
 
     candidatas: list[dict] = []
     for caminho in arq_votacoes:
-        for r in ler_csv(caminho):
+        for r in ler_csv(caminho, COLUNAS["votacoes"]):
             if r["siglaOrgao"] != ORGAO_PLENARIO:
                 continue
             try:
@@ -69,13 +94,13 @@ def votacoes_do_dump(arq_votacoes: Iterable[Path | str], arq_votos: Iterable[Pat
 
     votos: dict[str, list[dict]] = defaultdict(list)
     for caminho in arq_votos:
-        for r in ler_csv(caminho):
+        for r in ler_csv(caminho, COLUNAS["votacoesVotos"]):
             if r["idVotacao"] in por_id and r["voto"]:
                 votos[r["idVotacao"]].append(
                     {"tipoVoto": r["voto"], "deputado_": {"id": _id_deputado(r["deputado_id"])}})
     orientacoes: dict[str, list[dict]] = defaultdict(list)
     for caminho in arq_orientacoes:
-        for r in ler_csv(caminho):
+        for r in ler_csv(caminho, COLUNAS["votacoesOrientacoes"]):
             if r["idVotacao"] in por_id:
                 orientacoes[r["idVotacao"]].append(
                     {"siglaPartidoBloco": r["siglaBancada"], "orientacaoVoto": r["orientacao"]})

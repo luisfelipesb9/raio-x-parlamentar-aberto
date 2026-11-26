@@ -14,7 +14,8 @@ Conector da Câmara dos Deputados (API v2 e dumps anuais oficiais). Medições d
 - **Pausa entre chamadas**: 0,2 s por padrão (`CamaraSource(pausa=...)`). A API não documenta limite.
 - **Checkpoint por etapa** em `data/raw/camara/parcial/*.json.part` (o manifesto ignora `.part`): lista de
   deputados, detalhe dos deputados (a cada 25), cada trimestre de votações (listagem + votos, a cada 25) e as
-  proposições (a cada 25). Se a coleta cair, a chamada seguinte **retoma dali** (`retomar=False` refaz tudo).
+  proposições (a cada 25). O `fetch` só apaga o que ele mesmo guardou (o parcial de `fetch_proposicoes`, que o
+  pipeline roda depois, sobrevive). Se a coleta cair, a chamada seguinte **retoma dali** (`retomar=False` refaz tudo).
   Coleta concluída apaga o parcial. O bruto final `camara_<início>_<fim>.json` **não mudou de formato**.
 - Erro HTTP numa proposição ou num detalhe de deputado continua registrado em `*_erros` e é tentado de novo na
   coleta seguinte (não vira dado guardado).
@@ -29,11 +30,14 @@ Conector da Câmara dos Deputados (API v2 e dumps anuais oficiais). Medições d
   `reusar_dumps=True`.
 - **Só votação nominal de Plenário** vira voto individual. Votação simbólica não tem linha no arquivo de votos
   (`_votos == []`, `nominal=False`); voto de comissão é descartado. Mesmos `Fact` (`votacao`, `voto`).
+- O leitor confere o cabeçalho e cada linha: coluna ausente, arquivo vazio ou linha curta (download truncado)
+  viram erro claro com o nome do arquivo. O cliente HTTP manda `Accept: application/json` e o servidor dos dumps
+  responde o CSV normalmente (conferido com `curl -r 0-2000` em 2026-11-26).
 - Recomendado para mais de um trimestre.
 
 ## Proposições
 - **Sem teto por padrão** (`max_proposicoes=None`): é o modo para os 513. O teto existe só para demonstração
-  e avisa no log: corta em ordem de id da proposição entre os primeiros autores consultados (amostra enviesada).
+  e avisa no log quando corta de fato: fica com as de menor id da janela (as mais antigas), uma amostra enviesada.
 - Custo: 1+ chamada por autor + 2 por proposição (autores e tramitações, de onde vem a relatoria). O dump
   `proposicoes-<ano>.csv` (~90 MB em 2025) + `proposicoesAutores-<ano>.csv` (~39 MB) não foi implementado:
   ele não traz a relatoria.

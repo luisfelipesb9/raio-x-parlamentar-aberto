@@ -123,6 +123,12 @@ def test_paginacao_segue_o_link_next_com_nova_tentativa_em_cada_pagina():
     assert fonte._get_all("/deputados") == [{"id": 1}, {"id": 2}]
 
 
+@pytest.mark.parametrize("n", [0, -2])
+def test_max_tentativas_menor_que_um_e_erro_no_construtor(n):
+    with pytest.raises(ValueError, match="max_tentativas"):
+        CamaraSource(client=httpx.Client(), max_tentativas=n)
+
+
 # ---------- pausa entre chamadas ----------
 
 def test_pausa_padrao_respeita_o_servidor():

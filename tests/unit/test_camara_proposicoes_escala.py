@@ -83,6 +83,21 @@ def test_teto_que_nao_corta_nada_nao_avisa(raw_dir, caplog):
     assert caplog.records == []
 
 
+def test_teto_igual_ao_total_nao_avisa_nem_com_varios_autores(raw_dir, caplog):
+    with caplog.at_level(logging.WARNING, logger="sources.camara.source"):
+        out = _fonte(FakeApi()).fetch_proposicoes(*JANELA, deputado_ids=["62881", "66828"],
+                                                  max_proposicoes=3)
+    assert len(out["proposicoes"]) == 3
+    assert caplog.records == []
+
+
+def test_teto_menor_que_o_total_avisa_mesmo_com_varios_autores(raw_dir, caplog):
+    with caplog.at_level(logging.WARNING, logger="sources.camara.source"):
+        _fonte(FakeApi()).fetch_proposicoes(*JANELA, deputado_ids=["62881", "66828"],
+                                            max_proposicoes=2)
+    assert len(caplog.records) == 1
+
+
 # ---------- checkpoint ----------
 
 def test_interrupcao_guarda_as_proposicoes_prontas_e_a_retomada_nao_as_repete(raw_dir):
@@ -144,3 +159,26 @@ def test_fetch_completo_com_proposicoes_apaga_todo_o_parcial(raw_dir):
     _fonte(FakeApi()).fetch(max_votacoes=0, incluir_proposicoes=True,
                             data_inicio=JANELA[0], data_fim=JANELA[1])
     assert not _pasta_parcial(raw_dir).exists()
+
+
+def test_fetch_concluido_nao_apaga_o_parcial_de_proposicoes_pendente(raw_dir):
+    """O pipeline roda `fetch` e depois `fetch_proposicoes`: o parcial deste último, deixado por
+    uma coleta que caiu, tem de sobreviver ao fim do `fetch` e ser retomado."""
+    api = ApiQueExplode(explodir_em=f"/proposicoes/{PL719}/autores")
+    with pytest.raises(RuntimeError):
+        _fonte(api).fetch_proposicoes(*JANELA, deputado_ids=["62881"])
+
+    _fonte(FakeApi()).fetch(max_votacoes=0, data_inicio=JANELA[0], data_fim=JANELA[1])
+    assert any(_pasta_parcial(raw_dir).glob("proposicoes_*.json.part"))
+
+    api2 = FakeApi()
+    _fonte(api2).fetch_proposicoes(*JANELA, deputado_ids=["62881"])
+    assert f"/proposicoes/{PEC}/autores" not in api2.paths("/proposicoes/")
+
+
+def test_fetch_nao_apaga_arquivo_de_parcial_que_nao_e_dele(raw_dir):
+    estranho = _pasta_parcial(raw_dir) / "outra_etapa.json.part"
+    estranho.parent.mkdir(parents=True)
+    estranho.write_text("[]", encoding="utf-8")
+    _fonte(FakeApi()).fetch(max_votacoes=0)
+    assert estranho.exists()
