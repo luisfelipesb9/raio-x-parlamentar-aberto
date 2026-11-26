@@ -40,6 +40,10 @@ describe("gerarLlmsTxt", () => {
     expect(txt).not.toMatch(/Co-Authored|Generated with|ChatGPT|Claude|líder de mercado|inovador/i);
   });
 
+  it("cita o endereço das fichas com o domínio do site", () => {
+    expect(txt).toContain(`${SITE_URL}/deputado/{número}`);
+  });
+
   it("termina com quebra de linha", () => {
     expect(txt.endsWith("\n")).toBe(true);
   });

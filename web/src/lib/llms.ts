@@ -18,7 +18,7 @@ export function gerarLlmsTxt(): string {
     l("Glossário", "/glossario", "os termos técnicos (CEAP, votação nominal, emenda Pix, nível de certeza) em palavras simples"),
     l("Fontes e método", "/fontes", "de onde vêm os dados, quanto a base cobre e como o sistema chega a cada conclusão"),
     "",
-    "Cada deputado tem uma ficha em um endereço do tipo /deputado/{número}, com os números e as fontes oficiais.",
+    `Cada deputado tem uma ficha em um endereço do tipo ${urlAbsoluta("/deputado/")}{número}, com os números e as fontes oficiais.`,
     "",
     "## Metodologia e limites",
     "- Isto não é acusação. Um alerta indica um padrão nos dados públicos, nunca prova de irregularidade.",
