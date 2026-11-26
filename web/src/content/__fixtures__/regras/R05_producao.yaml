@@ -1,0 +1,16 @@
+id: R05
+nome: Produção legislativa ponderada
+tipo: inferencia
+categoria: producao
+conclui: pontuacao_producao  # objetivo descritivo
+predicado: producao_ponderada
+parametros:
+  peso_coautor: 0.25
+  max_iniciativa: 32
+se: "pontos >= 0"
+cf: 0.8
+penalidades:
+  - {se: "autorias < 5", fator: 0.7, motivo: "Poucas proposições"}
+por_que: "Medida simples e comparável."
+limitacoes: ["Mede quantidade, não qualidade."]
+fonte_metodologica: "Radar da República V2"

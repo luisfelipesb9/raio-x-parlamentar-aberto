@@ -1,0 +1,270 @@
+{
+  "paginas": {},
+  "regras": [
+    {
+      "id": "R01",
+      "nome": "Taxa de governismo",
+      "tipo": "inferencia",
+      "categoria": "votacao",
+      "conclui": "alinhado_governo",
+      "predicado": "taxa_governismo",
+      "parametros": {
+        "minimo_votacoes": 10,
+        "limiar": 0.7
+      },
+      "se": "taxa_governismo >= 0.7",
+      "cf": 0.95,
+      "penalidades": [
+        {
+          "se": "n_votacoes < 30",
+          "fator": 0.7,
+          "motivo": "Poucas votações nominais no período"
+        }
+      ],
+      "porQue": "Mostra se o deputado costuma apoiar o governo nas votações em que cada voto fica registrado.",
+      "limitacoes": [
+        "Considera só votações nominais com orientação do líder do governo.",
+        "Abstenção e obstrução ficam fora da conta."
+      ],
+      "fonteMetodologica": "Basômetro (Estadão)",
+      "requer": [],
+      "composta": false,
+      "texto": null
+    },
+    {
+      "id": "R02",
+      "nome": "Votação simbólica não gera voto individual",
+      "tipo": "guardrail",
+      "categoria": "votacao",
+      "predicado": "somente_votacoes_nominais",
+      "parametros": {},
+      "penalidades": [],
+      "porQue": "Em votações simbólicas não há registro de como cada deputado votou; atribuir voto seria inventar dado.",
+      "limitacoes": [
+        "Votações simbólicas aparecem apenas como resultado da Casa."
+      ],
+      "fonteMetodologica": "Regimento Interno da Câmara; pesquisa do projeto",
+      "prioridade": 1,
+      "requer": [],
+      "composta": false,
+      "texto": null
+    },
+    {
+      "id": "R03",
+      "nome": "Pagou fornecedor com sanção vigente",
+      "tipo": "inferencia",
+      "categoria": "integridade",
+      "conclui": "risco_integridade",
+      "predicado": "fornecedor_sancionado",
+      "parametros": {},
+      "se": "n_despesas >= 1",
+      "cf": 0.9,
+      "penalidades": [],
+      "porQue": "Empresas no CEIS/CNEP estão proibidas de contratar com o poder público; o pagamento merece explicação.",
+      "limitacoes": [
+        "Não prova que o deputado sabia da sanção.",
+        "Casamento exato por CNPJ; sem risco de homonímia."
+      ],
+      "fonteMetodologica": "Portal da Transparência (CGU) + CEAP",
+      "requer": [],
+      "composta": false,
+      "texto": null
+    },
+    {
+      "id": "R04",
+      "nome": "Gasto da cota fora do padrão",
+      "tipo": "inferencia",
+      "categoria": "gastos",
+      "conclui": "risco_integridade",
+      "predicado": "outlier_ceap",
+      "parametros": {
+        "z_limiar": 3.5,
+        "minimo_deputados": 5
+      },
+      "se": "z_max > z_limiar",
+      "cf": 0.5,
+      "penalidades": [
+        {
+          "se": "z_max < 5",
+          "fator": 0.8,
+          "motivo": "Desvio moderado"
+        }
+      ],
+      "porQue": "Gasto muito acima dos colegas não é ilegal por si só, mas é um bom ponto de partida para fiscalizar.",
+      "limitacoes": [
+        "Gasto alto pode ter justificativa (estado distante, mandato mais longo no período)."
+      ],
+      "fonteMetodologica": "Operação Serenata de Amor (Rosie) — z-score robusto",
+      "requer": [],
+      "composta": false,
+      "texto": null
+    },
+    {
+      "id": "R05",
+      "nome": "Produção legislativa ponderada",
+      "tipo": "inferencia",
+      "categoria": "producao",
+      "conclui": "pontuacao_producao_legislativa",
+      "predicado": "producao_ponderada",
+      "parametros": {
+        "peso_coautor": 0.25,
+        "max_iniciativa": 32,
+        "escala_iniciativa": 25,
+        "max_relatoria": 8,
+        "escala_relatoria": 10.57,
+        "minimo_colegas_partido": 3
+      },
+      "se": "pontos >= 0",
+      "cf": 0.8,
+      "penalidades": [
+        {
+          "se": "autorias + coautorias + relatorias < 5",
+          "fator": 0.7,
+          "motivo": "Poucas proposições registradas no período"
+        }
+      ],
+      "porQue": "Dá uma medida simples e comparável de quanto o deputado efetivamente propõe e relata, em vez de contar só discursos ou presença.",
+      "limitacoes": [
+        "Mede quantidade ponderada, não qualidade nem aprovação das proposições.",
+        "Quem não tem nenhum registro de autoria fica sem pontuação (falta de dado não é produção zero).",
+        "A média do partido aparece só como contexto, nunca como conclusão sobre o deputado."
+      ],
+      "fonteMetodologica": "Radar da República V2",
+      "requer": [],
+      "composta": false,
+      "texto": null
+    },
+    {
+      "id": "R06",
+      "nome": "Circuito doador-sócio-fornecedor (identidade confirmada)",
+      "tipo": "inferencia",
+      "categoria": "integridade",
+      "conclui": "risco_integridade",
+      "predicado": "circuito_doador_socio",
+      "parametros": {
+        "modo": "confirmado"
+      },
+      "se": "n_circuitos >= 1",
+      "cf": 0.85,
+      "penalidades": [],
+      "porQue": "Dinheiro público pago a uma empresa ligada a quem financiou a campanha é um padrão clássico de risco de retorno de doação e merece conferência.",
+      "limitacoes": [
+        "Casamento por nome normalizado (sem acento, maiúsculo), confirmado por CPF íntegro igual. Casos sem CPF confirmável vão para a R06b (indício, CF <= 0,4).",
+        "Não prova irregularidade: o fornecedor pode ter prestado o serviço normalmente.",
+        "Só considera doadores pessoa física da campanha ligada ao deputado (candidatura resolvida)."
+      ],
+      "fonteMetodologica": "Portal da Transparência/CEAP + TSE (prestação de contas) + Receita Federal (QSA); lógica do Radar da República",
+      "requer": [],
+      "composta": false,
+      "texto": null
+    },
+    {
+      "id": "R06b",
+      "nome": "Circuito doador-sócio-fornecedor (indício, identidade não confirmada)",
+      "tipo": "inferencia",
+      "categoria": "integridade",
+      "conclui": "risco_integridade",
+      "predicado": "circuito_doador_socio",
+      "parametros": {
+        "modo": "indicio"
+      },
+      "se": "n_circuitos >= 1",
+      "cf": 0.85,
+      "penalidades": [
+        {
+          "se": "n_confirmados == 0",
+          "fator": 0.4,
+          "motivo": "CPF do sócio não confirmável: identidade não confirmada (possível homônimo)"
+        }
+      ],
+      "porQue": "Dinheiro público pago a uma empresa possivelmente ligada a quem financiou a campanha merece conferência, mas aqui a identidade da pessoa ainda não foi confirmada.",
+      "limitacoes": [
+        "Casamento só por nome normalizado; CPF mascarado ou ausente impede confirmar a identidade, então o CF fica em indício (<= 0,4) por construção.",
+        "O nome do sócio não é divulgado enquanto a identidade não for confirmada (LGPD).",
+        "Dígitos visíveis do CPF mascarado incompatíveis com o do doador descartam o caso."
+      ],
+      "fonteMetodologica": "Portal da Transparência/CEAP + TSE + Receita Federal (QSA)",
+      "requer": [],
+      "composta": false,
+      "texto": null
+    },
+    {
+      "id": "R07",
+      "nome": "Concentração eleitoral de emendas",
+      "tipo": "inferencia",
+      "categoria": "emendas",
+      "conclui": "concentracao_eleitoral_emendas",
+      "predicado": "concentracao_emendas",
+      "parametros": {
+        "razao_minima": 3,
+        "ano_pix_rastreavel": 2027
+      },
+      "se": "razao >= razao_minima",
+      "cf": 0.6,
+      "penalidades": [
+        {
+          "se": "n_emendas_pix_pre_2027 > 0",
+          "fator": 0.8,
+          "motivo": "Emendas Pix anteriores a 2027 não têm destino final rastreável"
+        },
+        {
+          "se": "n_municipios_destino < 3",
+          "fator": 0.7,
+          "motivo": "Poucos municípios na comparação"
+        }
+      ],
+      "porQue": "Mostra se o dinheiro das emendas tende a ir para onde o deputado tem mais votos, o que ajuda o eleitor a entender a lógica de distribuição.",
+      "limitacoes": [
+        "Correlação não é causa: o deputado pode ter mais votos onde atua há mais tempo e por isso destinar mais emendas ali.",
+        "Emendas Pix (transferências especiais) anteriores a 2027 não têm destino final rastreável; reduzem a certeza.",
+        "Municípios sem registro de votos do deputado ficam fora da comparação; se ele teve 0% no resto do estado, a razão não é calculada.",
+        "Só emendas com deputado identificado e valor empenhado > 0; emendas só com nome do autor são ignoradas."
+      ],
+      "fonteMetodologica": "Radar do Voto",
+      "requer": [],
+      "composta": false,
+      "texto": null
+    },
+    {
+      "id": "R08",
+      "nome": "Presunção de inocência e lacuna de dados",
+      "tipo": "guardrail",
+      "categoria": "geral",
+      "predicado": "presuncao_inocencia_lacuna",
+      "parametros": {},
+      "penalidades": [],
+      "porQue": "Processo sem condenação definitiva não é culpa, e a falta de dado não é um dado: o sistema não pode punir nem inventar valor por isso.",
+      "limitacoes": [
+        "Remove da base todo fato `processo` cujo transitado_em_julgado não seja verdadeiro, antes de qualquer regra; nenhuma regra reduz score por ele.",
+        "Deputado sem nenhum dado fica sem conclusões: nenhum predicado imputa valor; a média partidária só aparece em `valores` (contexto), nunca como conclusão pessoal.",
+        "Mínimo coerente: a imposição de 'não inventar valor' é estrutural (predicados partem de fatos existentes) e o guardrail apenas a audita e registra a contagem."
+      ],
+      "fonteMetodologica": "CF/88 art. 5º, LVII; Elas no Congresso",
+      "prioridade": 2,
+      "requer": [],
+      "composta": false,
+      "texto": null
+    },
+    {
+      "id": "R09",
+      "nome": "Merece atenção da fiscalização",
+      "tipo": "inferencia",
+      "categoria": "integridade",
+      "conclui": "merece_atencao_fiscalizacao",
+      "parametros": {},
+      "cf": 0.8,
+      "penalidades": [],
+      "porQue": "Reúne, em uma única pergunta, todos os indícios de risco de integridade já provados para o deputado.",
+      "limitacoes": [
+        "Regra composta: só é avaliada no encadeamento regressivo (engine/backward.py), a pedido de um objetivo; o `make infer` não gera finding para ela.",
+        "Indício não é acusação: nenhum processo sem trânsito em julgado entra na conta (guardrail R08)."
+      ],
+      "fonteMetodologica": "Composição de R03, R04, R06 e R06b",
+      "requer": [
+        "risco_integridade"
+      ],
+      "composta": true,
+      "texto": null
+    }
+  ]
+}

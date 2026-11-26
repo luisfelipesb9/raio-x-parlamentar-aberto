@@ -1,0 +1,135 @@
+/* Páginas de conteúdo (método, regras, FAQ, glossário por termo). Só tokens do tema; nada de cor fixa. */
+.migalhas ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.migalhas li + li::before {
+  content: "/";
+  margin-right: 8px;
+  color: var(--borda-forte);
+}
+.migalhas a {
+  color: var(--muted);
+}
+.resposta-destaque {
+  font-size: 1.25rem;
+  line-height: 1.5;
+  font-weight: 500;
+  max-width: 62ch;
+  margin: 12px 0 8px;
+  padding-left: 14px;
+  border-left: 3px solid var(--acento);
+}
+.atualizado {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+.conteudo-corpo {
+  max-width: 68ch;
+}
+.conteudo-corpo h2 {
+  margin-top: 2rem;
+  scroll-margin-top: 16px;
+}
+.conteudo-corpo h3 {
+  margin-top: 1.5rem;
+  scroll-margin-top: 16px;
+}
+.conteudo-corpo pre {
+  overflow-x: auto;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--raio);
+  font-size: 0.875rem;
+}
+.conteudo-corpo code {
+  font-size: 0.9em;
+}
+.conteudo-corpo li + li {
+  margin-top: 4px;
+}
+.veja-tambem {
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.veja-tambem h2 {
+  font-size: 1rem;
+  margin: 0 0 8px;
+}
+.veja-tambem ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.faq-lista details {
+  border-top: 1px solid var(--border);
+  padding: 12px 0;
+}
+.faq-lista summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1.0625rem;
+}
+.faq-lista details > div {
+  margin-top: 8px;
+  max-width: 68ch;
+}
+.regra-parametros {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--raio);
+  background: var(--surface);
+}
+.regra-parametros h2 {
+  margin: 0 0 8px;
+  font-size: 1.0625rem;
+}
+.regra-parametros dl {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 0;
+}
+.regra-parametros dt {
+  color: var(--muted);
+}
+.regra-parametros dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.regra-parametros ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.regras-lista {
+  list-style: none;
+  margin: 24px 0 0;
+  padding: 0;
+}
+.regras-lista li {
+  border-top: 1px solid var(--border);
+  padding: 12px 0;
+}
+.regras-lista .regra-meta {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+@media (max-width: 560px) {
+  .regra-parametros dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

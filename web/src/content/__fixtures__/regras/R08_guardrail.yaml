@@ -1,0 +1,8 @@
+id: R08
+nome: Presunção de inocência
+tipo: guardrail
+categoria: geral
+predicado: presuncao
+prioridade: 2
+limitacoes:
+  - "Remove fatos sem trânsito em julgado."

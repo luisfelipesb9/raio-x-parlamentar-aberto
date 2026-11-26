@@ -18,6 +18,7 @@
     "lint": "eslint . && tsc --noEmit",
     "test": "vitest run",
     "gen:types": "node scripts/gen-types.mjs",
+    "gen:conteudo": "node scripts/gen-conteudo.mjs",
     "e2e": "playwright test"
   },
   "dependencies": {
