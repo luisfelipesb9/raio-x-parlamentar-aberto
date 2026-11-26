@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonical, limitaDescricao, urlAbsoluta } from "./seo";
+import { ID_SEGURO, canonical, limitaDescricao, permiteIndexar, urlAbsoluta } from "./seo";
 
 describe("seo", () => {
   it("monta URL absoluta sem barra dupla", () => {
@@ -21,5 +21,31 @@ describe("seo", () => {
 
   it("limitaDescricao mantém texto curto e normaliza espaços", () => {
     expect(limitaDescricao("  um   texto \n curto ")).toBe("um texto curto");
+  });
+
+  it("ID_SEGURO aceita o formato de id da API e recusa o resto", () => {
+    for (const ok of ["9900001", "a_b-9", "x".repeat(32)]) expect(ID_SEGURO.test(ok), ok).toBe(true);
+    for (const ruim of ["", "../x", "a b", "a<b", "x".repeat(33), "1/2"]) expect(ID_SEGURO.test(ruim), ruim).toBe(false);
+  });
+});
+
+describe("permiteIndexar", () => {
+  it("indexa um site público em produção ou sem VERCEL_ENV", () => {
+    expect(permiteIndexar("https://raio-x.example.org", undefined)).toBe(true);
+    expect(permiteIndexar("https://raio-x.example.org", "production")).toBe(true);
+  });
+
+  it("não indexa localhost, em nenhuma forma", () => {
+    for (const u of ["http://localhost:3000", "http://127.0.0.1:3000", "http://[::1]:3000", "http://app.localhost:3000"]) {
+      expect(permiteIndexar(u, undefined), u).toBe(false);
+    }
+  });
+
+  it("não indexa deploy de pré-visualização, mesmo com endereço público", () => {
+    expect(permiteIndexar("https://raio-x.example.org", "preview")).toBe(false);
+  });
+
+  it("endereço inválido não indexa", () => {
+    expect(permiteIndexar("isto não é url", undefined)).toBe(false);
   });
 });

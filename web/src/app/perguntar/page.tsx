@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
+import { canonical } from "@/lib/seo";
 import { Suspense } from "react";
 import { Carregando } from "@/components/Estados";
 import { Perguntar } from "@/components/Perguntar";
 
-export const metadata: Metadata = { title: "Perguntar ao sistema" };
+export const metadata: Metadata = {
+  title: "Perguntar ao sistema",
+  description: "Escolha uma pergunta e veja o raciocínio do sistema passo a passo, das evidências nos dados públicos até o nível de certeza.",
+  alternates: canonical("/perguntar"),
+};
 
 export default function PaginaPerguntar() {
   return (
