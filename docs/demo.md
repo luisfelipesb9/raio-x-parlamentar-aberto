@@ -5,11 +5,12 @@ de ninguém. Serve para conhecer o Raio-X Parlamentar, testar a interface e most
 
 > **DADOS FICTÍCIOS PARA DEMONSTRAÇÃO.** Os seis deputados (Alice, Bruno, Carla, Davi, Elisa e Fábio, todos com
 > "(demo)" no nome), os partidos FICT-A e FICT-B, as empresas, os doadores e os valores foram inventados. Nenhum
-> alerta da demo diz algo sobre uma pessoa ou empresa real. Os ids (a partir de 9900001) e os CNPJ (raiz 99999)
-> ficam fora da faixa usada de verdade, e as URLs de "fonte" terminam em `.invalid`, que nunca abre.
+> alerta da demo diz algo sobre uma pessoa ou empresa real. Os ids de deputado (a partir de 9900001) e os CNPJ
+> (raiz 99999) são de demonstração, sem relação com deputados ou empresas reais, e as URLs de "fonte" terminam em
+> `.invalid`, que nunca abre.
 
 ## Pré-requisitos
-- Python 3.12 e [uv](https://docs.astral.sh/uv/) (`make setup` instala as dependências Python).
+- Python (3.11+ suportado, 3.12 recomendado) e [uv](https://docs.astral.sh/uv/) (`make setup` instala as dependências Python).
 - Node 22 e pnpm (`pnpm --dir web install` instala o site).
 
 ## Comandos
@@ -19,11 +20,13 @@ make demo                                    # gera data/sample/raio_x_demo.duck
 ```
 Em dois terminais, na raiz do repositório:
 ```bash
-RAIO_X_ID_SALT=demo-ficticio RAIO_X_DB=data/sample/raio_x_demo.duckdb uv run uvicorn api.main:app --port 8000
-pnpm --dir web dev                           # http://localhost:3000
+make dev-demo                                # API em http://localhost:8000 (se o banco não existir, avisa: rode make seed-demo)
+pnpm --dir web install && pnpm --dir web dev # site em http://localhost:3000 (o install só na primeira vez)
 ```
-`RAIO_X_ID_SALT` é o sal dos ids de pessoa do grafo e é obrigatório (a API não sobe sem ele); na demo qualquer valor
-serve. Só `make seed-demo` gera o banco, sem imprimir as instruções. O banco é recriado do zero a cada execução.
+`make dev-demo` equivale a subir a API com `RAIO_X_ID_SALT=sal-fixo-da-demonstracao` e
+`RAIO_X_DB=data/sample/raio_x_demo.duckdb`. `RAIO_X_ID_SALT` é o sal dos ids de pessoa do grafo e é obrigatório
+(a API não sobe sem ele); o valor da demo é público e só serve para dados fictícios, nunca o use numa base real.
+Só `make seed-demo` gera o banco, sem imprimir as instruções. O banco é recriado do zero a cada execução.
 
 ## O que ver
 | Onde | Deputado fictício | O que mostra |

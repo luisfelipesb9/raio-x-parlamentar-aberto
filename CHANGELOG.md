@@ -14,12 +14,28 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - Página **Fontes e método** e painel "Dados e verificação" na ficha, com "Verificar na fonte" em cada achado.
 - Interface de juiz consultivo opcional, com implementação nula (ADR-008).
 - Documentação de comunidade: licença MIT, guia de contribuição, código de conduta, política de segurança e política de uso e correção.
+- Demonstração offline com dados 100% fictícios: `make seed-demo` (gera o banco), `make demo` (gera e explica como subir) e
+  `make dev-demo` (sobe a API sobre o banco da demo, com sal e banco já definidos). Ver [docs/demo.md](docs/demo.md).
+- Guarda de dados pessoais: `scripts/checa_pii` (`make checa-pii`) e gitleaks no CI.
+- Fixtures sintéticas nos testes (sem CPF ou CNPJ de pessoa real) e [DATA_LICENSES](DATA_LICENSES.md) com os termos de
+  cada fonte de dados.
 
 ### Alterado
 - Tema claro como padrão; o escuro só por escolha no botão.
 - Contrato `contracts/` na versão 0.2.0 ([ADR-007](docs/adr/ADR-007-contrato-v0-2-0.md)).
 - A API lê o manifesto do bruto ([ADR-009](docs/adr/ADR-009-api-le-manifesto-do-bruto.md)).
 - Pseudonimização da base pública aceita ([ADR-006](docs/adr/ADR-006-pseudonimizacao.md)).
+- **Quebra de deploy:** a API não sobe sem `RAIO_X_ID_SALT` (e `build_graph`/`project` levantam `SalAusenteError`; sal
+  vazio explícito também é erro). Antes, o sal dos ids de pessoa do grafo tinha um valor padrão. Quem já publica a API deve
+  definir `RAIO_X_ID_SALT` (string longa e secreta, fora do repositório; na Vercel, em Settings > Environment Variables) e
+  usar o mesmo valor da base pseudonimizada. Os ids `pessoa:...` do grafo mudam em relação à 0.1.x.
+- Versão do projeto, da API e do site alinhada em 0.2.0.
+
+### Segurança
+- O reconhecimento de CPF em texto livre (pseudonimização da ingestão, varredura e `checa_pii`) passou a cobrir hífen,
+  barra, espaço, espaço sem quebra e ponto seguido de espaço entre os grupos, e o CPF numérico que perdeu o zero à
+  esquerda em campos `cpf*`; o dígito verificador continua validado, sem aumentar falsos positivos.
+- Sem sal padrão para os ids de pessoa do grafo: sem `RAIO_X_ID_SALT` a API não inicia.
 
 ## [0.1.0] - 2026-11-22
 ### Adicionado

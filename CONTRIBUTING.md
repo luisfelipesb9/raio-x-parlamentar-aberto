@@ -21,12 +21,15 @@ make ingest         # coleta fontes e grava em data/raw e no banco
 make infer          # roda o motor e materializa findings
 make sample         # amostra de 20 deputados de MG + motor
 make sample-publico # amostra pseudonimizada (HMAC) + varredura de CPF
+make seed-demo      # gera o banco fictício da demonstração (offline)
+make demo           # seed-demo + instruções para subir API e site
+make dev-demo       # API sobre o banco da demo (sal e banco já definidos)
 make test           # pytest
 make lint           # ruff
 make verifica       # recalcula governismo e CEAP dos brutos e confronta com o banco
 make deploy-check   # confere que só a base pública seria publicada
 make checa-pii      # guarda de dados pessoais
-make dev            # só a API; o site roda à parte: `pnpm dev` em web/
+make dev            # só a API (exige RAIO_X_ID_SALT e, para outro banco, RAIO_X_DB); o site roda à parte: `pnpm dev` em web/
 ```
 Pare a API antes de `make ingest` ou `make infer` (lock de escrita do DuckDB).
 
@@ -52,7 +55,7 @@ Mudou algo em `contracts/`? Escreva um ADR novo em `docs/adr/` (numeração sequ
 `contracts/models.py`. Exemplo: [ADR-007](docs/adr/ADR-007-contrato-v0-2-0.md).
 
 ## Convenções
-- Python 3.11 ou mais novo, `ruff` e `pytest`. No site, em `web/`: `pnpm lint`, `pnpm test`, `pnpm build` e `pnpm e2e`.
+- Python 3.11+ suportado, 3.12 recomendado, `ruff` e `pytest`. No site, em `web/`: `pnpm lint`, `pnpm test`, `pnpm build` e `pnpm e2e`.
 - Commits no padrão [Conventional Commits](https://www.conventionalcommits.org/pt-br/), por exemplo `feat(engine): nova regra R10`.
 - Branches com o prefixo do autor, por exemplo `nome/assunto`. Uma tarefa por pull request, com o checklist do modelo preenchido.
 

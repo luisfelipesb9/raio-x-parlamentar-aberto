@@ -9,12 +9,14 @@ chaining, rules in YAML). The code is MIT licensed.
 > guilt (guardrail R08) and symbolic votes are never counted as individual votes (guardrail R02).
 
 ## Quick start
-Requirements: Python 3.12 with uv, Node 22 with pnpm 12.
+Requirements: Python (3.11+ supported, 3.12 recommended) with uv, Node 22 with pnpm 12.
 ```
 make setup
-make demo    # fictional data, offline (see docs/demo.md)
+make demo    # builds the fictional database, offline (see docs/demo.md)
 make test
 ```
-Then `make dev` (API) and `cd web && pnpm install && pnpm dev` (site).
+Then, in two terminals, `make dev-demo` (API on the demo database, with the demo salt already set) and
+`cd web && pnpm install && pnpm dev` (site). To serve another database use `make dev` with `RAIO_X_ID_SALT`
+and `RAIO_X_DB` set: the API refuses to start without the salt.
 
 Full documentation is in Portuguese: see the [main README](README.md).

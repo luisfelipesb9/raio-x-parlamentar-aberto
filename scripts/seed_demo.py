@@ -65,7 +65,7 @@ def _fato(tipo: str, chave: str, /, **atributos) -> Fact:
 
 
 def _cnpj(numero: int) -> str:
-    """CNPJ fictício com dígitos verificadores válidos, numa raiz (99999xxx) fora da faixa real."""
+    """CNPJ fictício com dígitos verificadores válidos, na raiz fictícia 99999xxx (sem relação com empresa real)."""
     base = [int(c) for c in f"99999{numero:03d}0001"]
     for pesos in ([5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2], [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]):
         soma = sum(d * p for d, p in zip(base, pesos, strict=True))

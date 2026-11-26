@@ -1,4 +1,4 @@
-.PHONY: setup ingest infer test dev lint sample sample-publico deploy-check verifica checa-pii seed-demo demo
+.PHONY: setup ingest infer test dev lint sample sample-publico deploy-check verifica checa-pii seed-demo demo dev-demo
 setup:
 	uv sync
 ingest:
@@ -36,9 +36,12 @@ demo: seed-demo
 	@echo ""
 	@echo "Demo pronta em data/sample/raio_x_demo.duckdb (DADOS FICTÍCIOS PARA DEMONSTRAÇÃO). Agora, em dois terminais:"
 	@echo ""
-	@echo "  1) API (na raiz do repositório):"
-	@echo "     RAIO_X_ID_SALT=demo-ficticio RAIO_X_DB=data/sample/raio_x_demo.duckdb uv run uvicorn api.main:app --port 8000"
+	@echo "  1) API (na raiz do repositório):   make dev-demo"
 	@echo "  2) Site (instale uma vez com: pnpm --dir web install):"
 	@echo "     pnpm --dir web dev     # abra http://localhost:3000 (a API padrão é http://localhost:8000)"
 	@echo ""
 	@echo "Passo a passo e o que ver: docs/demo.md"
+# Sobe a API sobre o banco da demo (sal fixo e público, só da demonstração fictícia: o mesmo de scripts/seed_demo.py).
+dev-demo:
+	@test -f data/sample/raio_x_demo.duckdb || { echo "Banco da demo não encontrado em data/sample/raio_x_demo.duckdb: rode 'make seed-demo' (ou 'make demo') primeiro."; exit 1; }
+	RAIO_X_ID_SALT=sal-fixo-da-demonstracao RAIO_X_DB=data/sample/raio_x_demo.duckdb uv run python -m uvicorn api.main:app --reload

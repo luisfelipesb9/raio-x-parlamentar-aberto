@@ -41,19 +41,20 @@ O motor faz encadeamento progressivo (dos fatos às conclusões) e regressivo (d
 que o provam). Detalhes em [docs/arquitetura.md](docs/arquitetura.md).
 
 ## 5 minutos até rodar
-Pré-requisitos: Python 3.12 com [uv](https://docs.astral.sh/uv/), Node 22 com pnpm 12.
+Pré-requisitos: Python (3.11+ suportado, 3.12 recomendado) com [uv](https://docs.astral.sh/uv/), Node 22 com pnpm 12.
 
 ```
 make setup     # instala as dependências Python
-make demo      # dados fictícios, offline (passo a passo em docs/demo.md)
+make demo      # gera o banco fictício, offline (passo a passo em docs/demo.md)
 make test      # testes
 ```
-Para subir a API e o site (dois terminais), aponte `RAIO_X_DB` para o banco de demonstração
-(o caminho exato está em [docs/demo.md](docs/demo.md)):
+Para subir a API e o site (dois terminais):
 ```
-make dev                             # API em http://localhost:8000 (documentação em /docs)
+make dev-demo                        # API em http://localhost:8000 (documentação em /docs), sobre o banco da demo
 cd web && pnpm install && pnpm dev   # site em http://localhost:3000
 ```
+`make dev-demo` já define o sal e o banco da demonstração. Para rodar a API sobre outro banco (por exemplo o da
+amostra real), use `make dev` com `RAIO_X_ID_SALT` e `RAIO_X_DB` definidos: sem o sal a API não sobe.
 Com dados reais (precisa de internet): `make sample` ingere 20 deputados de MG e roda o motor.
 Todos os comandos estão em [CONTRIBUTING.md](CONTRIBUTING.md).
 
