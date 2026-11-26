@@ -937,15 +937,6 @@ legend {
   border-radius: var(--raio);
   font-size: 0.9rem;
 }
-.grafo-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 22rem;
-  gap: 20px;
-  align-items: start;
-}
-.grafo-palco {
-  min-width: 0;
-}
 .grafo-ferramentas {
   display: flex;
   flex-wrap: wrap;
@@ -960,7 +951,7 @@ legend {
 }
 .grafo-canvas {
   width: 100%;
-  height: clamp(320px, 58vh, 640px);
+  height: clamp(320px, 62vh, 560px);
 }
 .legenda {
   display: flex;
@@ -1318,9 +1309,6 @@ legend {
 
 /* ---------- responsivo ---------- */
 @media (max-width: 62rem) {
-  .grafo-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .backlinks {
     max-height: 18rem;
   }
@@ -2385,4 +2373,127 @@ select {
   .grafo-cartao {
     display: none;
   }
+}
+
+/* ---------- mapa de relações: barra lateral à esquerda, mapa à direita (>= 62rem) ---------- */
+.grafo-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* no celular a barra e o principal "somem" como caixas e cada bloco ganha a sua ordem: mapa primeiro */
+.grafo-barra,
+.grafo-principal {
+  display: contents;
+}
+.o-resumo { order: 1; }
+.o-aviso { order: 2; }
+.o-busca { order: 3; }
+.o-area { order: 4; }
+.o-ferramentas { order: 5; }
+.o-painel { order: 6; }
+.o-controles { order: 7; }
+.o-legenda { order: 8; }
+.o-nota { order: 9; }
+.grafo-principal > .nota:not([class*="o-"]) { order: 0; }
+.grafo-resumo,
+.aviso-truncado,
+.grafo-layout .nota {
+  margin: 0;
+}
+.grafo-controles {
+  margin: 0;
+}
+.aviso-truncado {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+.grafo-ferramentas {
+  margin: 0;
+}
+.exportar {
+  position: relative;
+}
+.exportar summary {
+  display: inline-flex;
+  align-items: center;
+  list-style: none;
+  cursor: pointer;
+  min-height: 44px;
+}
+.exportar summary::-webkit-details-marker {
+  display: none;
+}
+.exportar[open] summary {
+  border-color: var(--acento);
+}
+.exportar-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+@media (min-width: 62rem) {
+  .grafo-layout {
+    display: grid;
+    grid-template-columns: 20rem minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+  .grafo-barra,
+  .grafo-principal {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+  .grafo-barra > *,
+  .grafo-principal > * {
+    order: 0;
+  }
+  .grafo-controles {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .grafo-controles .opcoes-grade {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .grafo-controles .opcao {
+    min-height: 40px;
+  }
+  .grafo-ferramentas {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .grafo-ferramentas .btn-mini,
+  .grafo-ferramentas .exportar {
+    width: 100%;
+  }
+  .exportar summary {
+    width: 100%;
+    justify-content: center;
+  }
+  .exportar-botoes {
+    flex-direction: column;
+  }
+  .grafo-canvas {
+    height: min(78vh, 760px);
+    min-height: 420px;
+  }
+  .legenda-viva .chip {
+    min-height: 44px;
+  }
+}
+
+/* a tela do mapa dá a primeira dobra ao mapa: título menor e menos respiro no topo */
+.pagina-grafo {
+  padding-top: 16px;
+}
+.pagina-grafo > h1 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  margin-bottom: 0.2em;
+}
+.pagina-grafo > .eyebrow {
+  margin-bottom: 4px;
 }

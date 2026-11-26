@@ -13,6 +13,8 @@ test.describe("grafo", () => {
 
     // espera o Cytoscape montar e clica de verdade no nó central
     await page.waitForFunction(() => Boolean((window as unknown as { __raioXCy?: unknown }).__raioXCy));
+    // o clique é por coordenada: o mapa precisa estar na tela, qualquer que seja o layout da página
+    await canvas.scrollIntoViewIfNeeded();
     const pos = await page.evaluate(() => {
       const cy = (window as unknown as { __raioXCy: { getElementById(id: string): { renderedPosition(): { x: number; y: number } } } }).__raioXCy;
       return cy.getElementById(`deputado:${new URL(location.href).searchParams.get("centro")?.split(":")[1]}`).renderedPosition();

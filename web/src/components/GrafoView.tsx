@@ -190,7 +190,9 @@ export function GrafoView({ centro }: { centro: string }) {
         }
       }}
     >
-      <div className="grafo-controles">
+      <div className="grafo-layout">
+      <div className="grafo-barra">
+      <div className="grafo-controles o-controles">
         <fieldset>
           <legend>
             <Termo id="saltos">Profundidade</Termo>
@@ -219,37 +221,12 @@ export function GrafoView({ centro }: { centro: string }) {
           </div>
         </fieldset>
       </div>
-
-      {ativas.size === 0 && (
-        <p className="nota" role="status">
-          Marque ao menos um tipo de relação para ver o mapa.
-        </p>
-      )}
-      {estado.status === "carregando" && !grafo && <Carregando texto="Montando o mapa…" />}
-      {estado.status === "erro" && (
-        <ErroApi erro={estado.erro} onTentarDeNovo={recarregar} voltar={{ href: "/grafo", texto: "Escolher outro deputado" }} />
-      )}
-
       {grafo && (
         <>
-          <p className="grafo-resumo" data-testid="resumo-grafo">
-            <strong>{noCentro?.rotulo ?? centro}</strong>: {grafo.nodes.length} <Termo id="mapa-relacoes">nós</Termo> · {grafo.edges.length} conexões · {grafo.profundidade}{" "}
-            <Termo id="saltos">{grafo.profundidade === 1 ? "salto" : "saltos"}</Termo>
-            {atualizando && <span className="nota"> · atualizando…</span>}
-          </p>
-          {grafo.truncado && (
-            <p className="aviso-truncado" role="status">
-              <strong>Mapa cortado.</strong> Mostrando {fmt.format(grafo.nodes.length)}
-              {grafo.total_nos ? ` de ${fmt.format(grafo.total_nos)}` : ""} nós: o limite é de {LIMITE_NOS} nós para o mapa continuar legível.
-              {ocultosTexto && <> Ocultos: {ocultosTexto}.</>} Ficaram os de maior valor, repartidos entre os tipos de relação. Reduza os saltos ou
-              desmarque tipos de relação para ver o restante.
-            </p>
-          )}
-
-          <div className="grafo-layout">
-            <div className="grafo-palco">
-              <GrafoBusca nos={grafo.nodes} valores={valores} onEscolher={irParaNo} onLimpar={() => setAchado(null)} />
-              <div className="grafo-ferramentas" role="group" aria-label="Ferramentas do mapa">
+          <div className="o-busca">
+            <GrafoBusca nos={grafo.nodes} valores={valores} onEscolher={irParaNo} onLimpar={() => setAchado(null)} />
+          </div>
+          <div className="grafo-ferramentas o-ferramentas" role="group" aria-label="Ferramentas do mapa">
                 <button type="button" className="btn btn-sec btn-mini" onClick={() => cyRef.current?.zoom({ level: (cyRef.current?.zoom() ?? 1) * 1.3, renderedPosition: { x: (cyRef.current?.width() ?? 0) / 2, y: (cyRef.current?.height() ?? 0) / 2 } })}>
                   Aproximar
                 </button>
@@ -272,6 +249,9 @@ export function GrafoView({ centro }: { centro: string }) {
                     Recolher
                   </button>
                 )}
+                <details className="exportar">
+                  <summary className="btn btn-sec btn-mini">Exportar</summary>
+                  <div className="exportar-botoes">
                 <button type="button" className="btn btn-sec btn-mini" onClick={baixaPng}>
                   Baixar imagem (PNG)
                 </button>
@@ -281,8 +261,53 @@ export function GrafoView({ centro }: { centro: string }) {
                 <button type="button" className="btn btn-sec btn-mini" onClick={() => baixaTexto(`raio-x-conexoes-${slug}.csv`, csvArestas(grafo))}>
                   Baixar conexões (CSV)
                 </button>
+                  </div>
+                </details>
               </div>
-              <div className="grafo-area">
+          <div className="o-legenda">
+            <GrafoLegenda
+              tipos={tiposPresentes}
+              visiveis={contagem.tipos}
+              totais={totaisPorTipo}
+              escondidos={tiposEscondidos}
+              onAlternar={alternaTipo}
+              onLimpar={() => setTiposEscondidos(new Set())}
+              familias={contagem.familias}
+              escala={escala}
+            />
+          </div>
+        </>
+      )}
+      </div>
+
+      <div className="grafo-principal">
+      {ativas.size === 0 && (
+        <p className="nota" role="status">
+          Marque ao menos um tipo de relação para ver o mapa.
+        </p>
+      )}
+      {estado.status === "carregando" && !grafo && <Carregando texto="Montando o mapa…" />}
+      {estado.status === "erro" && (
+        <ErroApi erro={estado.erro} onTentarDeNovo={recarregar} voltar={{ href: "/grafo", texto: "Escolher outro deputado" }} />
+      )}
+
+      {grafo && (
+        <>
+          <p className="grafo-resumo o-resumo" data-testid="resumo-grafo">
+            <strong>{noCentro?.rotulo ?? centro}</strong>: {grafo.nodes.length} <Termo id="mapa-relacoes">nós</Termo> · {grafo.edges.length} conexões · {grafo.profundidade}{" "}
+            <Termo id="saltos">{grafo.profundidade === 1 ? "salto" : "saltos"}</Termo>
+            {atualizando && <span className="nota"> · atualizando…</span>}
+          </p>
+          {grafo.truncado && (
+            <p className="aviso-truncado o-aviso" role="status">
+              <strong>Mapa cortado.</strong> Mostrando {fmt.format(grafo.nodes.length)}
+              {grafo.total_nos ? ` de ${fmt.format(grafo.total_nos)}` : ""} nós: o limite é de {LIMITE_NOS} nós para o mapa continuar legível.
+              {ocultosTexto && <> Ocultos: {ocultosTexto}.</>} Ficaram os de maior valor, repartidos entre os tipos de relação. Reduza os saltos ou
+              desmarque tipos de relação para ver o restante.
+            </p>
+          )}
+
+              <div className="grafo-area o-area">
                 <div
                   className="grafo-moldura"
                   role="img"
@@ -310,30 +335,22 @@ export function GrafoView({ centro }: { centro: string }) {
                 )}
                 {hover && !calculando && <CartaoDoNo info={hover} />}
               </div>
-              <GrafoLegenda
-                tipos={tiposPresentes}
-                visiveis={contagem.tipos}
-                totais={totaisPorTipo}
-                escondidos={tiposEscondidos}
-                onAlternar={alternaTipo}
-                onLimpar={() => setTiposEscondidos(new Set())}
-                familias={contagem.familias}
-                escala={escala}
-              />
-              <p className="nota">
+              <p className="nota o-nota">
                 Clique (ou toque) num nó para ver seus detalhes, ou num grupo (+N) para abrir. Esc tira a seleção. <Termo id="mapa-relacoes">O que é este mapa?</Termo>
               </p>
-            </div>
-
-            <div className="grafo-lateral" ref={painelRef}>
+            <div className="grafo-lateral o-painel" ref={painelRef}>
               {noSel ? (
                 <PainelNo key={noSel.id} no={noSel} centro={centro} nosPorId={nosPorId} onSelecionar={selecionarEMostrar} onCentralizar={(id) => router.push(`/grafo?centro=${encodeURIComponent(id)}`)} />
               ) : (
                 <p className="nota painel-vazio">Nenhum nó selecionado. Selecione um nó no mapa ou na lista para ver atributos e backlinks.</p>
               )}
             </div>
-          </div>
+        </>
+      )}
+      </div>
+      </div>
 
+      {grafo && (
           <div className="grafo-lista">
             <button type="button" className="btn btn-sec" aria-expanded={lista} aria-controls="lista-nos" onClick={() => setLista((l) => !l)}>
               {lista ? "Esconder a lista de nós" : "Ver os nós como lista"}
@@ -368,7 +385,6 @@ export function GrafoView({ centro }: { centro: string }) {
               </button>
             )}
           </div>
-        </>
       )}
     </div>
   );

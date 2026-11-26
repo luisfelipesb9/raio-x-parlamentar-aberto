@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Mapa de relações" };
 
 export default function PaginaGrafo() {
   return (
-    <div className="pagina">
+    <div className="pagina pagina-grafo">
       <p className="eyebrow">Quem se liga a quem</p>
       <h1>Mapa de relações</h1>
       <AvisoNaoAcusacao compacto />
