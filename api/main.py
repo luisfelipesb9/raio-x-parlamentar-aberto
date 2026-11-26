@@ -107,7 +107,7 @@ def create_app(db_path: str | Path | None = None, *, store: Store | None = None,
         yield
         state.fechar()
 
-    app = FastAPI(title="Raio-X Parlamentar", version="0.2.0", lifespan=lifespan,
+    app = FastAPI(title="Raio-X Parlamentar", version="0.3.0", lifespan=lifespan,
                   description="API somente leitura sobre dados públicos de deputados federais.")
     app.add_middleware(CORSMiddleware, allow_origins=_origens(), allow_methods=["GET"],
                        allow_headers=[], allow_credentials=False)

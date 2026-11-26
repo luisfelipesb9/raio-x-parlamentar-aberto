@@ -3,6 +3,19 @@
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Correções de dado
 (veja a [política](docs/politica-de-uso-e-correcao.md)) também são registradas aqui.
 
+## [0.3.0] - 2026-11-26
+### Adicionado
+- Fichas e lista de deputados renderizadas no servidor (ISR): o HTML já traz nome, resumo, alertas com nível de certeza
+  e aviso de não acusação; ids inexistentes ou malformados respondem 404.
+- Descoberta por buscadores e por assistentes de IA: `robots.txt`, `sitemap.xml`, `llms.txt`, `manifest`, endereço canônico
+  por página, imagem de compartilhamento por deputado e dados estruturados (JSON-LD).
+- Páginas de conteúdo geradas dos textos do repositório e dos YAML das regras: método, regras R01 a R09 e R06b, perguntas
+  frequentes, dados e API, para estudantes e um verbete por termo do glossário ([ADR-010](docs/adr/ADR-010-web-le-conteudo-no-build.md)).
+- CI com teste de fumaça de SEO sem JavaScript, Dependabot agrupado, `scripts/gh_publicar.sh` e verificação mais rígida do
+  sal no `make deploy-check`.
+- Estudo de público e plano de medição em `docs/seo/`, termos e atribuição dos dados em `DATA_LICENSES.md` e
+  `docs/licencas/`, e pesquisa de viabilidade para cobrir os 513 deputados em `docs/ampliacao/`.
+
 ## [0.2.0] - 2026-11-26
 ### Adicionado
 - Mapa de relações legível: ligações nos dois sentidos, agrupamento de folhas, corte justo por relação e valor
