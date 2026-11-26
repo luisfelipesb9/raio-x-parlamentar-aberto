@@ -31,7 +31,7 @@ def test_lockfile_python_na_mesma_versao():
 
 def test_citation_e_changelog_na_mesma_versao():
     citation = (RAIZ / "CITATION.cff").read_text(encoding="utf-8")
-    assert re.search(rf"^version: {re.escape(_pyproject())}$", citation, re.M)
+    assert re.search(rf"^version: {re.escape(_pyproject())}$", citation, re.MULTILINE)
     assert f"## [{_pyproject()}]" in (RAIZ / "CHANGELOG.md").read_text(encoding="utf-8")
 
 
