@@ -46,7 +46,7 @@ export function Ficha({ perfil: p, findings, grafo }: { perfil: PerfilDeputado; 
   const lista = [...findings].sort((a, b) => b.cf - a.cf);
   const resumo = grafo ? resumoDoGrafo(grafo) : null;
   const truncado = grafo?.truncado === true;
-  const intro = resumoFicha(p, lista);
+  const intro = resumoFicha(lista);
 
   return (
     <article className="ficha">
@@ -61,9 +61,7 @@ export function Ficha({ perfil: p, findings, grafo }: { perfil: PerfilDeputado; 
             {[p.partido, p.uf].filter(Boolean).join(" · ")}
             {p.n_findings > 0 ? ` · ${p.n_findings} ${p.n_findings === 1 ? "alerta" : "alertas"}` : " · sem alertas"}
           </p>
-          <p className="lead">
-            {intro.frase} {intro.alertas}
-          </p>
+          <p className="lead">{intro}</p>
           <ul className="acoes acoes-lista">
             <li>
               <Link className="btn btn-sec" href={`/grafo?centro=${encodeURIComponent(`deputado:${p.id}`)}`}>
