@@ -1,4 +1,4 @@
-.PHONY: setup ingest infer test dev lint sample sample-publico deploy-check verifica checa-pii seed-demo demo dev-demo
+.PHONY: setup ingest infer test dev lint sample sample-publico publicar deploy-check verifica checa-pii seed-demo demo dev-demo
 setup:
 	uv sync
 ingest:
@@ -15,10 +15,20 @@ sample:
 	uv run python -m ingest.pipeline --fontes camara,ceap,cgu,tse,opensanctions,rfb --uf MG --ano 2024 --amostra 20 --max-votacoes 145 --reusar-raw --limite-rfb 50 --detalhar-deputados --incluir-proposicoes --max-proposicoes 300 --db data/sample/raio_x_sample.duckdb
 	RAIO_X_DB=data/sample/raio_x_sample.duckdb uv run python -m engine.run
 # Base pública: CPF de terceiros pseudonimizado (HMAC). Exige RAIO_X_ID_SALT no ambiente (nunca no repo).
+# A origem pseudonimizada (com todos os fatos) fica em ORIGEM; o arquivo enxuto que sobe para a Vercel, em DESTINO.
+ORIGEM ?= data/sample/raio_x_publico_origem.duckdb
+DESTINO ?= data/sample/raio_x_publico.duckdb
 sample-publico:
-	uv run python -m ingest.pipeline --fontes camara,ceap,cgu,tse,opensanctions,rfb --uf MG --ano 2024 --amostra 20 --max-votacoes 145 --reusar-raw --limite-rfb 50 --detalhar-deputados --incluir-proposicoes --max-proposicoes 300 --pseudonimizar --db data/sample/raio_x_publico.duckdb
-	RAIO_X_DB=data/sample/raio_x_publico.duckdb uv run python -m engine.run
-	uv run python -m ingest.varredura --db data/sample/raio_x_publico.duckdb
+	uv run python -m ingest.pipeline --fontes camara,ceap,cgu,tse,opensanctions,rfb --uf MG --ano 2024 --amostra 20 --max-votacoes 145 --reusar-raw --limite-rfb 50 --detalhar-deputados --incluir-proposicoes --max-proposicoes 300 --pseudonimizar --db data/sample/raio_x_publico_origem.duckdb
+	RAIO_X_DB=data/sample/raio_x_publico_origem.duckdb uv run python -m engine.run
+	uv run python -m ingest.varredura --db data/sample/raio_x_publico_origem.duckdb
+	$(MAKE) publicar
+# Banco enxuto para a API pública (ADR-011): grafo, inferência e contagens materializados, só os fatos que a API
+# ainda lê, sem chave primária; reprova se sobrar CPF íntegro de terceiro. Refaz o DESTINO a cada rodada.
+# Exige o mesmo RAIO_X_ID_SALT da pseudonimização. Antes de `make deploy-check`, mova a ORIGEM para fora da árvore.
+publicar:
+	rm -f $(DESTINO) $(DESTINO).wal
+	uv run python -m publicar --origem $(ORIGEM) --destino $(DESTINO)
 # Recalcula governismo e CEAP direto dos brutos e confronta com banco/motor; grava docs/relatorio/verificacao.md.
 # Banco: $RAIO_X_DB (padrão: a amostra). Opções: `make verifica ARGS="--gerar-manifesto --online"`.
 verifica:

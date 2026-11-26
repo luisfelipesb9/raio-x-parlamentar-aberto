@@ -1,5 +1,5 @@
 # ADR-011 — Banco público enxuto e API sem snapshot global de fatos
-Status: Proposto · 2026-11-26
+Status: Aceito · 2026-11-26 (desenho aprovado pelo dono; parte 1, o passo `publicar/`, implementada; a API sob demanda vem no PR seguinte)
 
 ## Contexto
 A pesquisa de viabilidade ([`pesquisa.md`](../ampliacao/pesquisa.md)) e as medições ([`medicoes.md`](../ampliacao/medicoes.md))
@@ -22,7 +22,7 @@ Escolhemos o desenho (a) da pesquisa, sem custo e sem trocar de hospedagem: publ
    - **só os fatos que a API ainda precisa**: `deputado`, `votacao`, `voto` (nominais), `proposicao`, `autoria`, `candidatura`,
      `sancao`, e os fatos de `despesa_ceap`, `votos_municipio`, `doacao`, `emenda`, `empresa`, `socio`, `pep` **citados como
      evidência** por algum finding (ou necessários ao nome de município/empresa de um nó do grafo);
-   - tabelas novas **materializadas**: `graph_node` e `graph_edge` (saída de `graph.project`, calculada uma vez, sobre os fatos
+   - tabelas novas **materializadas** (migration `repo/migrations/003_publicacao.sql`): `graph_node` e `graph_edge` (saída de `graph.project`, calculada uma vez, sobre os fatos
      completos), `inferencia` (resultado do `forward.run`, por deputado, usado pelo encadeamento regressivo) e `publicacao_meta`
      (contagens por fonte e tipo no banco completo, janela de votos, data, versão do contrato, hash do banco de origem).
 2. **A API deixa de montar o snapshot global.** `api/state.py` lê `graph_node`/`graph_edge` (objetos leves; estimativa nacional
@@ -35,6 +35,21 @@ Escolhemos o desenho (a) da pesquisa, sem custo e sem trocar de hospedagem: publ
    passar de um trimestre; CNPJ alfanumérico aceito (DV módulo 11 sobre ASCII); TSE por UF (`fetch_por_uf`); Receita pelo arquivo
    mensal filtrado só pelos CNPJs que aparecem nos dados (nunca BrasilAPI em massa); Câmara com nova tentativa e checkpoint.
 5. **Mesmo sal** (`RAIO_X_ID_SALT`) na pseudonimização, para ids estáveis.
+
+### Detalhes da implementação (parte 1)
+- `python -m publicar --origem BANCO --destino ARQUIVO` (`make publicar`): grava num `.tmp` e só renomeia depois da varredura de CPF
+  (`ingest.varredura`, que também cobre as tabelas novas); falha sem deixar arquivo. Não sobrescreve destino.
+- O corte vale para qualquer tipo fora de `publicar.TIPOS_INTEGRAIS` que **não** seja citado como evidência (par `tipo` + `id_oficial`,
+  a mesma chave de `engine.proveniencia.indexar`). `empresa`/`socio`/`pep`/... entram só por evidência: o nome de empresa e de município
+  de um nó **não** exige manter o fato, porque o grafo é materializado antes do corte (`graph_node.payload.rotulo`).
+- `inferencia(deputado_id, regra, payload)`: um `Finding` do `forward.run` por linha, **sem evidências** (o regressivo só lê id, regra,
+  deputado e CF). O diagnóstico da R01 (`DIAGNOSTICOS`) lê `votacao` e `voto`, que ficam por inteiro: a API reconstrói uma base mínima
+  (votações + votos do deputado + guardrails) em vez de carregar todos os fatos. Diagnosticador novo que precise de outro tipo exige
+  ampliar `TIPOS_INTEGRAIS`.
+- `publicar` confere que a tabela `finding` da origem coincide com o `forward.run` sobre os fatos completos (senão manda rodar `make infer`).
+- `graph_edge` guarda `origem`, `destino`, `rel` em colunas e `peso`, `cf`, `evidencia_ids` no `payload`; `Store.load_graph` devolve na ordem
+  de `graph.project` (o recorte depende dela). `publicacao_meta.gerado_em` marca o banco como publicado: sem ele a API usa o caminho antigo.
+- A origem pseudonimizada vai para `data/sample/raio_x_publico_origem.duckdb` (`make sample-publico`); o arquivo que sobe é só o enxuto.
 
 ## Gatilho do plano B (decidir por medição, não por suposição)
 Passar para Cloudflare R2 (arquivo) + API em Fly.io (~US$ 4–7/mês), ou Vercel Pro (US$ 20/mês), se, no teste com dados

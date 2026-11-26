@@ -970,6 +970,7 @@ def test_varredura_cobre_entity_link_e_entity_ambiguity():
 def _base_publica(caminho, com_cpf=False):
     st = Store(caminho)
     st.upsert_facts([F("doacao", "r1", doador_cpf_cnpj=CPF_A if com_cpf else "hmac:abc")])
+    st.save_publicacao_meta({"gerado_em": "2026-11-26T00:00:00+00:00"})  # marca: gerada por `publicar`
     st.con.close()
 
 

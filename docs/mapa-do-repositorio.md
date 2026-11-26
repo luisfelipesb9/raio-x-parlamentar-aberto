@@ -8,7 +8,7 @@ informações num grafo navegável. Trabalho final de Sistemas Especialistas (BS
 
 ## Regra de ouro: dependência em uma direção só
 ```
-sources → ingest → repo(fatos) → engine → graph → api → web
+sources → ingest → repo(fatos) → engine → graph → publicar → api → web
                  ↑ contracts/ é usado por todos, não importa ninguém
 ```
 - Uma camada **nunca** importa a camada à sua direita.
@@ -27,6 +27,7 @@ sources → ingest → repo(fatos) → engine → graph → api → web
 | `engine/` | Motor de inferência: forward/backward chaining, fatores de certeza, guardrails, explicação |
 | `knowledge/rules/` | Base de conhecimento em YAML: R01–R09 e R06b (R09 é composta, só regressiva) |
 | `graph/` | Projeção pura de fatos/findings em nós e arestas (`graph/README.md`) |
+| `publicar/` | Banco público enxuto: grafo, inferência e contagens materializados + só os fatos que a API lê (ADR-011) |
 | `api/` | FastAPI read-only (endpoints GET em `api/main.py`, ver `api/README.md`) |
 | `web/` | Next.js: ficha leiga, grafo, explicação, comparação (pronto: rotas em `web/src/app`, e2e Playwright em `web/`) |
 | `docs/` | ADRs, arquitetura, glossário, handoff, relatório |
@@ -39,7 +40,8 @@ make setup    # instala dependências Python (uv)
 make ingest   # coleta fontes → data/raw → banco (data/raio_x.duckdb)
 make infer    # roda o motor e materializa findings
 make sample   # ingere a amostra (20 deputados de MG; votações de fev–mar/2025, CEAP do arquivo de 2024, eleição TSE de 2022) em data/sample/raio_x_sample.duckdb e roda o motor
-make sample-publico  # amostra pseudonimizada (HMAC) + varredura de CPF em data/sample/raio_x_publico.duckdb
+make sample-publico  # amostra pseudonimizada (HMAC) + varredura de CPF em data/sample/raio_x_publico_origem.duckdb, depois `make publicar`
+make publicar # origem pseudonimizada -> data/sample/raio_x_publico.duckdb (enxuto, sem chave primária; ADR-011)
 make test     # pytest
 make verifica # recalcula governismo e CEAP dos brutos e confronta com o banco/motor (docs/relatorio/verificacao.md)
 make lint     # ruff

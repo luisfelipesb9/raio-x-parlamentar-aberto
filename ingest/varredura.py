@@ -18,6 +18,11 @@ from contracts import Fact
 from ingest.pseudonimizar import CPF_EM_TEXTO, TOKEN_HASH, dv_ok
 
 PERMITIDOS = {("deputado", "cpf"), ("candidatura", "cpf")}
+# tabelas materializadas por `publicar/` (ADR-011): (tabela, colunas de texto; a 1ª identifica a linha)
+TABELAS_MATERIALIZADAS = (("graph_node", ("id", "payload")),
+                          ("graph_edge", ("origem", "destino", "rel", "payload")),
+                          ("inferencia", ("deputado_id", "regra", "payload")),
+                          ("publicacao_meta", ("chave", "valor")))
 
 
 class Achado(NamedTuple):
@@ -56,15 +61,18 @@ def cpfs_integros(fatos: Iterable[Fact]) -> list[Achado]:
 
 
 def varrer_banco(store: Any) -> list[Achado]:
-    """Fatos, findings/explicações (citam valores dos fatos), entity_link e entity_ambiguity."""
+    """Fatos, findings/explicações (citam valores dos fatos), entity_link, entity_ambiguity e as
+    tabelas materializadas da publicação (as que existirem)."""
     achados = cpfs_integros(store.load_facts())
     for fid, payload, expl in store.con.execute(
             "SELECT id, payload::VARCHAR, explanation::VARCHAR FROM finding").fetchall():
         for campo, texto in (("payload", payload), ("explanation", expl)):
             if tem_cpf(texto or ""):
                 achados.append(Achado("finding", fid, campo))
+    ausentes = set(store.tabelas_publicacao_faltando())
     for tabela, colunas in (("entity_link", ("origem", "destino", "metodo")),
-                            ("entity_ambiguity", ("origem", "candidatos", "motivo"))):
+                            ("entity_ambiguity", ("origem", "candidatos", "motivo")),
+                            *(t for t in TABELAS_MATERIALIZADAS if t[0] not in ausentes)):
         sel = ", ".join(f"{c}::VARCHAR" for c in colunas)
         for linha in store.con.execute(f"SELECT {sel} FROM {tabela}").fetchall():
             for campo, texto in zip(colunas, linha, strict=True):
