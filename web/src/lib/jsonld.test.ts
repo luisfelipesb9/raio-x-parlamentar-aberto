@@ -1,4 +1,7 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { JsonLd } from "@/components/JsonLd";
 import { GLOSSARIO } from "./glossario";
 import {
   LICENCAS_DADOS_URL,
@@ -16,6 +19,20 @@ import { SITE_URL } from "./seo";
 /** O que o navegador/robô realmente lê: o objeto serializado e lido de volta. */
 function ciclo(o: unknown): Record<string, unknown> {
   return JSON.parse(JSON.stringify(o)) as Record<string, unknown>;
+}
+
+/** O HTML que o servidor realmente entrega para estes dados (com o escape do componente JsonLd). */
+function html(dados: unknown): string {
+  return renderToStaticMarkup(createElement(JsonLd, { data: dados }));
+}
+/** Conteúdo do <script> no HTML, depois de lido de volta como JSON. */
+function lido(h: string): Record<string, unknown> {
+  const abre = '<script type="application/ld+json">';
+  expect(h.startsWith(abre)).toBe(true);
+  expect(h.endsWith("</script>")).toBe(true);
+  const corpo = h.slice(abre.length, -"</script>".length);
+  expect(corpo).not.toContain("<"); // nada que feche a tag ou abra comentário
+  return JSON.parse(corpo) as Record<string, unknown>;
 }
 
 const PALAVRAS_DE_ACUSACAO = /culpa|corrup|crimin|fraud|acusa|condena|suspeit|investigad|esquema|irregular|ilegal|propina|desvio/i;
@@ -50,12 +67,13 @@ describe("siteLd", () => {
 });
 
 describe("datasetLd", () => {
-  it("lista as fontes oficiais em isBasedOn, com nome e endereço", () => {
+  it("lista em isBasedOn, como CreativeWork com nome e endereço, as fontes que a ingestão usa de fato", () => {
     const d = ciclo(datasetLd());
     expect(d["@type"]).toBe("Dataset");
-    const fontes = d.isBasedOn as Array<{ name: string; url: string }>;
-    expect(fontes.length).toBeGreaterThanOrEqual(5);
+    const fontes = d.isBasedOn as Array<{ "@type": string; name: string; url: string }>;
+    expect(fontes).toHaveLength(5);
     for (const f of fontes) {
+      expect(f["@type"]).toBe("CreativeWork");
       expect(f.name.length).toBeGreaterThan(2);
       expect(f.url).toMatch(/^https:\/\//);
     }
@@ -63,6 +81,13 @@ describe("datasetLd", () => {
     expect(urls).toContain("dadosabertos.camara.leg.br");
     expect(urls).toContain("dadosabertos.tse.jus.br");
     expect(urls).toContain("portaldatransparencia.gov.br");
+    expect(urls).toContain("opensanctions.org/datasets/br_pep");
+    // Receita Federal hoje vem pela BrasilAPI (/fontes mostra "Receita Federal (via BrasilAPI)")
+    expect(fontes.find((f) => f.url.includes("brasilapi.com.br"))?.name).toMatch(/Receita Federal.*BrasilAPI/);
+  });
+
+  it("não cita fonte que a ingestão não usa (IBGE)", () => {
+    expect(JSON.stringify(datasetLd())).not.toMatch(/ibge/i);
   });
 
   it("não declara licença dos dados e aponta para a página de licenças", () => {
@@ -109,6 +134,13 @@ describe("pessoaLd", () => {
     expect(p.sameAs).toEqual(["https://www.camara.leg.br/deputados/9900001"]);
   });
 
+  it.each(["javascript:alert(1)", "http://www.camara.leg.br/foto.jpg", "data:image/png;base64,AAAA", "não é url"])(
+    "só aceita foto https: recusa %s",
+    (foto) => {
+      expect(ciclo(pessoaLd({ id: "1", nome: "Fulano", foto })).image).toBeUndefined();
+    },
+  );
+
   it("omite foto, partido e sameAs quando faltam ou não são confiáveis", () => {
     const p = ciclo(pessoaLd({ id: "abc", nome: "Fulano", partido: null, uf: null, foto: "javascript:alert(1)" }));
     expect(p).not.toHaveProperty("image");
@@ -122,12 +154,15 @@ describe("pessoaLd", () => {
     expect(texto).not.toMatch(/alerta|finding|certeza/i);
   });
 
-  it("limpa texto vindo dos dados: sem '<', '>' nem quebra de tag script", () => {
-    const p = pessoaLd({ id: "1", nome: 'Ana </script><script>alert(1)</script> "Dos" Santos', partido: "<b>PXY</b>", uf: "MG", foto: null });
-    const bruto = JSON.stringify(p);
-    expect(bruto).not.toContain("<");
-    expect(bruto).not.toContain(">");
-    expect(ciclo(p).name).toBe('Ana /scriptscriptalert(1)/script "Dos" Santos');
+  it("não altera o conteúdo do texto (só normaliza espaços) e o HTML entregue não deixa fechar a tag script", () => {
+    const nome = 'Ana </script><script>alert(1)</script> "Dos" Santos';
+    const p = pessoaLd({ id: "1", nome: `  ${nome}  `, partido: "<b>PXY</b>", uf: "MG", foto: null });
+    expect(ciclo(p).name).toBe(nome);
+    const h = html(p);
+    expect(h.match(/<\/script>/g)).toHaveLength(1);
+    const voltou = lido(h);
+    expect(voltou.name).toBe(nome);
+    expect(voltou.affiliation).toEqual({ "@type": "Organization", name: "<b>PXY</b>" });
   });
 });
 
@@ -144,9 +179,11 @@ describe("termosLd", () => {
     expect(termos[0]!.description).toContain(primeiro.porQueImporta!);
   });
 
-  it("não contém '<' mesmo com texto malicioso", () => {
+  it("mantém 'a < b' como está e o HTML entregue não contém '<' dentro do script", () => {
     const t = termosLd([{ id: "x", termo: "<img onerror=1>", definicao: "a < b" }]);
-    expect(JSON.stringify(t)).not.toContain("<");
+    const termo = (lido(html(t)).hasDefinedTerm as Array<{ name: string; description: string }>)[0]!;
+    expect(termo.name).toBe("<img onerror=1>");
+    expect(termo.description).toBe("a < b");
   });
 });
 
@@ -161,9 +198,11 @@ describe("faqLd", () => {
     expect(faqLd([])).toBeNull();
   });
 
-  it("limpa '<' das respostas", () => {
+  it("mantém o texto das respostas e o HTML entregue não contém '<' dentro do script", () => {
     const f = faqLd([{ pergunta: "p<", resposta: "<script>x</script>" }]);
-    expect(JSON.stringify(f)).not.toContain("<");
+    const q = (lido(html(f)).mainEntity as Array<{ name: string; acceptedAnswer: { text: string } }>)[0]!;
+    expect(q.name).toBe("p<");
+    expect(q.acceptedAnswer.text).toBe("<script>x</script>");
   });
 });
 

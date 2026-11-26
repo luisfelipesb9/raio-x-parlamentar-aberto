@@ -3,7 +3,8 @@
  * para o componente `JsonLd`. Regras:
  * - o que está no schema tem de estar visível na página que o usa;
  * - nada aqui afirma licença dos dados nem insinua culpa (sem alertas, achados ou acusações);
- * - todo texto vindo de dados passa por `texto()`, que tira "<" e ">" (defesa em profundidade com o `JsonLd`).
+ * - o texto vindo de dados só tem os espaços normalizados (conteúdo intacto); quem impede o texto de fechar a tag
+ *   <script> é o componente `JsonLd`, que escapa "<" na hora de renderizar.
  */
 import type { Termo } from "./glossario";
 import { DESCRICAO_PADRAO, NOME_SITE, SITE_URL, urlAbsoluta } from "./seo";
@@ -14,21 +15,17 @@ export const LICENCAS_DADOS_URL = `${REPO_URL}/blob/main/DATA_LICENSES.md`;
 const CONTEXTO = "https://schema.org";
 const ID_ORGANIZACAO = `${SITE_URL}/#organizacao`;
 
-/** Limpa texto vindo de dados: sem "<", ">", caracteres de controle ou espaços repetidos. */
+/** Normaliza espaços (sem alterar o conteúdo). */
 function texto(valor: string): string {
-  return valor
-    .replace(/[<>]/g, "")
-    .replace(/[\u0000-\u001f\u007f]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return valor.replace(/\s+/g, " ").trim();
 }
 
-/** Aceita só endereço http(s); qualquer outra coisa (javascript:, data:...) vira undefined. */
+/** Aceita só endereço https; qualquer outra coisa (http, javascript:, data:...) vira undefined. */
 function urlHttp(valor: string | null | undefined): string | undefined {
   if (!valor) return undefined;
   try {
     const u = new URL(valor);
-    return u.protocol === "https:" || u.protocol === "http:" ? u.href : undefined;
+    return u.protocol === "https:" ? u.href : undefined;
   } catch {
     return undefined;
   }
@@ -61,14 +58,16 @@ export function siteLd() {
   };
 }
 
-/** Fontes oficiais de onde a base é montada (as mesmas da página /fontes). */
+/**
+ * Fontes oficiais que a ingestão usa de fato (as mesmas que /fontes mostra). A Receita Federal entra "via BrasilAPI"
+ * porque hoje o CNPJ é consultado por lá, só para uma amostra de CNPJs.
+ */
 const FONTES_OFICIAIS = [
-  { name: "Câmara dos Deputados, Dados Abertos", url: "https://dadosabertos.camara.leg.br/" },
-  { name: "Tribunal Superior Eleitoral, Portal de Dados Abertos", url: "https://dadosabertos.tse.jus.br/" },
-  { name: "Controladoria-Geral da União, Portal da Transparência", url: "https://portaldatransparencia.gov.br/" },
-  { name: "Receita Federal, Cadastro Nacional da Pessoa Jurídica (CNPJ)", url: "https://www.gov.br/receitafederal/" },
-  { name: "OpenSanctions, lista de pessoas politicamente expostas do Brasil", url: "https://www.opensanctions.org/datasets/br_pep/" },
-  { name: "IBGE, API de localidades", url: "https://servicodados.ibge.gov.br/api/docs/localidades" },
+  { name: "Câmara dos Deputados, Dados Abertos (cadastro, votações, projetos e cota parlamentar)", url: "https://dadosabertos.camara.leg.br/" },
+  { name: "Tribunal Superior Eleitoral, Portal de Dados Abertos (candidaturas, doações e votos)", url: "https://dadosabertos.tse.jus.br/" },
+  { name: "Controladoria-Geral da União, Portal da Transparência (CEIS, CNEP e emendas)", url: "https://portaldatransparencia.gov.br/" },
+  { name: "Receita Federal, Cadastro Nacional da Pessoa Jurídica (CNPJ), via BrasilAPI", url: "https://brasilapi.com.br/" },
+  { name: "OpenSanctions, lista de pessoas politicamente expostas do Brasil (br_pep)", url: "https://www.opensanctions.org/datasets/br_pep/" },
 ] as const;
 
 /**
@@ -88,7 +87,7 @@ export function datasetLd(opcoes: { atualizadoEm?: string | null } = {}) {
     inLanguage: "pt-BR",
     isAccessibleForFree: true,
     creator: { "@id": ID_ORGANIZACAO },
-    isBasedOn: FONTES_OFICIAIS.map((f) => ({ "@type": "Dataset", name: f.name, url: f.url })),
+    isBasedOn: FONTES_OFICIAIS.map((f) => ({ "@type": "CreativeWork", name: f.name, url: f.url })),
     usageInfo: LICENCAS_DADOS_URL,
     ...(dateModified ? { dateModified } : {}),
   };
