@@ -15,6 +15,7 @@ import {
   csvArestas,
   csvNos,
   elementosDoMapa,
+  escalaDeTamanho,
   espessuraDaAresta,
   familiaDaRelacao,
   posicoesIniciais,
@@ -318,5 +319,23 @@ describe("exportação CSV", () => {
     const linhas = csvArestas(g).split("\n");
     expect(linhas[0]).toBe("origem,origem_rotulo,destino,destino_rotulo,relacao,peso,certeza_cf,evidencias");
     expect(linhas[1]).toBe("empresa:1,'=SOMA(A1),deputado:1,\"Ana \"\"Anita\"\", Souza\",recebeu,-12.5,0.4,");
+  });
+});
+
+describe("escalaDeTamanho (legenda do tamanho)", () => {
+  it("dá três círculos de referência com o mesmo tamanho que o nó teria no mapa", () => {
+    const els = elementosDoMapa(hub(5)); // maior valor visível: R$ 500
+    const escala = escalaDeTamanho(els);
+    expect(escala.map((e) => e.valor)).toEqual([500, 125, 31.25]);
+    expect(escala[0]!.tam).toBe(TAM_MAX);
+    const maior = dados(els).find((n) => n.data.id === "empresa:5")!;
+    expect(escala[0]!.tam).toBe(maior.data.tam);
+    expect(escala[0]!.tam).toBeGreaterThan(escala[1]!.tam);
+    expect(escala[1]!.tam).toBeGreaterThan(escala[2]!.tam);
+  });
+
+  it("sem nenhum valor em R$ não há escala", () => {
+    const g = grafoDe([no("deputado:1", "deputado"), no("partido:A", "partido")], [lig("deputado:1", "partido:A", "filiado_a")]);
+    expect(escalaDeTamanho(elementosDoMapa(g))).toEqual([]);
   });
 });

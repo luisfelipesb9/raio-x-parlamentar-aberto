@@ -5,28 +5,37 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Backlink, BacklinksResposta, GraphNode, GrafoResposta } from "@/types/contracts";
-import { RELACOES, ROTULOS_FILTRO, TIPOS_NO, certezaDaAresta, distanciasDoCentro, paraElementos, rotuloRelacao, saiDoNo, separaLigacoes, valorDaAresta } from "@/lib/grafo";
+import { RELACOES, ROTULOS_FILTRO, TIPOS_NO, certezaDaAresta, distanciasDoCentro, rotuloRelacao, saiDoNo, separaLigacoes, valorDaAresta } from "@/lib/grafo";
+import { agrupaFolhas, contagemVisivel, csvArestas, csvNos, elementosDoMapa, escalaDeTamanho, resumoOcultos, valoresPorNo } from "@/lib/grafo-mapa";
+import { formataCf } from "@/lib/nivel";
+import { formataReais } from "@/lib/formato";
 import { useApi } from "@/lib/useApi";
 import { Carregando, ErroApi } from "./Estados";
-import { GrafoCanvas } from "./GrafoCanvas";
+import { Forma, FormaGrupo } from "./FormaNo";
+import { GrafoBusca } from "./GrafoBusca";
+import { GrafoCanvas, type InfoHover, type PedidoFoco } from "./GrafoCanvas";
+import { GrafoLegenda } from "./GrafoLegenda";
 import { Termo } from "./Termo";
 
 const MAX_BACKLINKS = 30;
+/** Limite de nós da API (api/main.py: MAX_NOS_GRAFO). Aparece nos avisos para a pessoa saber o que esperar. */
+const LIMITE_NOS = 300;
 
-function Forma({ tipo }: { tipo: string }) {
-  const info = TIPOS_NO[tipo];
-  const cor = `var(${info?.cor ?? "--muted"})`;
-  const props = { fill: cor, stroke: "var(--fg)", strokeWidth: 1 };
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
-      {info?.forma === "ellipse" && <circle cx="9" cy="9" r="7" {...props} />}
-      {info?.forma === "hexagon" && <polygon points="9,2 15,5.5 15,12.5 9,16 3,12.5 3,5.5" {...props} />}
-      {info?.forma === "rectangle" && <rect x="3" y="3" width="12" height="12" {...props} />}
-      {info?.forma === "diamond" && <polygon points="9,1.5 16.5,9 9,16.5 1.5,9" {...props} />}
-      {info?.forma === "triangle" && <polygon points="9,2 16,15 2,15" {...props} />}
-      {info?.forma === "round-rectangle" && <rect x="2.5" y="4" width="13" height="10" rx="4" {...props} />}
-    </svg>
-  );
+/** Baixa um arquivo gerado no navegador (nada vai para a rede). */
+function baixa(nome: string, href: string) {
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = nome;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function baixaTexto(nome: string, texto: string) {
+  // BOM: o Excel abre o CSV em UTF-8 (acentos corretos)
+  const url = URL.createObjectURL(new Blob(["﻿", texto], { type: "text/csv;charset=utf-8" }));
+  baixa(nome, url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function GrafoView({ centro }: { centro: string }) {
@@ -41,6 +50,13 @@ export function GrafoView({ centro }: { centro: string }) {
 
   const [selecionado, setSelecionado] = useState<string | null>(null);
   const [lista, setLista] = useState(false);
+  const [expandidos, setExpandidos] = useState<ReadonlySet<string>>(new Set());
+  const [tiposEscondidos, setTiposEscondidos] = useState<ReadonlySet<string>>(new Set());
+  const [soVizinhos, setSoVizinhos] = useState(false);
+  const [achado, setAchado] = useState<string | null>(null);
+  const [foco, setFoco] = useState<PedidoFoco | null>(null);
+  const [hover, setHover] = useState<InfoHover | null>(null);
+  const [calculando, setCalculando] = useState(false);
   const cyRef = useRef<Core | null>(null);
   const painelRef = useRef<HTMLDivElement | null>(null);
 
@@ -65,12 +81,19 @@ export function GrafoView({ centro }: { centro: string }) {
   // sem nenhuma relação marcada não há o que consultar
   const { estado, recarregar } = useApi<GrafoResposta>(ativas.size === 0 ? null : "/grafo", params);
 
+  // Mantém o mapa anterior na tela enquanto a nova consulta carrega: o canvas não é recriado, então zoom e posição ficam.
+  const [exibido, setExibido] = useState<GrafoResposta | null>(null);
+  if (estado.status === "ok" && estado.data !== exibido) setExibido(estado.data);
+  const grafo = estado.status === "erro" || ativas.size === 0 ? null : exibido;
+  const atualizando = estado.status === "carregando" && grafo !== null;
+
   function atualizaUrl(novo: { profundidade?: 1 | 2; relacoes?: Set<string> }) {
     const prof = novo.profundidade ?? profundidade;
     const rels = novo.relacoes ?? ativas;
     setProfundidade(prof);
     setAtivas(rels);
     setSelecionado(null);
+    setAchado(null);
     const p = new URLSearchParams({ centro, profundidade: String(prof) });
     if (rels.size !== RELACOES.length) p.set("relacoes", [...rels].join(","));
     router.replace(`/grafo?${p.toString()}`, { scroll: false });
@@ -83,9 +106,12 @@ export function GrafoView({ centro }: { centro: string }) {
     atualizaUrl({ relacoes: novo });
   }
 
-  const grafo = estado.status === "ok" ? estado.data : null;
-  const elementos = useMemo(() => (grafo ? paraElementos(grafo) : []), [grafo]);
+  const elementos = useMemo(() => (grafo ? elementosDoMapa(grafo, { expandidos }) : []), [grafo, expandidos]);
+  const gruposFechados = useMemo(() => (grafo ? agrupaFolhas(grafo, expandidos) : []), [grafo, expandidos]);
+  const gruposPossiveis = useMemo(() => (grafo ? agrupaFolhas(grafo) : []), [grafo]);
+  const podeRecolher = gruposPossiveis.some((g) => expandidos.has(g.id));
   const nosPorId = useMemo(() => new Map((grafo?.nodes ?? []).map((n) => [n.id, n])), [grafo]);
+  const valores = useMemo(() => (grafo ? valoresPorNo(grafo) : new Map<string, number>()), [grafo]);
   const noCentro = nosPorId.get(centro);
   const noSel = selecionado ? nosPorId.get(selecionado) : undefined;
 
@@ -93,26 +119,93 @@ export function GrafoView({ centro }: { centro: string }) {
     const t = new Set((grafo?.nodes ?? []).map((n) => n.tipo));
     return Object.keys(TIPOS_NO).filter((k) => t.has(k));
   }, [grafo]);
+  const totaisPorTipo = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const n of grafo?.nodes ?? []) m.set(n.tipo, (m.get(n.tipo) ?? 0) + 1);
+    return m;
+  }, [grafo]);
+  const contagem = useMemo(() => contagemVisivel(elementos, tiposEscondidos), [elementos, tiposEscondidos]);
+  const escala = useMemo(() => escalaDeTamanho(elementos), [elementos]);
 
   const nosOrdenados = useMemo(() => {
     if (!grafo) return [];
     const dist = distanciasDoCentro(grafo);
-    return [...grafo.nodes].sort((a, b) => (dist.get(a.id) ?? 9) - (dist.get(b.id) ?? 9) || a.tipo.localeCompare(b.tipo) || a.rotulo.localeCompare(b.rotulo, "pt-BR"));
-  }, [grafo]);
+    const emGrupo = new Set(gruposFechados.flatMap((g) => g.membros));
+    return [...grafo.nodes]
+      .filter((n) => !emGrupo.has(n.id))
+      .sort((a, b) => (dist.get(a.id) ?? 9) - (dist.get(b.id) ?? 9) || a.tipo.localeCompare(b.tipo) || a.rotulo.localeCompare(b.rotulo, "pt-BR"));
+  }, [grafo, gruposFechados]);
+
+  function abreGrupo(id: string) {
+    setExpandidos((e) => new Set(e).add(id));
+  }
+  function abreTodosOsGrupos() {
+    setExpandidos((e) => new Set([...e, ...gruposFechados.map((g) => g.id)]));
+  }
+
+  /** Busca: abre o grupo que guarda o nó, mostra o tipo se a legenda o escondeu, seleciona e centraliza. */
+  function irParaNo(no: GraphNode) {
+    const grupo = gruposFechados.find((g) => g.membros.includes(no.id));
+    if (grupo) abreGrupo(grupo.id);
+    if (tiposEscondidos.has(no.tipo)) {
+      setTiposEscondidos((s) => {
+        const novo = new Set(s);
+        novo.delete(no.tipo);
+        return novo;
+      });
+    }
+    setSelecionado(no.id);
+    setAchado(no.id);
+    setFoco((f) => ({ id: no.id, n: (f?.n ?? 0) + 1 }));
+  }
+
+  function alternaTipo(tipo: string) {
+    setTiposEscondidos((s) => {
+      const novo = new Set(s);
+      if (novo.has(tipo)) novo.delete(tipo);
+      else novo.add(tipo);
+      return novo;
+    });
+  }
+
+  const slug = centro.replace(/[^a-z0-9]+/gi, "-");
+  function baixaPng() {
+    const cy = cyRef.current;
+    if (!cy) return;
+    const bg = getComputedStyle(document.documentElement).getPropertyValue("--surface-solida").trim() || "#ffffff";
+    baixa(`raio-x-mapa-${slug}.png`, cy.png({ full: true, scale: 2, bg, output: "base64uri" }));
+  }
+
+  const ocultosTexto = grafo ? resumoOcultos(grafo.ocultos) : "";
+  const fmt = new Intl.NumberFormat("pt-BR");
 
   return (
-    <div className="grafo-pagina">
+    <div
+      className="grafo-pagina"
+      onKeyDown={(e) => {
+        // Esc em qualquer ponto do mapa tira a seleção e o destaque (na busca, o Esc limpa o campo)
+        if (e.key === "Escape") {
+          setSelecionado(null);
+          setAchado(null);
+        }
+      }}
+    >
       <div className="grafo-controles">
         <fieldset>
-          <legend>Profundidade</legend>
+          <legend>
+            <Termo id="saltos">Profundidade</Termo>
+          </legend>
           <label className="opcao">
             <input type="radio" name="prof" checked={profundidade === 1} onChange={() => atualizaUrl({ profundidade: 1 })} />
             1 salto (ligações diretas)
           </label>
           <label className="opcao">
-            <input type="radio" name="prof" checked={profundidade === 2} onChange={() => atualizaUrl({ profundidade: 2 })} />
+            <input type="radio" name="prof" checked={profundidade === 2} aria-describedby="aviso-prof2" onChange={() => atualizaUrl({ profundidade: 2 })} />
             2 saltos (ligações das ligações)
           </label>
+          <p id="aviso-prof2" className="nota nota-curta">
+            Com 2 saltos o mapa pode mostrar até {LIMITE_NOS} nós; o que passar disso fica de fora, e o aviso diz o quê.
+          </p>
         </fieldset>
         <fieldset>
           <legend>Tipos de relação</legend>
@@ -132,7 +225,7 @@ export function GrafoView({ centro }: { centro: string }) {
           Marque ao menos um tipo de relação para ver o mapa.
         </p>
       )}
-      {estado.status === "carregando" && <Carregando texto="Montando o mapa…" />}
+      {estado.status === "carregando" && !grafo && <Carregando texto="Montando o mapa…" />}
       {estado.status === "erro" && (
         <ErroApi erro={estado.erro} onTentarDeNovo={recarregar} voltar={{ href: "/grafo", texto: "Escolher outro deputado" }} />
       )}
@@ -140,18 +233,22 @@ export function GrafoView({ centro }: { centro: string }) {
       {grafo && (
         <>
           <p className="grafo-resumo" data-testid="resumo-grafo">
-            <strong>{noCentro?.rotulo ?? centro}</strong>: {grafo.nodes.length} nós · {grafo.edges.length} conexões · {profundidade}{" "}
-            {profundidade === 1 ? "salto" : "saltos"}
+            <strong>{noCentro?.rotulo ?? centro}</strong>: {grafo.nodes.length} <Termo id="mapa-relacoes">nós</Termo> · {grafo.edges.length} conexões · {grafo.profundidade}{" "}
+            <Termo id="saltos">{grafo.profundidade === 1 ? "salto" : "saltos"}</Termo>
+            {atualizando && <span className="nota"> · atualizando…</span>}
           </p>
           {grafo.truncado && (
             <p className="aviso-truncado" role="status">
-              <strong>Mapa cortado.</strong> Há mais nós do que o limite de 300 para exibição, então o que você vê é parcial: foram mantidas
-              primeiro as relações mais relevantes. Reduza a profundidade ou desmarque tipos de relação para ver o restante.
+              <strong>Mapa cortado.</strong> Mostrando {fmt.format(grafo.nodes.length)}
+              {grafo.total_nos ? ` de ${fmt.format(grafo.total_nos)}` : ""} nós: o limite é de {LIMITE_NOS} nós para o mapa continuar legível.
+              {ocultosTexto && <> Ocultos: {ocultosTexto}.</>} Ficaram os de maior valor, repartidos entre os tipos de relação. Reduza os saltos ou
+              desmarque tipos de relação para ver o restante.
             </p>
           )}
 
           <div className="grafo-layout">
             <div className="grafo-palco">
+              <GrafoBusca nos={grafo.nodes} valores={valores} onEscolher={irParaNo} onLimpar={() => setAchado(null)} />
               <div className="grafo-ferramentas" role="group" aria-label="Ferramentas do mapa">
                 <button type="button" className="btn btn-sec btn-mini" onClick={() => cyRef.current?.zoom({ level: (cyRef.current?.zoom() ?? 1) * 1.3, renderedPosition: { x: (cyRef.current?.width() ?? 0) / 2, y: (cyRef.current?.height() ?? 0) / 2 } })}>
                   Aproximar
@@ -162,33 +259,75 @@ export function GrafoView({ centro }: { centro: string }) {
                 <button type="button" className="btn btn-sec btn-mini" onClick={() => cyRef.current?.fit(undefined, 24)}>
                   Ajustar à tela
                 </button>
+                <button type="button" className="btn btn-sec btn-mini" aria-pressed={soVizinhos} onClick={() => setSoVizinhos((v) => !v)}>
+                  Mostrar só vizinhos
+                </button>
+                {gruposFechados.length > 0 && (
+                  <button type="button" className="btn btn-sec btn-mini" onClick={abreTodosOsGrupos}>
+                    Abrir os grupos
+                  </button>
+                )}
+                {podeRecolher && (
+                  <button type="button" className="btn btn-sec btn-mini" onClick={() => setExpandidos(new Set())}>
+                    Recolher
+                  </button>
+                )}
+                <button type="button" className="btn btn-sec btn-mini" onClick={baixaPng}>
+                  Baixar imagem (PNG)
+                </button>
+                <button type="button" className="btn btn-sec btn-mini" onClick={() => baixaTexto(`raio-x-nos-${slug}.csv`, csvNos(grafo))}>
+                  Baixar nós (CSV)
+                </button>
+                <button type="button" className="btn btn-sec btn-mini" onClick={() => baixaTexto(`raio-x-conexoes-${slug}.csv`, csvArestas(grafo))}>
+                  Baixar conexões (CSV)
+                </button>
               </div>
-              <div
-                className="grafo-moldura"
-                role="img"
-                aria-label={`Mapa de relações de ${noCentro?.rotulo ?? centro}: ${grafo.nodes.length} nós e ${grafo.edges.length} conexões. Para navegar por teclado ou leitor de tela, use o botão Ver os nós como lista.`}
-              >
-                <GrafoCanvas elementos={elementos} centro={centro} selecionado={selecionado} onSelecionar={setSelecionado} cyRef={cyRef} />
+              <div className="grafo-area">
+                <div
+                  className="grafo-moldura"
+                  role="img"
+                  aria-label={`Mapa de relações de ${noCentro?.rotulo ?? centro}: ${grafo.nodes.length} nós e ${grafo.edges.length} conexões. Para navegar por teclado ou leitor de tela, use o campo Buscar no mapa ou o botão Ver os nós como lista.`}
+                >
+                  <GrafoCanvas
+                    elementos={elementos}
+                    centro={centro}
+                    selecionado={selecionado}
+                    onSelecionar={setSelecionado}
+                    onExpandirGrupo={abreGrupo}
+                    onHover={setHover}
+                    onCalculando={setCalculando}
+                    tiposEscondidos={tiposEscondidos}
+                    soVizinhos={soVizinhos}
+                    achado={achado}
+                    foco={foco}
+                    cyRef={cyRef}
+                  />
+                </div>
+                {calculando && (
+                  <p className="grafo-calculando" role="status">
+                    Calculando o mapa…
+                  </p>
+                )}
+                {hover && !calculando && <CartaoDoNo info={hover} />}
               </div>
-              <ul className="legenda" aria-label="Legenda dos tipos de nó">
-                {tiposPresentes.map((t) => (
-                  <li key={t}>
-                    <Forma tipo={t} /> {TIPOS_NO[t]?.rotulo}
-                  </li>
-                ))}
-                <li>
-                  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
-                    <rect x="3" y="3" width="12" height="12" fill="var(--no-empresa)" stroke="var(--perigo)" strokeWidth="3" />
-                  </svg>{" "}
-                  Empresa com <Termo id="ceis-cnep">sanção</Termo>
-                </li>
-              </ul>
-              <p className="nota">Clique (ou toque) num nó para ver seus detalhes. Linhas tracejadas = votos parecidos.</p>
+              <GrafoLegenda
+                tipos={tiposPresentes}
+                visiveis={contagem.tipos}
+                totais={totaisPorTipo}
+                escondidos={tiposEscondidos}
+                onAlternar={alternaTipo}
+                onLimpar={() => setTiposEscondidos(new Set())}
+                familias={contagem.familias}
+                escala={escala}
+              />
+              <p className="nota">
+                Clique (ou toque) num nó para ver seus detalhes, ou num grupo (+N) para abrir. Esc tira a seleção. <Termo id="mapa-relacoes">O que é este mapa?</Termo>
+              </p>
             </div>
 
             <div className="grafo-lateral" ref={painelRef}>
               {noSel ? (
-                <PainelNo key={noSel.id} no={noSel} centro={centro} nosPorId={nosPorId} onSelecionar={selecionarEMostrar}onCentralizar={(id) => router.push(`/grafo?centro=${encodeURIComponent(id)}`)} />
+                <PainelNo key={noSel.id} no={noSel} centro={centro} nosPorId={nosPorId} onSelecionar={selecionarEMostrar} onCentralizar={(id) => router.push(`/grafo?centro=${encodeURIComponent(id)}`)} />
               ) : (
                 <p className="nota painel-vazio">Nenhum nó selecionado. Selecione um nó no mapa ou na lista para ver atributos e backlinks.</p>
               )}
@@ -210,11 +349,43 @@ export function GrafoView({ centro }: { centro: string }) {
                     </button>
                   </li>
                 ))}
+                {gruposFechados.map((g) => (
+                  <li key={g.id}>
+                    <button type="button" className="grupo-item" aria-expanded={false} onClick={() => abreGrupo(g.id)}>
+                      <FormaGrupo />
+                      <span>
+                        +{g.membros.length} {(g.membros.length === 1 ? TIPOS_NO[g.tipo]?.rotulo : TIPOS_NO[g.tipo]?.plural)?.toLowerCase() ?? g.tipo} de {nosPorId.get(g.hub)?.rotulo ?? g.hub}
+                      </span>
+                      <small>abrir grupo</small>
+                    </button>
+                  </li>
+                ))}
               </ul>
+            )}
+            {lista && podeRecolher && (
+              <button type="button" className="btn btn-sec btn-mini" onClick={() => setExpandidos(new Set())}>
+                Recolher os grupos
+              </button>
             )}
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/** Cartão que acompanha o ponteiro sobre um nó: nome, tipo, R$ e certeza. Só aparência: tudo isto também está no painel. */
+function CartaoDoNo({ info }: { info: InfoHover }) {
+  const { data } = info;
+  const tipo = data.grupo ? "Grupo de nós" : (TIPOS_NO[data.tipo]?.rotulo ?? data.tipo);
+  return (
+    <div className="grafo-cartao" aria-hidden="true" style={{ ["--x" as string]: `${info.x}px`, ["--y" as string]: `${info.y}px` }}>
+      <strong>{data.rotulo}</strong>
+      <span>{tipo}</span>
+      {data.valor > 0 && <span>{formataReais(data.valor)} nas ligações do mapa</span>}
+      <span>certeza (CF) {formataCf(data.cf)}</span>
+      {data.sancionada && <span>sanção registrada</span>}
+      {data.grupo && <span>clique para abrir</span>}
     </div>
   );
 }

@@ -353,6 +353,17 @@ export function contagemVisivel(
   return { tipos, familias };
 }
 
+/** Três tamanhos de referência (maior valor, 1/4 e 1/16) para a legenda "maior = mais R$". */
+export function escalaDeTamanho(els: readonly ElementoMapa[]): { valor: number; tam: number }[] {
+  let max = 0;
+  for (const e of els) {
+    if ("source" in e.data || e.data.grupo || e.data.dist === 0) continue;
+    max = Math.max(max, e.data.valor);
+  }
+  if (!(max > 0)) return [];
+  return [max, max / 4, max / 16].map((valor) => ({ valor, tam: tamanhoDoNo(valor, max) }));
+}
+
 /* ---------------------------------------------------------------- busca */
 
 const semAcento = (s: string): string => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
