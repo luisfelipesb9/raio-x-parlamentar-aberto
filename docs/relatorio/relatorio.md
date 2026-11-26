@@ -194,6 +194,8 @@ Medido na amostra: as emendas ligam por nome (0,8), então R07 = 0,6 × 0,8 (lin
 - Licença dos dados: o OpenSanctions é CC BY-NC; o projeto é acadêmico e não comercial.
 
 ## 8. Resultados na amostra
+
+> Nota de 26/11/2026: a base publicada no site foi recoletada nesse dia e tem 38 findings (R04: 3, em vez de 5); as demais regras mantêm a contagem abaixo e `make verifica` confere 44 de 44. A tabela abaixo descreve a coleta anterior, usada na avaliação.
 Amostra: 20 deputados de MG (`make sample`): votações de 04/02 a 27/03/2025, CEAP do arquivo anual de 2024 e eleição de 2022 (TSE). Número de findings por regra:
 
 | Regra | Findings | CF observado |

@@ -1,5 +1,7 @@
 # Raio-X Parlamentar
 
+**Veja no ar:** [raio-x-parlamentar.vercel.app](https://raio-x-parlamentar.vercel.app) (20 deputados de Minas Gerais; API em [raio-x-parlamentar-api.vercel.app](https://raio-x-parlamentar-api.vercel.app/docs)).
+
 Tudo o que é público sobre um deputado federal (votos, projetos, gastos, emendas, financiamento,
 empresas e sanções) explicado em linguagem simples, com cada conclusão mostrando **como** foi obtida
 e **o quanto** é certa. É um **Sistema Especialista**: base de fatos (dados oficiais), base de
