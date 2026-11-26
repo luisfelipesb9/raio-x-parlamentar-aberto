@@ -18,26 +18,33 @@
 #   scripts/gh_publicar.sh [owner/repo]                         # dry-run
 #   scripts/gh_publicar.sh [owner/repo] --aplicar               # aplica
 #   scripts/gh_publicar.sh [owner/repo] --aplicar --historico-linear
+#   scripts/gh_publicar.sh [owner/repo] --aplicar --exigir-seo-smoke   # só depois dos PRs de SEO
+# Checks obrigatórios: python, web, gitleaks (+ seo-smoke com --exigir-seo-smoke).
+# Administradores do repositório podem contornar o ruleset em PR (nunca ficam travados).
 # Requer: gh autenticado com permissão de admin no repositório (gh auth status).
 set -euo pipefail
 
 REPO_PADRAO="luisfelipesb9/raio-x-parlamentar-aberto"
 NOME_RULESET="main protegida"
-CHECKS=(python web gitleaks seo-smoke)  # nomes dos jobs em .github/workflows/ci.yml
+CHECKS=(python web gitleaks)  # nomes dos jobs em .github/workflows/ci.yml (seo-smoke: --exigir-seo-smoke)
+ID_PAPEL_ADMIN=5              # RepositoryRole "admin" (maintain=2, write=4)
 ID_GITHUB_ACTIONS=15368                  # app "GitHub Actions": só ela pode satisfazer os checks
 ROTULO="dependencias"
 
 APLICAR=0
 LINEAR=0
+SEO_SMOKE=0
 REPO=""
 FALHAS=0
 
-uso() { sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; }
+# Imprime o cabeçalho de comentários (da linha 2 até a primeira linha que não é comentário).
+uso() { awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"; }
 
 for arg in "$@"; do
   case "$arg" in
     --aplicar) APLICAR=1 ;;
     --historico-linear) LINEAR=1 ;;
+    --exigir-seo-smoke) SEO_SMOKE=1 ;;
     -h|--help) uso; exit 0 ;;
     -*) echo "opção desconhecida: $arg" >&2; uso >&2; exit 64 ;;
     *)
@@ -142,6 +149,9 @@ fi
 
 # 7. Ruleset da branch padrão: PR obrigatório (0 aprovações: são 2 mantenedores e um deles pode
 #    ser quem abriu o PR), checks do CI obrigatórios, sem force-push e sem apagar a branch.
+#    Bypass: papel admin, só em PR ("pull_request"): um admin pode mesclar um PR com check
+#    vermelho numa emergência, mas nem ele faz push direto, force-push ou apaga a main.
+[[ $SEO_SMOKE -eq 1 ]] && CHECKS+=(seo-smoke)
 checks_json=""
 for c in "${CHECKS[@]}"; do
   checks_json+="${checks_json:+,}{\"context\":\"$c\",\"integration_id\":$ID_GITHUB_ACTIONS}"
@@ -149,7 +159,8 @@ done
 regra_linear=""
 [[ $LINEAR -eq 1 ]] && regra_linear=',{"type":"required_linear_history"}'
 ruleset=$(cat <<JSON
-{"name":"$NOME_RULESET","target":"branch","enforcement":"active","bypass_actors":[],
+{"name":"$NOME_RULESET","target":"branch","enforcement":"active",
+ "bypass_actors":[{"actor_id":$ID_PAPEL_ADMIN,"actor_type":"RepositoryRole","bypass_mode":"pull_request"}],
  "conditions":{"ref_name":{"include":["~DEFAULT_BRANCH"],"exclude":[]}},
  "rules":[
   {"type":"deletion"},
@@ -162,9 +173,18 @@ ruleset=$(cat <<JSON
 JSON
 )
 ruleset=$(printf '%s' "$ruleset" | tr -d '\n')
+echo "          checks obrigatórios: ${CHECKS[*]}"
 id_ruleset=""
 if lista=$(ler "repos/$REPO/rulesets" --jq ".[] | select(.name == \"$NOME_RULESET\") | .id"); then
   id_ruleset=$(printf '%s' "$lista" | head -n1)
+elif [[ $APLICAR -eq 1 ]]; then
+  # Sem a listagem não dá para saber se o ruleset já existe: criar às cegas o duplicaria.
+  echo "[aplicar] 7. ABORTADO: não consegui listar os rulesets (repo privado sem rulesets, ou sem"
+  echo "          permissão de admin). Nada foi criado para não duplicar o '$NOME_RULESET'."
+  echo "$((FALHAS + 1)) passo(s) falharam (veja acima)."
+  exit 1
+else
+  echo "[dry-run] (não consegui listar os rulesets agora; no --aplicar o passo 7 aborta se a listagem falhar)"
 fi
 if [[ -n "$id_ruleset" ]]; then
   executar "7. atualizar o ruleset '$NOME_RULESET' (id $id_ruleset)" PUT "repos/$REPO/rulesets/$id_ruleset" "$ruleset"
