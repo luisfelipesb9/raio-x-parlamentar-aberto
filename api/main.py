@@ -96,8 +96,10 @@ def _origens() -> list[str]:
 
 
 def create_app(db_path: str | Path | None = None, *, store: Store | None = None,
-               max_nos_grafo: int = MAX_NOS_GRAFO) -> FastAPI:
-    state = AppState(store, db_path)
+               max_nos_grafo: int = MAX_NOS_GRAFO, raw_dir: str | Path | None = None) -> FastAPI:
+    """`raw_dir`: pasta dos brutos com o manifest.json (padrão: `RAIO_X_RAW` ou data/raw); só serve
+    para preencher `Evidence.sha256_bruto`. A API nunca lê nem escreve mais nada ali."""
+    state = AppState(store, db_path, raw_dir)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):

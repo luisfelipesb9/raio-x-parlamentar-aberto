@@ -83,6 +83,7 @@ def _incompleta(row: dict, colunas: tuple[str, ...]) -> bool:
 
 class CguSource(Source):
     nome = "cgu"
+    fontes_fato = (FONTE_CEIS, FONTE_CNEP, FONTE_EMENDAS)
 
     def __init__(self, client: httpx.Client | None = None,
                  max_bytes_descomprimido: int = 1 << 30):
@@ -151,7 +152,8 @@ class CguSource(Source):
                 raw[f"data_{cad}"] = dia.isoformat()
             destino = self.raw_path(arquivo)
             self._baixar(url, destino)
-            raw[cad] = self._ler_csv(destino, cad)
+            self.registrar_raw(destino.name)
+            raw[cad] =self._ler_csv(destino, cad)
         return raw
 
     # ---------- normalize ----------

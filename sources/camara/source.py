@@ -33,6 +33,7 @@ def _data_iso(texto: Any) -> str | None:
 
 class CamaraSource(Source):
     nome = "camara"
+    fontes_fato = (FONTE,)
 
     def __init__(self, client: httpx.Client | None = None, pausa: float = 0.2):
         self.client = client or httpx.Client(timeout=30, headers={"Accept": "application/json"})

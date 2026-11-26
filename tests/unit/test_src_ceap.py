@@ -18,6 +18,7 @@ import httpx
 import pytest
 
 import sources.base
+from sources import manifest
 from sources.ceap.source import CAMPOS_USADOS, FONTE, CeapSource, iterar_dados
 
 FIXTURE = Path(__file__).parent / "fixtures" / "ceap_2024_amostra.json"
@@ -248,6 +249,8 @@ def test_fetch_baixa_o_zip_oficial_salva_em_raw_e_devolve_dados(raw, raw_dir):
     out = src.fetch(ano=2024)
     assert visto == [URL_ZIP_2024]
     assert (raw_dir / "ceap" / "Ano-2024.json.zip").is_file()
+    assert [(i["fonte"], i["arquivo"]) for i in manifest.carregar(raw_dir)["arquivos"]] == [
+        ("ceap", "Ano-2024.json.zip")]  # o zip baixado entra no manifesto
     assert out["ano"] == 2024
     assert len(out["dados"]) == len(raw["dados"])
     assert out["dados"][0]["fornecedor"] == raw["dados"][0]["fornecedor"]

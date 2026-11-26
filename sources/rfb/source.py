@@ -60,6 +60,7 @@ def _documento_socio(texto: Any) -> str | None:
 
 class RfbSource(Source):
     nome = "rfb"
+    fontes_fato = (FONTE,)
 
     def __init__(self, client: httpx.Client | None = None, pausa: float = 0.5,
                  max_tentativas: int = 5, espera_base: float = 2.0,

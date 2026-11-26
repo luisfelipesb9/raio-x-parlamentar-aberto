@@ -74,6 +74,7 @@ def _compactar(e: dict) -> dict:
 
 class OpenSanctionsSource(Source):
     nome = "opensanctions"
+    fontes_fato = (FONTE,)
 
     def __init__(self, client: httpx.Client | None = None):
         self.client = client or httpx.Client(timeout=300, follow_redirects=True)
@@ -97,6 +98,7 @@ class OpenSanctionsSource(Source):
         {"entities": [...]} só com Pessoas, já compactadas. `max_entidades` gera amostra."""
         destino = self.raw_path("br_pep.targets.nested.json")
         self._baixar(destino)
+        self.registrar_raw(destino.name)
         entidades: list[dict] = []
         with destino.open(encoding="utf-8") as f:
             for n, linha in enumerate(f, start=1):

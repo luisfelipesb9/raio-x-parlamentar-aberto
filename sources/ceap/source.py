@@ -130,6 +130,7 @@ def iterar_dados(fluxo: IO[bytes], pedaco: int = 1 << 20, teto: int = 1 << 30) -
 
 class CeapSource(Source):
     nome = "ceap"
+    fontes_fato = (FONTE,)
 
     def __init__(self, client: httpx.Client | None = None, tamanho_pedaco: int = 1 << 20,
                  max_descompactado: int = 1 << 30):
@@ -164,6 +165,7 @@ class CeapSource(Source):
         """
         destino = self.raw_path(f"Ano-{ano}.json.zip")
         self._baixar(URL_ZIP.format(ano=ano), destino)
+        self.registrar_raw(destino.name)
         amostra = max_linhas is not None or max_deputados is not None
         deputados: set = set()
         dados: list[dict] = []

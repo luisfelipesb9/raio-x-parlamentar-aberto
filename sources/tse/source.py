@@ -169,6 +169,7 @@ class _RangeFile(io.RawIOBase):
 
 class TseSource(Source):
     nome = "tse"
+    fontes_fato = (FONTE_CANDIDATURA, FONTE_DOACAO, FONTE_VOTOS)
 
     def __init__(self, client: httpx.Client | None = None):
         self.client = client or httpx.Client(timeout=120, follow_redirects=True)

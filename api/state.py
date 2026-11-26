@@ -26,11 +26,12 @@ from api.schemas import (
     MetricasDeputadoResposta,
 )
 from contracts import CONTRACT_VERSION, Explanation, Fact, Finding, GraphEdge, GraphNode
-from engine import backward, forward
+from engine import backward, forward, proveniencia
 from engine.factbase import FactBase
 from engine.rules import Rule, load_rules
 from graph import SAL_ID, normaliza_nome, project
 from repo.store import DB_PATH, Store
+from sources import manifest
 
 log = logging.getLogger("raio_x.api")
 
@@ -75,9 +76,11 @@ class Snapshot:
 
 
 class AppState:
-    def __init__(self, store: Store | None, db_path: str | Path | None) -> None:
+    def __init__(self, store: Store | None, db_path: str | Path | None,
+                 raw_dir: str | Path | None = None) -> None:
         self._store = store
         self._db_path = db_path
+        self._raw_dir = raw_dir
         self._lock = threading.RLock()  # DuckDB: uma conexão, acesso serializado
         self._snap: Snapshot | None = None
         self._rules: list[Rule] | None = None
@@ -120,8 +123,9 @@ class AppState:
 
     def _construir(self, store: Store) -> Snapshot:
         facts = store.load_facts()
-        findings = [Finding.model_validate_json(r[0]) for r in
-                    store.con.execute("SELECT payload FROM finding").fetchall()]
+        findings = self._com_proveniencia(
+            [Finding.model_validate_json(r[0]) for r in
+             store.con.execute("SELECT payload FROM finding").fetchall()], facts)
         nodes, edges = project(facts, findings,
                                sal_id=os.environ.get("RAIO_X_ID_SALT") or SAL_ID)
         deputados = {
@@ -143,6 +147,18 @@ class AppState:
             facts=facts, nodes=nodes, edges=edges, deputados=deputados,
             ordem=sorted(deputados, key=lambda i: (normaliza_nome(deputados[i].nome), i)),
             findings=dict(por_dep), nos_por_id={n.id: n for n in nodes}, vizinhos=dict(vizinhos))
+
+    def _com_proveniencia(self, findings: list[Finding], facts: list[Fact]) -> list[Finding]:
+        """Completa `coletado_em` e `sha256_bruto` das evidências de findings gravados antes de o
+        motor preencher esses campos. Sem manifesto (ex.: deploy sem data/raw), o hash fica vazio."""
+        indice = proveniencia.indexar(facts)
+        try:
+            sha = manifest.sha_por_fonte_fato(Path(self._raw_dir or manifest.raw_dir_padrao()))
+        except (ValueError, OSError):
+            log.warning("manifest.json ilegível: evidências sem sha256_bruto", exc_info=True)
+            sha = {}
+        return [f.model_copy(update={"evidencias": proveniencia.enriquecer(f.evidencias, indice,
+                                                                           sha)}) for f in findings]
 
     def prova(self, snap: Snapshot, objetivo: str, deputado: str) -> backward.GoalAnswer:
         """Encadeamento regressivo com UM forward.run por snapshot (todas as regras)."""
