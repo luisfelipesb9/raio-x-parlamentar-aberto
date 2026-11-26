@@ -108,20 +108,47 @@ def test_objetivo_sem_regra_e_sem_regra_aplicavel():
     assert d is not None and d.motivo == "sem_regra_aplicavel" and d.detalhes == {}
 
 
-def test_regra_de_outro_predicado_sem_disparo_e_sem_regra_aplicavel():
+def test_regra_sem_diagnosticador_que_nao_disparou_fica_sem_diagnostico_e_com_a_nota():
     ans = backward.prove("risco_integridade", "1", FactBase([F("deputado", "1")]), load_rules())
     assert ans.cf == 0.0
-    assert {p.diagnostico.motivo for p in ans.trilha} == {"sem_regra_aplicavel"}
-    assert all(p.diagnostico is not None for p in ans.trilha if p.cf == 0)
+    passos = [p for p in ans.trilha if p.regra is not None]
+    assert passos and all(p.cf == 0 for p in passos)
+    assert all(p.diagnostico is None for p in passos)
+    assert {p.nota for p in passos} == {"condições não satisfeitas"}
 
 
-def test_ciclo_tem_diagnostico_sem_regra_aplicavel():
+def test_regra_composta_mantem_a_nota_de_sub_objetivos_e_diagnostico_none():
+    ans = backward.prove("merece_atencao_fiscalizacao", "1", FactBase([F("deputado", "1")]),
+                         load_rules())
+    r09 = next(p for p in ans.trilha if p.regra == "R09")
+    assert r09.cf == 0.0 and r09.diagnostico is None
+    assert r09.nota == "sub-objetivos: risco_integridade=0.0"
+
+
+def test_ciclo_fica_sem_diagnostico_e_mantem_a_nota():
     from engine.rules import Rule
     regras = [Rule(id="RA", nome="a", conclui="a", requer=["b"], cf=0.8),
               Rule(id="RB", nome="b", conclui="b", requer=["a"], cf=0.8)]
     ans = backward.prove("a", "1", FactBase([]), regras)
     ciclo = next(p for p in ans.trilha if "ciclo" in p.nota)
-    assert ciclo.diagnostico.motivo == "sem_regra_aplicavel"
+    assert ciclo.diagnostico is None
+    assert ciclo.nota == "ciclo detectado: a -> b -> a"
+
+
+def test_taxa_logo_abaixo_do_limiar_nao_e_arredondada_para_cima():
+    """B2: 0,6996 não pode virar 0,7 antes de comparar com o limiar (0,7)."""
+    from engine.predicates.core import diagnostico_governismo
+    fs = votos("1", 6996, 3004)  # 6996/10000 = 0,6996 -> abaixo de 0,7
+    d = diagnostico_governismo(FactBase(fs), {"minimo_votacoes": 10, "limiar": 0.7}, "1")
+    assert d is not None and d.motivo == "abaixo_do_limiar"
+    assert d.detalhes["taxa"] == 0.7  # só a exibição é arredondada
+    assert d.detalhes["limiar"] == 0.7
+
+
+def test_taxa_exatamente_no_limiar_nao_tem_diagnostico():
+    from engine.predicates.core import diagnostico_governismo
+    d = diagnostico_governismo(FactBase(votos("1", 7, 3)), {"minimo_votacoes": 10, "limiar": 0.7}, "1")
+    assert d is None
 
 
 def test_passo_com_cf_positivo_nunca_tem_diagnostico():

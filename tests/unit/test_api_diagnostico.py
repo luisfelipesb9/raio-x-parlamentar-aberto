@@ -43,7 +43,15 @@ def test_quando_a_regra_dispara_o_diagnostico_e_nulo(client):
     assert corpo["cf"] > 0 and passo["diagnostico"] is None
 
 
-def test_objetivo_composto_sem_prova_traz_sem_regra_aplicavel(client):
+def test_regra_sem_diagnosticador_nao_mostra_diagnostico_e_guarda_a_nota(client):
     r = client.get("/perguntar", params={"deputado": "4", "objetivo": "risco_integridade"})
-    passos = r.json()["trilha"]
-    assert passos and {p["diagnostico"]["motivo"] for p in passos} == {"sem_regra_aplicavel"}
+    passos = [p for p in r.json()["trilha"] if p["regra"] is not None and p["cf"] == 0]
+    assert passos and all(p["diagnostico"] is None for p in passos)
+    assert {p["nota"] for p in passos} == {"condições não satisfeitas"}
+
+
+def test_objetivo_composto_sem_prova_mantem_a_nota_de_sub_objetivos(client):
+    r = client.get("/perguntar", params={"deputado": "4", "objetivo": "merece_atencao_fiscalizacao"})
+    r09 = next(p for p in r.json()["trilha"] if p["regra"] == "R09")
+    assert r09["diagnostico"] is None
+    assert r09["nota"].startswith("sub-objetivos: risco_integridade=")

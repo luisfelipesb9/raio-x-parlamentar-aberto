@@ -72,9 +72,9 @@ def diagnostico_governismo(fb: FactBase, params: dict, deputado_id: str) -> Diag
             n += 1
             conv += int(igual)
     detalhes: dict[str, float | int | str] = {"n_votos_validos": n, "minimo_votos": minimo}
-    taxa = round(conv / n, 3) if n else None
+    taxa = conv / n if n else None  # sem arredondar: é o que se compara com o limiar
     if taxa is not None:
-        detalhes["taxa"] = taxa
+        detalhes["taxa"] = round(taxa, 3)  # arredonda só para exibir
     if n < minimo:
         return Diagnostico("dados_insuficientes", detalhes)
     limiar = params.get("limiar")

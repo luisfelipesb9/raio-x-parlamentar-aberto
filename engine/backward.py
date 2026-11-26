@@ -28,7 +28,9 @@ class PassoProva:
     regra: str | None
     cf: float
     nota: str = ""
-    diagnostico: Diagnostico | None = None  # só em passo sem conclusão (cf = 0); ver ADR-007
+    # só em passo sem conclusão (cf = 0): da regra que tem diagnosticador, ou `sem_regra_aplicavel`
+    # quando nenhuma regra conclui o objetivo; ver ADR-007
+    diagnostico: Diagnostico | None = None
 
 
 @dataclass
@@ -70,9 +72,11 @@ def prove(goal: str, deputado_id: str, fb: FactBase, rules: list[Rule],
     # base já restringida pelos guardrails (a do `resultado`, se houver); só serve ao diagnóstico
     base = res.factbase if res.factbase is not None else fb
 
-    def diagnosticar(r: Rule) -> Diagnostico:
+    def diagnosticar(r: Rule) -> Diagnostico | None:
+        """Só a regra com diagnosticador explica por que não concluiu; as demais ficam sem
+        diagnóstico e mantêm a `nota` (ex.: sub-objetivos da regra composta)."""
         fn = DIAGNOSTICOS.get(r.predicado or "")
-        return (fn(base, r.parametros, deputado_id) if fn else None) or sem_regra_aplicavel()
+        return fn(base, r.parametros, deputado_id) if fn else None
 
     trilha: list[PassoProva] = []
     usadas: set[str] = set()
@@ -82,8 +86,7 @@ def prove(goal: str, deputado_id: str, fb: FactBase, rules: list[Rule],
         prof = len(pilha)
         if obj in pilha:
             trilha.append(PassoProva(prof, obj, None, 0.0,
-                                     f"ciclo detectado: {' -> '.join((*pilha, obj))}",
-                                     sem_regra_aplicavel()))
+                                     f"ciclo detectado: {' -> '.join((*pilha, obj))}"))
             return 0.0
         regras = por_objetivo.get(obj, [])
         if not regras:
