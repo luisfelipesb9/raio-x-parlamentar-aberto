@@ -1,12 +1,15 @@
 import { ImageResponse } from "next/og";
 import type { DeputadoResumo } from "@/types/contracts";
+import { ID_SEGURO } from "@/lib/seo";
 import { servidorGetOuNull } from "@/lib/server-api";
 
 export const alt = "Ficha do deputado no Raio-X Parlamentar";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-// Literal: o Next lê isto na análise do build. Mesmo valor de REVALIDAR_SEGUNDOS em lib/seo.ts.
-export const revalidate = 3600;
+
+// A rota é dinâmica (o id vem da URL): o cache fica por conta destes cabeçalhos e do cache da própria leitura da API.
+const CACHE_NORMAL = "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400";
+const CACHE_CURTO = "public, max-age=60, s-maxage=60"; // API fora do ar: não prender a imagem genérica por muito tempo
 
 const TEXTO = "Dados públicos explicados, com fonte e nível de certeza";
 
@@ -20,11 +23,15 @@ function tamanhoDoNome(nome: string): number {
 export default async function Imagem({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   let perfil: DeputadoResumo | null = null;
-  try {
-    perfil = await servidorGetOuNull<DeputadoResumo>(`/deputados/${encodeURIComponent(id)}`);
-  } catch {
-    perfil = null; // API fora do ar: cai na imagem genérica do site, nunca em erro
-  }
+  let cache = CACHE_NORMAL;
+  if (ID_SEGURO.test(id)) {
+    try {
+      perfil = await servidorGetOuNull<DeputadoResumo>(`/deputados/${id}`);
+    } catch {
+      perfil = null; // API fora do ar: cai na imagem genérica do site, nunca em erro
+      cache = CACHE_CURTO;
+    }
+  } // id inválido: imagem genérica, sem consultar a API
 
   const nome = perfil?.nome ?? "Raio-X Parlamentar";
   const partidoUf = perfil ? [perfil.partido, perfil.uf].filter(Boolean).join(" - ") : "";
@@ -40,12 +47,12 @@ export default async function Imagem({ params }: { params: Promise<{ id: string 
         <div style={{ display: "flex", fontSize: 26, letterSpacing: 6, color: "#5fe3f5", marginBottom: 22 }}>
           {perfil ? "FICHA DO DEPUTADO FEDERAL" : "DADOS PÚBLICOS, SEM JURIDIQUÊS"}
         </div>
-        <div style={{ display: "flex", fontSize: tamanhoDoNome(nome), fontWeight: 800, lineHeight: 1.05, letterSpacing: -2, maxWidth: 960 }}>{nome}</div>
-        {partidoUf && <div style={{ display: "flex", fontSize: 44, fontWeight: 300, color: "#9db0b8", marginTop: 14 }}>{partidoUf}</div>}
+        <div style={{ display: "flex", fontSize: tamanhoDoNome(nome), lineHeight: 1.05, letterSpacing: -2, maxWidth: 960 }}>{nome}</div>
+        {partidoUf && <div style={{ display: "flex", fontSize: 44, color: "#9db0b8", marginTop: 14 }}>{partidoUf}</div>}
         <div style={{ display: "flex", fontSize: 28, color: "#9db0b8", marginTop: 34, maxWidth: 860 }}>{TEXTO}</div>
         {perfil && <div style={{ display: "flex", fontSize: 24, letterSpacing: 4, color: "#5fe3f5", marginTop: 26 }}>RAIO-X PARLAMENTAR</div>}
       </div>
     ),
-    size,
+    { ...size, headers: { "Cache-Control": cache } },
   );
 }
