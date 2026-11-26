@@ -26,6 +26,8 @@ test.describe("mobile 375px: nada rola na horizontal", () => {
 
     await page.goto(`/grafo?centro=deputado:${id}`);
     await expect(page.getByRole("img", { name: /mapa de relações/i })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: /buscar no mapa/i })).toBeVisible();
+    await semScrollHorizontal(page);
     await page.getByRole("button", { name: /ver os nós como lista/i }).click();
     await semScrollHorizontal(page);
 

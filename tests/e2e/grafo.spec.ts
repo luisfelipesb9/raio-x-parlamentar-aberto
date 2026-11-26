@@ -79,6 +79,49 @@ test.describe("grafo", () => {
     await expect(page.getByTestId("resumo-grafo")).toContainText(/300 nós/);
   });
 
+  test("o aviso de corte diz quantos nós aparecem, de quantos, e o que ficou de fora", async ({ page }) => {
+    await page.goto("/grafo?centro=deputado:107970&profundidade=2");
+    const aviso = page.getByRole("status").filter({ hasText: /mapa cortado/i });
+    await expect(aviso).toContainText(/mostrando 300 de [\d.]+ nós/i);
+    await expect(aviso).toContainText(/ocultos: .*empresas/i);
+  });
+
+  test("busca no mapa seleciona o nó achado e abre o painel (atalho / e Esc)", async ({ page }) => {
+    await page.goto("/grafo?centro=deputado:107970&profundidade=2");
+    await page.waitForFunction(() => Boolean((window as unknown as { __raioXCy?: unknown }).__raioXCy));
+    await page.keyboard.press("/");
+    const busca = page.getByRole("combobox", { name: /buscar no mapa/i });
+    await expect(busca).toBeFocused();
+    await busca.fill("azul linhas");
+    const opcao = page.getByRole("option").first();
+    await expect(opcao).toContainText(/azul linhas/i);
+    await page.keyboard.press("Enter");
+    const painel = page.getByRole("complementary", { name: /detalhes do nó/i });
+    await expect(painel.getByRole("heading", { level: 2 })).toContainText(/azul linhas/i);
+    await busca.press("Escape");
+    await expect(busca).toHaveValue("");
+  });
+
+  test("folhas de um hub ficam num grupo (+N) que abre e recolhe", async ({ page }) => {
+    await page.goto("/grafo?centro=deputado:107970");
+    await page.waitForFunction(() => Boolean((window as unknown as { __raioXCy?: unknown }).__raioXCy));
+    const contaNos = () => page.evaluate(() => (window as unknown as { __raioXCy: { nodes(): { length: number } } }).__raioXCy.nodes().length);
+    const antes = await contaNos();
+    await page.getByRole("button", { name: /abrir os grupos/i }).click();
+    await expect.poll(contaNos).toBeGreaterThan(antes);
+    await page.getByRole("button", { name: /^recolher$/i }).click();
+    await expect.poll(contaNos).toBe(antes);
+  });
+
+  test("a legenda filtra por tipo de nó e 'Limpar filtros' desfaz", async ({ page }) => {
+    await page.goto("/grafo?centro=deputado:107970");
+    const legenda = page.getByRole("list", { name: /legenda dos tipos de nó/i });
+    await legenda.getByRole("button", { name: /empresa/i }).click();
+    await expect(legenda.getByRole("button", { name: /empresa/i })).toHaveAttribute("aria-pressed", "false");
+    await page.getByRole("button", { name: /limpar filtros/i }).click();
+    await expect(legenda.getByRole("button", { name: /empresa/i })).toHaveAttribute("aria-pressed", "true");
+  });
+
   test("grafo de nó inexistente mostra erro com saída", async ({ page }) => {
     await page.goto("/grafo?centro=deputado:0000000");
     await expect(alertaDaPagina(page)).toContainText(/não encontr/i);

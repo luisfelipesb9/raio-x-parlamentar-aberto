@@ -234,7 +234,7 @@ export function GrafoCanvas({ elementos, centro, selecionado, onSelecionar, onEx
         const nNos = els.filter((e) => "position" in e).length;
         const layout = cy.layout({
           name: "fcose",
-          quality: primeira ? "default" : "draft",
+          quality: "default", // "draft" com randomize:false não roda o layout
           // sem aleatoriedade: parte das posições em anéis por tipo, então o mesmo grafo dá o mesmo desenho
           randomize: false,
           animate: false,
