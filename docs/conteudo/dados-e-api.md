@@ -27,7 +27,7 @@ As rotas são:
 - `/perguntar`: prova regressiva de um objetivo para um deputado;
 - `/comparar`: comparação lado a lado de dois deputados.
 
-A documentação interativa fica em `/docs` da própria API. A API pública do projeto está em `https://raio-x-api.vercel.app`; ela respondeu a `/saude` em 26/11/2026 com 20 deputados e 40 achados. Atenção: em 26/11/2026 a instância pública ainda roda o contrato 0.1.0 e não tem as rotas `/cobertura` nem `/deputados/{id}/metricas`; esta página descreve o contrato 0.2.0 do repositório, que você obtém rodando o sistema na sua máquina. O projeto não definiu limite de uso, garantia de disponibilidade nem prazo de atualização.
+A documentação interativa fica em `/docs` da própria API. A API pública do projeto está em `https://raio-x-parlamentar-api.vercel.app`; ela respondeu a `/saude` em 26/11/2026 com o contrato 0.2.0, 20 deputados e 38 achados, e a base é pseudonimizada. O projeto não definiu limite de uso, garantia de disponibilidade nem prazo de atualização.
 
 ## Como chamar a API?
 

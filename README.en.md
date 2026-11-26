@@ -1,5 +1,7 @@
 # Raio-X Parlamentar (summary in English)
 
+**Live:** [raio-x-parlamentar.vercel.app](https://raio-x-parlamentar.vercel.app) (20 deputies from Minas Gerais; API docs at [raio-x-parlamentar-api.vercel.app/docs](https://raio-x-parlamentar-api.vercel.app/docs)). The interface is in Portuguese.
+
 An expert system that gathers what is public about Brazilian federal deputies (votes, bills, expenses,
 amendments, campaign donations, companies, sanctions) and explains it in plain Portuguese. Each
 conclusion shows how it was derived and how certain it is (certainty factors, forward and backward

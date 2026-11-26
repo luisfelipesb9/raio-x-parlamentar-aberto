@@ -36,7 +36,8 @@ cd web && pnpm install && pnpm dev                     # web em http://localhost
    (`docs/relatorio/comparacao-externa.md`).
 6. Fato `processo` (guardrail R08) ainda sem fonte: o guardrail existe, mas nenhum plugin produz `processo`.
 
-## Resultados na amostra (40 findings)
+## Resultados na amostra (40 findings no relatório; 38 na base publicada em 26/11/2026)
+Nota: a base publicada em 26/11/2026 foi recoletada (CEAP, CGU e OpenSanctions baixados de novo) e deu 38 findings (R01 14, R03 2, R04 3, R05 10, R07 9); `make verifica` confere 44 de 44 contra o bruto. Os números abaixo são os do relatório (coleta anterior).
 R01: 14 · R03: 2 · R04: 5 · R05: 10 · R07: 9 (CF médio 0,384 = 0,6 × 0,8 do link por nome × 0,8 Pix) · R02 removeu 121 votações simbólicas e R08 0 processos (guardrails, sem finding). Objetivo da R05: `pontuacao_producao_legislativa`. R06 e R06b: 0 com `--limite-rfb 50` (com 300 surge 1 R06b: o zero era cobertura, não ausência). **R06 confirmado não dispara com dados da RFB**: o QSA vem sempre mascarado (617 sócios mascarados, 96 sem CPF, 0 íntegros), então só a R06b é alcançável.
 Escopo da amostra: 2.083 emendas ligadas (o total global da CGU é 37.297 ligadas de 77.113), 1.008 doações, 17.060 votos_municipio.
 
@@ -70,9 +71,13 @@ Escopo da amostra: 2.083 emendas ligadas (o total global da CGU é 37.297 ligada
 - `make sample-publico` gera `data/sample/raio_x_publico.duckdb` e roda a varredura (`ingest.varredura`): 0 CPFs íntegros (controle positivo: 752). A varredura **não** cobre `data/raw`.
 - API: `/saude`, forward pré-calculado no `/perguntar`; `vercel.json` + `api/index.py` (publicado na Vercel).
 
-## Deploy (publicado em 2026-11-25, Vercel Hobby)
-- Site: https://raio-x-web-delta.vercel.app (atenção: `raio-x-web.vercel.app` é de terceiros)
-- API: https://raio-x-api.vercel.app/saude
+## Deploy (publicado em 2026-11-26, Vercel Hobby, dois projetos)
+- Site: https://raio-x-parlamentar.vercel.app (projeto `raio-x-parlamentar`, Root Directory `web`, Node 22; **deploy automático
+  pelo GitHub a cada merge na `main`**)
+- API: https://raio-x-parlamentar-api.vercel.app/saude (projeto `raio-x-parlamentar-api`, raiz do repositório; **deploy
+  automático pelo GitHub DESLIGADO**, porque o git não leva a base: só a CLI publica)
+- Variáveis do site: `API_URL` e `NEXT_PUBLIC_API_URL` (endereço da API), `NEXT_PUBLIC_SITE_URL` (endereço do site, base do canonical).
+  Variáveis da API: `RAIO_X_DB`, `RAIO_X_ID_SALT` (segredo), `RAIO_X_CORS_ORIGINS` (endereço do site).
 
 **O git não leva a base** (`data/` é ignorado): deploy automático pelo GitHub sobe a API sem banco. Publique pela
 CLI, **de dentro da pasta que está sendo publicada** (rodando de outra pasta, a CLI lê o `vercel.json` errado).
@@ -94,7 +99,7 @@ arquivos da árvore como estáticos (código-fonte baixável) e não monta as ro
    explicando como defini-la. Confira que ela existe nos ambientes Production e Preview antes de qualquer deploy.
 5. Conferir: `/saude` (`status: ok`, `pseudonimizado: true`); `<url da API>/pyproject.toml` deve dar 404.
 
-Validado em produção (2026-11-25): `/saude` ok (20 deputados, 40 findings), DuckDB read-only na função Python,
+Validado em produção (2026-11-26): `/saude` ok (contrato 0.2.0, 20 deputados, 38 findings; a base foi recoletada nesse dia, veja a nota em "Resultados na amostra"), DuckDB read-only na função Python,
 CORS do site, ficha com "Como sabemos disso?", grafo e "perguntar" no navegador, também em emulação de celular
 (375 px, sem rolagem horizontal). **Falta** o teste em um celular de verdade. Os CPFs são pseudonimizados, mas os nomes continuam na base (ADR-006). Mapa de
 relações: o painel mostra as ligações nos dois sentidos e os municípios usam o nome da votação do TSE (2 de 185

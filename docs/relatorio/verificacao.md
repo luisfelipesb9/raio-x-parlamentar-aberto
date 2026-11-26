@@ -1,6 +1,6 @@
 # Verificação dos dados contra o bruto
 
-Gerado em 2026-11-26 por `python -m scripts.verifica` (`make verifica`). Banco: `raio_x_sample.duckdb` (20 deputados). Brutos: pasta `raw`.
+Gerado em 2026-11-26 por `python -m scripts.verifica` (`make verifica`). Banco: `raio_x_publico.duckdb` (20 deputados). Brutos: pasta `data/raw`.
 
 **Resultado:** **APROVADO**: nenhuma divergência.
 
@@ -60,26 +60,26 @@ Nada ficou sem verificar nas conferências executadas.
 
 | item | bruto (esperado) | banco/motor (obtido) | status |
 |---|---|---|---|
-| 74156 Leonardo Monteiro | 373 despesas, R$ 511.827,49 | 373 despesas, R$ 511.827,49 | ok |
-| 74158 Mário Heringer | 125 despesas, R$ 323.076,87 | 125 despesas, R$ 323.076,87 | ok |
-| 74159 Odair Cunha | 880 despesas, R$ 524.034,98 | 880 despesas, R$ 524.034,98 | ok |
-| 74160 Patrus Ananias | 1260 despesas, R$ 452.144,87 | 1260 despesas, R$ 452.144,87 | ok |
-| 74161 Reginaldo Lopes | 519 despesas, R$ 494.417,40 | 519 despesas, R$ 494.417,40 | ok |
+| 74156 Leonardo Monteiro | 243 despesas, R$ 406.695,79 | 243 despesas, R$ 406.695,79 | ok |
+| 74158 Mário Heringer | 41 despesas, R$ 195.568,86 | 41 despesas, R$ 195.568,86 | ok |
+| 74159 Odair Cunha | 803 despesas, R$ 454.247,12 | 803 despesas, R$ 454.247,12 | ok |
+| 74160 Patrus Ananias | 1154 despesas, R$ 412.340,83 | 1154 despesas, R$ 412.340,83 | ok |
+| 74161 Reginaldo Lopes | 229 despesas, R$ 159.003,83 | 229 despesas, R$ 159.003,83 | ok |
 | 74581 Gilmar Machado | 0 despesas, R$ 0,00 | 0 despesas, R$ 0,00 | ok |
-| 74585 Lincoln Portela | 537 despesas, R$ 503.732,34 | 537 despesas, R$ 503.732,34 | ok |
-| 74646 Aécio Neves | 413 despesas, R$ 479.997,65 | 413 despesas, R$ 479.997,65 | ok |
+| 74585 Lincoln Portela | 456 despesas, R$ 446.690,27 | 456 despesas, R$ 446.690,27 | ok |
+| 74646 Aécio Neves | 264 despesas, R$ 324.515,32 | 264 despesas, R$ 324.515,32 | ok |
 | 77003 Sergio Santos Rodrigues | 0 despesas, R$ 0,00 | 0 despesas, R$ 0,00 | ok |
-| 92776 Stefano Aguiar | 414 despesas, R$ 511.491,85 | 414 despesas, R$ 511.491,85 | ok |
-| 98057 Lafayette de Andrada | 534 despesas, R$ 423.227,47 | 534 despesas, R$ 423.227,47 | ok |
-| 107970 Ana Paula Leão | 575 despesas, R$ 457.596,92 | 575 despesas, R$ 457.596,92 | ok |
-| 141487 Luiz Fernando Faria | 420 despesas, R$ 466.780,52 | 420 despesas, R$ 466.780,52 | ok |
-| 141516 Paulo Abi-Ackel | 821 despesas, R$ 501.103,25 | 821 despesas, R$ 501.103,25 | ok |
-| 141531 Rodrigo de Castro | 639 despesas, R$ 484.881,34 | 639 despesas, R$ 484.881,34 | ok |
-| 160510 Luis Tibé | 487 despesas, R$ 429.681,42 | 487 despesas, R$ 429.681,42 | ok |
-| 160518 Weliton Prado | 184 despesas, R$ 498.000,74 | 184 despesas, R$ 498.000,74 | ok |
-| 160556 Padre João | 732 despesas, R$ 487.026,70 | 732 despesas, R$ 487.026,70 | ok |
-| 160588 Diego Andrade | 544 despesas, R$ 501.048,82 | 544 despesas, R$ 501.048,82 | ok |
-| 160599 Dimas Fabiano | 1493 despesas, R$ 439.428,73 | 1493 despesas, R$ 439.428,73 | ok |
+| 92776 Stefano Aguiar | 348 despesas, R$ 453.078,05 | 348 despesas, R$ 453.078,05 | ok |
+| 98057 Lafayette de Andrada | 440 despesas, R$ 422.498,15 | 440 despesas, R$ 422.498,15 | ok |
+| 107970 Ana Paula Leão | 536 despesas, R$ 461.940,01 | 536 despesas, R$ 461.940,01 | ok |
+| 141487 Luiz Fernando Faria | 264 despesas, R$ 368.935,33 | 264 despesas, R$ 368.935,33 | ok |
+| 141516 Paulo Abi-Ackel | 586 despesas, R$ 358.323,56 | 586 despesas, R$ 358.323,56 | ok |
+| 141531 Rodrigo de Castro | 478 despesas, R$ 363.754,62 | 478 despesas, R$ 363.754,62 | ok |
+| 160510 Luis Tibé | 273 despesas, R$ 266.178,16 | 273 despesas, R$ 266.178,16 | ok |
+| 160518 Weliton Prado | 141 despesas, R$ 447.225,31 | 141 despesas, R$ 447.225,31 | ok |
+| 160556 Padre João | 646 despesas, R$ 451.715,33 | 646 despesas, R$ 451.715,33 | ok |
+| 160588 Diego Andrade | 366 despesas, R$ 361.386,09 | 366 despesas, R$ 361.386,09 | ok |
+| 160599 Dimas Fabiano | 1430 despesas, R$ 387.364,50 | 1430 despesas, R$ 387.364,50 | ok |
 
 ### Manifesto do bruto
 
@@ -93,5 +93,4 @@ Nada ficou sem verificar nas conferências executadas.
 - "Bruto" é recalculado do JSON da Câmara e do zip da CEAP sem usar o motor; "banco" é a consulta SQL aos fatos; "motor" é o finding da R01 gravado por `make infer`.
 - Governismo e CEAP conferem os deputados que estão no banco (a amostra), não os 513.
 - Isto confere o caminho bruto → banco → motor. Não prova que o dado oficial está certo, só que o sistema o reproduz sem perder nem inventar nada.
-- O manifesto foi gerado agora para 309 arquivo(s) que já existiam (origem `retroativo`): o hash prova que o arquivo não mudou daqui em diante, não que é idêntico ao que foi baixado na época.
 - A conferência `--online` (contagem de votos direto na API da Câmara) não foi executada.
