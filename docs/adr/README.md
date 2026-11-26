@@ -11,3 +11,4 @@
 | [008](ADR-008-jev-juiz-consultivo.md) | Jev como juiz consultivo opcional (extensão proposta) | Proposto |
 | [009](ADR-009-api-le-manifesto-do-bruto.md) | A API lê o manifesto do bruto (exceção a "a API só lê o banco") | Proposto |
 | [010](ADR-010-web-le-conteudo-no-build.md) | O web lê o conteúdo e as regras no build (exceção a "web só lê o banco") | Aceito |
+| [011](ADR-011-publicacao-enxuta-e-leitura-sob-demanda.md) | Banco público enxuto e API sem snapshot global de fatos | Proposto |
