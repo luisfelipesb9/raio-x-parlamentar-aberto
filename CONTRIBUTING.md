@@ -2,7 +2,7 @@
 
 Obrigado pelo interesse. Leia também o [Código de Conduta](CODE_OF_CONDUCT.md) e a
 [política de uso e correção](docs/politica-de-uso-e-correcao.md). O mapa completo do repositório está
-em [AGENTS.md](AGENTS.md).
+em [docs/mapa-do-repositorio.md](docs/mapa-do-repositorio.md).
 
 ## Regra de ouro: dependência em uma direção só
 ```
@@ -25,7 +25,7 @@ make test           # pytest
 make lint           # ruff
 make verifica       # recalcula governismo e CEAP dos brutos e confronta com o banco
 make deploy-check   # confere que só a base pública seria publicada
-make checa-pii      # guarda de dados pessoais (a confirmar: alvo em criação)
+make checa-pii      # guarda de dados pessoais
 make dev            # só a API; o site roda à parte: `pnpm dev` em web/
 ```
 Pare a API antes de `make ingest` ou `make infer` (lock de escrita do DuckDB).
@@ -59,6 +59,6 @@ Mudou algo em `contracts/`? Escreva um ADR novo em `docs/adr/` (numeração sequ
 ## Dados pessoais e guardrails (não negociáveis)
 - **Nunca** versione dados reais com CPF. A pasta `data/` é ignorada pelo git; gere os bancos localmente.
 - Para publicar uma base, use `make sample-publico` (CPF trocado por HMAC) e `make deploy-check`.
-- Antes de abrir o PR, rode `make checa-pii` (a confirmar: alvo em criação).
+- Antes de abrir o PR, rode `make checa-pii`.
 - Processo sem condenação definitiva não é culpa; votação simbólica não é voto individual; texto para o leitor em
   linguagem simples, sempre com nível de certeza e link para a fonte oficial.

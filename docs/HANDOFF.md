@@ -35,7 +35,6 @@ cd web && pnpm install && pnpm dev                     # web em http://localhost
 5. Validação com leigos (plano, passo 9): não feita. Comparação externa: parcial, só a R01
    (`docs/relatorio/comparacao-externa.md`).
 6. Fato `processo` (guardrail R08) ainda sem fonte: o guardrail existe, mas nenhum plugin produz `processo`.
-7. Divisão de responsabilidade das regras R05–R09 e R06b: a confirmar.
 
 ## Resultados na amostra (40 findings)
 R01: 14 · R03: 2 · R04: 5 · R05: 10 · R07: 9 (CF médio 0,384 = 0,6 × 0,8 do link por nome × 0,8 Pix) · R02 removeu 121 votações simbólicas e R08 0 processos (guardrails, sem finding). Objetivo da R05: `pontuacao_producao_legislativa`. R06 e R06b: 0 com `--limite-rfb 50` (com 300 surge 1 R06b: o zero era cobertura, não ausência). **R06 confirmado não dispara com dados da RFB**: o QSA vem sempre mascarado (617 sócios mascarados, 96 sem CPF, 0 íntegros), então só a R06b é alcançável.

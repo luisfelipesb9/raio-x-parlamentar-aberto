@@ -45,11 +45,11 @@ Pré-requisitos: Python 3.12 com [uv](https://docs.astral.sh/uv/), Node 22 com p
 
 ```
 make setup     # instala as dependências Python
-make demo      # dados fictícios, offline (descrito em docs/demo.md)
+make demo      # dados fictícios, offline (passo a passo em docs/demo.md)
 make test      # testes
 ```
 Para subir a API e o site (dois terminais), aponte `RAIO_X_DB` para o banco de demonstração
-(o caminho exato está em `docs/demo.md`):
+(o caminho exato está em [docs/demo.md](docs/demo.md)):
 ```
 make dev                             # API em http://localhost:8000 (documentação em /docs)
 cd web && pnpm install && pnpm dev   # site em http://localhost:3000
@@ -60,7 +60,7 @@ Todos os comandos estão em [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Documentação
 - [Arquitetura](docs/arquitetura.md) · [Decisões (ADRs)](docs/adr/README.md) · [Glossário](docs/glossario.md)
 - [Estado do projeto](docs/HANDOFF.md) · [Relatório](docs/relatorio/relatorio.md) · [Roteiro](docs/ROADMAP.md)
-- [Mapa do repositório](AGENTS.md)
+- [Mapa do repositório](docs/mapa-do-repositorio.md)
 
 ## Como contribuir
 Veja [CONTRIBUTING.md](CONTRIBUTING.md) e o [Código de Conduta](CODE_OF_CONDUCT.md). Vulnerabilidades e
@@ -72,7 +72,7 @@ Siga a [política de uso e correção](docs/politica-de-uso-e-correcao.md) e abr
 
 ## Licença e dados
 O código é [MIT](LICENSE). Os dados vêm de fontes oficiais abertas, cada uma com seus termos; o
-documento `DATA_LICENSES.md` está em preparação (a confirmar).
+documento [DATA_LICENSES.md](DATA_LICENSES.md) lista cada fonte, a atribuição e o que ainda falta confirmar.
 
 ## Limitações
 - Os fatores de certeza e os limiares das regras são escolhas do especialista, **não calibradas** com dados rotulados.
