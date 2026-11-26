@@ -16,10 +16,12 @@ class InferenceResult:
     findings: list[Finding] = field(default_factory=list)
     explanations: dict[str, Explanation] = field(default_factory=dict)
     guardrail_log: dict[str, str] = field(default_factory=dict)
+    # base de fatos já restringida pelos guardrails; o regressivo a usa para diagnosticar
+    factbase: FactBase | None = None
 
 
 def run(fb: FactBase, rules: list[Rule]) -> InferenceResult:
-    res = InferenceResult()
+    res = InferenceResult(factbase=fb)
     # 1) guardrails primeiro: restringem a base de fatos antes de qualquer conclusão
     for r in (r for r in rules if r.tipo == "guardrail"):
         _, desc = GUARDRAILS[r.predicado](fb, r.parametros)

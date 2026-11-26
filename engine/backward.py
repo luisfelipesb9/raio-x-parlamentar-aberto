@@ -14,8 +14,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from engine import certainty, forward
+from engine.diagnostico import Diagnostico, sem_regra_aplicavel
 from engine.factbase import FactBase
 from engine.forward import InferenceResult
+from engine.predicates import DIAGNOSTICOS
 from engine.rules import Rule
 
 
@@ -26,6 +28,7 @@ class PassoProva:
     regra: str | None
     cf: float
     nota: str = ""
+    diagnostico: Diagnostico | None = None  # só em passo sem conclusão (cf = 0); ver ADR-007
 
 
 @dataclass
@@ -64,6 +67,12 @@ def prove(goal: str, deputado_id: str, fb: FactBase, rules: list[Rule],
         resultado = forward.run(fb, relevantes)
     res = resultado
     findings = {f.regra: f for f in res.findings if f.deputado_id == deputado_id}
+    # base já restringida pelos guardrails (a do `resultado`, se houver); só serve ao diagnóstico
+    base = res.factbase if res.factbase is not None else fb
+
+    def diagnosticar(r: Rule) -> Diagnostico:
+        fn = DIAGNOSTICOS.get(r.predicado or "")
+        return (fn(base, r.parametros, deputado_id) if fn else None) or sem_regra_aplicavel()
 
     trilha: list[PassoProva] = []
     usadas: set[str] = set()
@@ -73,11 +82,13 @@ def prove(goal: str, deputado_id: str, fb: FactBase, rules: list[Rule],
         prof = len(pilha)
         if obj in pilha:
             trilha.append(PassoProva(prof, obj, None, 0.0,
-                                     f"ciclo detectado: {' -> '.join((*pilha, obj))}"))
+                                     f"ciclo detectado: {' -> '.join((*pilha, obj))}",
+                                     sem_regra_aplicavel()))
             return 0.0
         regras = por_objetivo.get(obj, [])
         if not regras:
-            trilha.append(PassoProva(prof, obj, None, 0.0, "sem regra que conclua este objetivo"))
+            trilha.append(PassoProva(prof, obj, None, 0.0, "sem regra que conclua este objetivo",
+                                     sem_regra_aplicavel()))
             return 0.0
         cfs: list[float] = []
         for r in regras:
@@ -93,7 +104,8 @@ def prove(goal: str, deputado_id: str, fb: FactBase, rules: list[Rule],
                 nota = "finding " + f.id if f else "condições não satisfeitas"
                 if f and cf > 0:
                     fids.append(f.id)
-            trilha[idx] = PassoProva(prof, obj, r.id, round(cf, 3), nota)
+            trilha[idx] = PassoProva(prof, obj, r.id, round(cf, 3), nota,
+                                     diagnosticar(r) if cf <= 0 else None)
             if cf > 0:
                 usadas.add(r.id)
                 cfs.append(cf)

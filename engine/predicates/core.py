@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterator
 from datetime import date
 from statistics import median
 from typing import Any
 
-from contracts import Evidence
+from contracts import Evidence, Fact
+from engine.diagnostico import Diagnostico
 from engine.factbase import FactBase
-from engine.predicates.registry import Candidate, guardrail, predicate
+from engine.predicates.registry import Candidate, diagnostico, guardrail, predicate
 
 
 # ---------------------------------------------------------------- guardrails
@@ -22,20 +24,28 @@ def somente_votacoes_nominais(fb: FactBase, params: dict) -> tuple[int, str]:
 
 
 # ---------------------------------------------------------------- inferência
-@predicate("taxa_governismo")
-def taxa_governismo(fb: FactBase, params: dict) -> list[Candidate]:
-    """Basômetro: % de votos nominais iguais à orientação do governo."""
+def _votos_validos(fb: FactBase) -> Iterator[tuple[Fact, str, bool]]:
+    """(voto, deputado_id, igual_ao_governo) dos votos que entram na taxa de governismo.
+
+    Voto válido = Sim/Não numa votação em que o governo orientou Sim/Não (abstenção, obstrução e
+    votação sem orientação ficam fora do denominador). Só vê o que sobrou do guardrail R02."""
     orient = {v.chave: v.atributos.get("orientacao_governo") for v in fb.of("votacao")}
-    conv, total = defaultdict(int), defaultdict(int)
-    ev: dict[str, list[Evidence]] = defaultdict(list)
     for voto in fb.of("voto"):
         o = orient.get(voto.atributos["votacao_id"])
         escolha = voto.atributos.get("voto")
         if o not in ("Sim", "Não") or escolha not in ("Sim", "Não"):
-            continue  # sem orientação ou abstenção/obstrução: fora do denominador
-        dep = voto.atributos["deputado_id"]
+            continue
+        yield voto, voto.atributos["deputado_id"], escolha == o
+
+
+@predicate("taxa_governismo")
+def taxa_governismo(fb: FactBase, params: dict) -> list[Candidate]:
+    """Basômetro: % de votos nominais iguais à orientação do governo."""
+    conv, total = defaultdict(int), defaultdict(int)
+    ev: dict[str, list[Evidence]] = defaultdict(list)
+    for voto, dep, igual in _votos_validos(fb):
         total[dep] += 1
-        conv[dep] += int(escolha == o)
+        conv[dep] += int(igual)
         ev[dep].append(Evidence(tipo="votacao", id_oficial=voto.atributos["votacao_id"],
                                 url=voto.url))
     minimo = params.get("minimo_votacoes", 10)
@@ -47,6 +57,30 @@ def taxa_governismo(fb: FactBase, params: dict) -> list[Candidate]:
                                    "n_votacoes": n, "taxa_pct": round(100 * conv[dep] / n)},
                              ev[dep][:20]))
     return out
+
+
+@diagnostico("taxa_governismo")
+def diagnostico_governismo(fb: FactBase, params: dict, deputado_id: str) -> Diagnostico | None:
+    """Por que a R01 não concluiu: votos válidos de menos ou taxa abaixo do limiar.
+
+    Usa a mesma contagem do predicado (`_votos_validos`) e o mesmo `minimo_votacoes`. O limiar vem
+    de `parametros.limiar` da regra (o mesmo número da condição `se`)."""
+    minimo = params.get("minimo_votacoes", 10)
+    n = conv = 0
+    for _, dep, igual in _votos_validos(fb):
+        if dep == deputado_id:
+            n += 1
+            conv += int(igual)
+    detalhes: dict[str, float | int | str] = {"n_votos_validos": n, "minimo_votos": minimo}
+    taxa = round(conv / n, 3) if n else None
+    if taxa is not None:
+        detalhes["taxa"] = taxa
+    if n < minimo:
+        return Diagnostico("dados_insuficientes", detalhes)
+    limiar = params.get("limiar")
+    if limiar is not None and taxa is not None and taxa < limiar:
+        return Diagnostico("abaixo_do_limiar", {**detalhes, "limiar": limiar})
+    return None
 
 
 @predicate("fornecedor_sancionado")

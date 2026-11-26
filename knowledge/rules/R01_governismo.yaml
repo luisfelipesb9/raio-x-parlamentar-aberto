@@ -4,7 +4,7 @@ tipo: inferencia
 categoria: votacao
 conclui: alinhado_governo
 predicado: taxa_governismo
-parametros: {minimo_votacoes: 10}
+parametros: {minimo_votacoes: 10, limiar: 0.7}  # limiar = o mesmo número de `se`; alimenta o diagnóstico
 se: "taxa_governismo >= 0.7"
 entao: "Votou junto com o governo em {taxa_pct}% das {n_votacoes} votações nominais em que o governo orientou."
 cf: 0.95

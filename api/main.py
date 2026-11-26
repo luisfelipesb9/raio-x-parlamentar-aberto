@@ -21,6 +21,7 @@ from api.schemas import (
     BacklinksResposta,
     ComparacaoCategoria,
     ComparacaoResposta,
+    Diagnostico,
     GrafoResposta,
     PaginaDeputados,
     PassoProva,
@@ -223,7 +224,10 @@ def create_app(db_path: str | Path | None = None, *, store: Store | None = None,
             objetivo=r.objetivo, deputado_id=r.deputado_id, cf=r.cf, nivel=Nivel.from_cf(r.cf),
             regras_usadas=r.regras_usadas, finding_ids=r.finding_ids,
             trilha=[PassoProva(profundidade=p.profundidade, objetivo=p.objetivo, regra=p.regra,
-                               cf=p.cf, nota=p.nota) for p in r.trilha])
+                               cf=p.cf, nota=p.nota,
+                               diagnostico=Diagnostico(motivo=p.diagnostico.motivo,
+                                                       detalhes=p.diagnostico.detalhes)
+                               if p.diagnostico else None) for p in r.trilha])
 
     # ---- comparar ----
     @app.get("/comparar", response_model=ComparacaoResposta, responses=NAO_ENCONTRADO)

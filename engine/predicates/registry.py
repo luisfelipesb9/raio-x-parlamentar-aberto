@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from contracts import Evidence
+from engine.diagnostico import Diagnostico
 from engine.factbase import FactBase
 
 
@@ -25,6 +26,9 @@ class Candidate:
 
 PREDICATES: dict[str, Callable[[FactBase, dict], list[Candidate]]] = {}
 GUARDRAILS: dict[str, Callable[[FactBase, dict], tuple[int, str]]] = {}
+# Opcional: por que o predicado não produziu candidato para um deputado (usado pelo regressivo).
+# (fb, parametros da regra, deputado_id) -> Diagnostico, ou None quando não há o que dizer.
+DIAGNOSTICOS: dict[str, Callable[[FactBase, dict, str], Diagnostico | None]] = {}
 
 
 def predicate(name: str):
@@ -37,6 +41,14 @@ def predicate(name: str):
 def guardrail(name: str):
     def deco(fn):
         GUARDRAILS[name] = fn
+        return fn
+    return deco
+
+
+def diagnostico(name: str):
+    """Registra o diagnosticador do predicado `name` (opcional; sem ele vale `sem_regra_aplicavel`)."""
+    def deco(fn):
+        DIAGNOSTICOS[name] = fn
         return fn
     return deco
 
