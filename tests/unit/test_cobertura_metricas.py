@@ -109,6 +109,21 @@ def test_contagem_de_votos_do_deputado_segue_as_regras_do_predicado(store):
     assert store.contagem_votos("3") == (0, 0)
 
 
+def test_votos_convergentes_contam_so_voto_valido_igual_a_orientacao(store):
+    assert store.votos_convergentes("1") == 12  # 'nl' (Liberado) não conta
+    assert store.votos_convergentes("2") == 6   # Sim nas pares; Não nas ímpares; Abstenção fora
+    assert store.votos_convergentes("3") == 0
+
+
+def test_despesas_por_deputado_somam_em_centavos_sem_erro_de_ponto_flutuante(store):
+    assert store.despesas_por_deputado() == {"1": (1, 1000), "2": (1, 2000)}
+    store.upsert_facts([F("despesa_ceap", "x", fonte="camara_ceap", deputado_id="1", valor=0.1,
+                          categoria="c"),
+                        F("despesa_ceap", "y", fonte="camara_ceap", deputado_id="1", valor=0.2,
+                          categoria="c")])
+    assert store.despesas_por_deputado()["1"] == (3, 1030)  # 10,00 + 0,10 + 0,20
+
+
 def test_contagem_do_sql_bate_com_a_do_predicado_para_todos_os_deputados(store):
     fb = FactBase(fatos_base())
     forward.run(fb, load_rules())  # aplica o guardrail R02, como o motor

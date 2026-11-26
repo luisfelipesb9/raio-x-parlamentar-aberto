@@ -182,6 +182,27 @@ class Store:
             [str(deputado_id)]).fetchone()
         return int(n), int(validos)
 
+    def votos_convergentes(self, deputado_id: str) -> int:
+        """Dentre os votos válidos do deputado (ver `contagem_votos`), quantos igualam a orientação."""
+        return int(self.con.execute(
+            "SELECT count(*) FROM fact v JOIN fact o ON o.tipo = 'votacao' "
+            "AND o.chave = json_extract_string(v.atributos, '$.votacao_id') "
+            "WHERE v.tipo = 'voto' AND json_extract_string(v.atributos, '$.deputado_id') = ? "
+            "AND json_extract_string(o.atributos, '$.nominal') = 'true' "
+            "AND json_extract_string(o.atributos, '$.orientacao_governo') IN ('Sim', 'Não') "
+            "AND json_extract_string(v.atributos, '$.voto') "
+            "= json_extract_string(o.atributos, '$.orientacao_governo')",
+            [str(deputado_id)]).fetchone()[0])
+
+    def despesas_por_deputado(self) -> dict[str, tuple[int, int]]:
+        """{deputado_id: (n_despesas, total em centavos)} da CEAP. Soma em DECIMAL(18,2), não em
+        float, para o total não ganhar nem perder centavo."""
+        rows = self.con.execute(
+            "SELECT json_extract_string(atributos, '$.deputado_id'), count(*), "
+            "sum(CAST(json_extract_string(atributos, '$.valor') AS DECIMAL(18, 2))) "
+            "FROM fact WHERE tipo = 'despesa_ceap' GROUP BY 1").fetchall()
+        return {r[0]: (int(r[1]), int(r[2] * 100)) for r in rows}
+
     # ---------- entity_link / ambiguidade ----------
 
     def upsert_links(self, links: Iterable[EntityLink],

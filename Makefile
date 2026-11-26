@@ -1,4 +1,4 @@
-.PHONY: setup ingest infer test dev lint sample sample-publico deploy-check
+.PHONY: setup ingest infer test dev lint sample sample-publico deploy-check verifica
 setup:
 	uv sync
 ingest:
@@ -19,6 +19,10 @@ sample-publico:
 	uv run python -m ingest.pipeline --fontes camara,ceap,cgu,tse,opensanctions,rfb --uf MG --ano 2024 --amostra 20 --max-votacoes 145 --reusar-raw --limite-rfb 50 --detalhar-deputados --incluir-proposicoes --max-proposicoes 300 --pseudonimizar --db data/sample/raio_x_publico.duckdb
 	RAIO_X_DB=data/sample/raio_x_publico.duckdb uv run python -m engine.run
 	uv run python -m ingest.varredura --db data/sample/raio_x_publico.duckdb
+# Recalcula governismo e CEAP direto dos brutos e confronta com banco/motor; grava docs/relatorio/verificacao.md.
+# Banco: $RAIO_X_DB (padrão: a amostra). Opções: `make verifica ARGS="--gerar-manifesto --online"`.
+verifica:
+	RAIO_X_DB=$${RAIO_X_DB:-data/sample/raio_x_sample.duckdb} uv run python -m scripts.verifica $(ARGS)
 # Antes de publicar: só a base pública, sem CPF íntegro de terceiros, e nenhum outro .duckdb na árvore.
 deploy-check:
 	uv run python -m ingest.deploy_check --raiz . --publico data/sample/raio_x_publico.duckdb
