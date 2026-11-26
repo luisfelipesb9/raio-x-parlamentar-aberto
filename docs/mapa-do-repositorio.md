@@ -40,7 +40,7 @@ make setup    # instala dependências Python (uv)
 make ingest   # coleta fontes → data/raw → banco (data/raio_x.duckdb)
 make infer    # roda o motor e materializa findings
 make sample   # ingere a amostra (20 deputados de MG; votações de fev–mar/2025, CEAP do arquivo de 2024, eleição TSE de 2022) em data/sample/raio_x_sample.duckdb e roda o motor
-make sample-publico  # amostra pseudonimizada (HMAC) + varredura de CPF em data/sample/raio_x_publico_origem.duckdb, depois `make publicar`
+make sample-publico  # amostra pseudonimizada (HMAC) + varredura de CPF em $TMPDIR/raio_x_publico_origem.duckdb (fora da árvore), depois `make publicar`
 make publicar # origem pseudonimizada -> data/sample/raio_x_publico.duckdb (enxuto, sem chave primária; ADR-011)
 make test     # pytest
 make verifica # recalcula governismo e CEAP dos brutos e confronta com o banco/motor (docs/relatorio/verificacao.md)

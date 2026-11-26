@@ -62,7 +62,7 @@ def _arquivos(raiz: Path) -> list[Path]:
 
 
 def _e_banco(p: Path) -> bool:
-    return p.name.endswith((".duckdb", ".duckdb.wal"))
+    return p.name.endswith((".duckdb", ".duckdb.wal", ".duckdb.tmp"))  # .tmp: gravação de `publicar` interrompida
 
 
 def _e_segredo_local(p: Path) -> bool:

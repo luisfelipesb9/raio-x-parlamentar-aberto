@@ -312,9 +312,14 @@ class Store:
                 "json_extract_string(e, '$.id_oficial') AS id_oficial FROM (SELECT unnest("
                 "from_json(json_extract(payload, '$.evidencias'), '[\"JSON\"]')) AS e FROM origem.finding)")
             self.con.execute(
-                "CREATE TABLE fact AS SELECT f.* FROM origem.fact f WHERE f.tipo IN ("
+                "CREATE TABLE fact AS SELECT f.* FROM origem.fact f WHERE (f.tipo IN ("
                 + ",".join("?" * len(tipos)) + ") OR EXISTS (SELECT 1 FROM _evidencia e "
-                "WHERE e.tipo = f.tipo AND e.id_oficial = f.id_oficial) ORDER BY f.tipo, f.chave", tipos)
+                "WHERE e.tipo = f.tipo AND e.id_oficial = f.id_oficial)) "
+                # votação simbólica não é voto individual: o voto nem chega ao arquivo público
+                "AND NOT (f.tipo = 'voto' AND EXISTS (SELECT 1 FROM origem.fact o WHERE o.tipo = 'votacao' "
+                "AND o.chave = json_extract_string(f.atributos, '$.votacao_id') "
+                "AND coalesce(json_extract_string(o.atributos, '$.nominal'), 'false') <> 'true')) "
+                "ORDER BY f.tipo, f.chave", tipos)
             self.con.execute("CREATE TABLE finding AS SELECT * FROM origem.finding ORDER BY id")
             self.con.execute("CREATE TEMP TABLE _mantida AS SELECT tipo || ':' || chave AS k FROM fact")
             self.con.execute(
