@@ -32,6 +32,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from contracts import Fact, Finding, GraphEdge, GraphNode, Nivel
+from contracts.cnpj import normalizar_cnpj
 
 RELACOES: tuple[str, ...] = (
     "filiado_a", "doou", "recebeu", "enviou_emenda", "socio_de", "votou_com", "relator_de",
@@ -109,10 +110,8 @@ def _pseudonimo(x: Any) -> bool:
 
 
 def _cnpj(x: Any) -> str | None:
-    if _pseudonimo(x):
-        return None
-    d = _digits(x)
-    return d if len(d) == 14 and "*" not in str(x) else None
+    """CNPJ de 14 posições (numérico ou alfanumérico) sem máscara; hash e CPF mascarado: None."""
+    return None if _pseudonimo(x) else normalizar_cnpj(x)
 
 
 def _cpf_integro(x: Any) -> str | None:
@@ -311,8 +310,8 @@ def project(facts: list[Fact], findings: list[Finding], *, votou_com_k: int = 5,
         if not cnpj or f"empresa:{cnpj}" not in nodes:
             continue
         doc = str(at.get("cpf_cnpj") or "")
-        if not _pseudonimo(doc) and len(_digits(doc)) == 14:
-            continue  # sócio pessoa jurídica: fora de escopo (YAGNI)
+        if _cnpj(doc):
+            continue  # sócio pessoa jurídica (numérico ou alfanumérico): fora de escopo (YAGNI)
         cpf = _cpf_integro(doc)
         if cpf and nome.strip():
             pid = f"pessoa:cpf:{_h(cpf, sal_id, 16)}"
@@ -325,7 +324,7 @@ def project(facts: list[Fact], findings: list[Finding], *, votou_com_k: int = 5,
 
     # sanções → marca no nó da empresa
     for f in por_tipo["sancao"]:
-        n = nodes.get(f"empresa:{_digits(f.atributos.get('cnpj'))}")
+        n = nodes.get(f"empresa:{_cnpj(f.atributos.get('cnpj'))}")
         if not n:
             continue
         ini, fim = _data(f.atributos.get("inicio")), _data(f.atributos.get("fim"))
@@ -373,7 +372,7 @@ def project(facts: list[Fact], findings: list[Finding], *, votou_com_k: int = 5,
         por_dep[fd.deputado_id].append(fd)
         cnpjs = fd.valores.get("cnpjs") or ([fd.valores["cnpj"]] if fd.valores.get("cnpj") else [])
         for c in cnpjs:
-            emp = nodes.get(f"empresa:{_digits(c)}")
+            emp = nodes.get(f"empresa:{_cnpj(c)}")
             if emp and fd.id not in emp.atributos["findings"]:
                 emp.atributos["findings"].append(fd.id)
     for dep, fds in por_dep.items():

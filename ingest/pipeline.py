@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from contracts import Fact
+from contracts.cnpj import normalizar_cnpj
 from ingest.pseudonimizar import pseudonimizar_fatos, salt_do_ambiente
 from ingest.resolve import (
     Resolucao,
@@ -33,7 +34,6 @@ from ingest.resolve import (
 from ingest.resolve.comum import cnpj_valido, deputados_unicos
 from repo.store import Store
 from sources import REGISTRY
-from sources.rfb.normalizacao import normalizar_cnpj
 
 ORDEM = ("camara", "ceap", "cgu", "tse", "opensanctions", "rfb")  # ordem de execução fixa
 

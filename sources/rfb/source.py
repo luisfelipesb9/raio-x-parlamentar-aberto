@@ -22,8 +22,8 @@ from typing import Any
 import httpx
 
 from contracts import Fact
+from contracts.cnpj import cnpj_valido, normalizar_cnpj
 from sources.base import Source
-from sources.rfb.normalizacao import cnpj_valido, normalizar_cnpj
 
 BASE = "https://brasilapi.com.br/api/cnpj/v1"
 FONTE = "brasilapi_cnpj"

@@ -20,8 +20,8 @@ from typing import IO, Any
 import httpx
 
 from contracts import Fact
+from contracts.cnpj import normalizar_cnpj
 from sources.base import Source
-from sources.rfb.normalizacao import normalizar_cnpj
 
 URL_ZIP = "https://www.camara.leg.br/cotas/Ano-{ano}.json.zip"
 FONTE = "camara_ceap"

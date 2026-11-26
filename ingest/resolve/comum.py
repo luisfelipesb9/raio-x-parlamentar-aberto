@@ -10,8 +10,8 @@ import unicodedata
 from dataclasses import dataclass, field
 
 from contracts import Fact
+from contracts.cnpj import cnpj_valido  # noqa: F401  (reexportado: numérico e alfanumérico)
 from repo.links import Ambiguidade, EntityLink
-from sources.rfb.normalizacao import cnpj_valido  # noqa: F401  (reexportado: numérico e alfanumérico)
 
 # deputado_id só é gravado no fato quando o link tem ao menos este fator de certeza
 CF_MIN_ENRIQUECER = 0.7

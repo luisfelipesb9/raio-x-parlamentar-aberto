@@ -31,8 +31,8 @@ from typing import Any
 import httpx
 
 from contracts import Fact
+from contracts.cnpj import normalizar_cnpj
 from sources.base import Source
-from sources.rfb.normalizacao import normalizar_cnpj
 
 CDN = "https://cdn.tse.jus.br/estatistica/sead/odsele"
 URL_IBGE = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"

@@ -326,3 +326,128 @@ def test_resolver_cnpj_liga_despesa_alfanumerica_a_empresa_e_a_sancao():
     res = resolver_cnpj([d], [e], [s])
     assert {(lk.origem, lk.destino) for lk in res.links} == {
         ("despesa_ceap:d1", f"empresa:{ALFA}"), ("despesa_ceap:d1", "sancao:CEIS:1")}
+
+
+# ---------- contracts.cnpj: módulo comum, sem acoplar plugins ----------
+
+def test_regra_vive_em_contracts_e_a_rfb_reexporta():
+    import contracts.cnpj as comum
+    import sources.rfb.normalizacao as rfb
+    assert rfb.cnpj_valido is comum.cnpj_valido
+    assert rfb.normalizar_cnpj is comum.normalizar_cnpj and rfb.dv_cnpj is comum.dv_cnpj
+
+
+def test_contracts_cnpj_nao_importa_nenhuma_outra_camada():
+    import ast
+    from pathlib import Path
+
+    import contracts.cnpj as comum
+    mods = {n.module.split(".")[0] for n in ast.walk(ast.parse(Path(comum.__file__).read_text()))
+            if isinstance(n, ast.ImportFrom) and n.module}
+    assert mods <= {"__future__", "typing"}
+
+
+# ---------- grafo: CNPJ alfanumérico não é CPF ----------
+
+def _g(tipo, chave, **at):
+    return Fact(tipo=tipo, chave=chave, atributos=at, fonte="teste", id_oficial=chave,
+                url=f"https://exemplo/{tipo}/{chave}")
+
+
+def _base_grafo(cnpj=ALFA):
+    return [_g("deputado", "1", nome="Ana", partido="ABC", uf="MG"),
+            _g("despesa_ceap", "d1", deputado_id="1", cnpj=cnpj, fornecedor="Empresa Nova",
+               valor=100.0, categoria="x", data="2026-08-10")]
+
+
+def test_grafo_fornecedor_alfanumerico_vira_no_empresa():
+    from graph import build_graph
+    nodes, edges = build_graph(_base_grafo(), [])
+    assert f"empresa:{ALFA}" in {n.id for n in nodes}
+    assert any(e.relacao == "recebeu" and e.origem == f"empresa:{ALFA}" for e in edges)
+
+
+def test_grafo_socio_pessoa_juridica_alfanumerico_nao_vira_pessoa_cpf():
+    from graph import build_graph
+    fatos = _base_grafo() + [
+        _g("socio", f"{ALFA}:HOLDING", cnpj=ALFA, nome="HOLDING NOVA SA",
+           cpf_cnpj=ALFA_TRES_LETRAS, tipo_socio="PJ"),   # sem letras: 11 dígitos (parece CPF)
+        _g("socio", f"{ALFA}:HOLDING2", cnpj=ALFA, nome="HOLDING DOIS SA",
+           cpf_cnpj="12.ABC.345/01DE-35"),
+        _g("socio", f"{ALFA}:FULANO", cnpj=ALFA, nome="Fulano", cpf_cnpj="***101202**")]
+    nodes, edges = build_graph(fatos, [], sal_id="sal-de-teste")
+    pessoas = [n for n in nodes if n.tipo == "pessoa"]
+    assert [n.rotulo for n in pessoas] == ["Sócio(a) de Empresa Nova"]  # só o PF mascarado
+    assert len([e for e in edges if e.relacao == "socio_de"]) == 1
+    assert not any(n.id.startswith("pessoa:cpf:") for n in nodes)
+
+
+def test_grafo_doador_pj_alfanumerico_vira_empresa_que_doou():
+    from graph import build_graph
+    fatos = _base_grafo() + [
+        _g("candidatura", "S1", deputado_id="1", ano=2026, nome="Ana"),
+        _g("doacao", "r1", sq_candidato="S1", doador_nome="EMPRESA NOVA LTDA",
+           doador_cpf_cnpj=ALFA_ZZ, valor=50.0, tipo_doador="PJ")]
+    nodes, edges = build_graph(fatos, [], sal_id="sal-de-teste")
+    assert f"empresa:{ALFA_ZZ}" in {n.id for n in nodes}
+    assert any(e.relacao == "doou" and e.origem == f"empresa:{ALFA_ZZ}" for e in edges)
+
+
+def test_grafo_sancao_alfanumerica_marca_a_empresa():
+    from graph import build_graph
+    fatos = _base_grafo() + [_g("sancao", "CEIS:1", cnpj=ALFA, cadastro="CEIS", inicio="2020-01-01",
+                                fim=None, orgao="X")]
+    nodes, _ = build_graph(fatos, [])
+    emp = next(n for n in nodes if n.id == f"empresa:{ALFA}")
+    assert emp.atributos["sancionada"] is True
+
+
+# ---------- circuito: sócio PJ alfanumérico não é o doador PF ----------
+
+def test_circuito_socio_pj_alfanumerico_nao_fecha_circuito_com_doador_pf():
+    from tests.unit.test_rules_r05_r08 import achados, circuito, run
+    cnpj = "11111111000191"
+    ok = achados(run(circuito()), "R06")
+    assert "1" in ok  # controle: com CPF igual o circuito fecha
+    for doc in (ALFA, ALFA_TRES_LETRAS, "12.ABC.345/01DE-35"):
+        assert achados(run(circuito(socio_cpf=doc, cnpj_socio=cnpj)), "R06") == {}
+        assert achados(run(circuito(socio_cpf=doc, cnpj_socio=cnpj)), "R06b") == {}
+
+
+def test_circuito_com_despesa_de_cnpj_alfanumerico_continua_casando_o_socio():
+    from tests.unit.test_rules_r05_r08 import achados, run
+    from tests.unit.test_rules_r05_r08 import circuito as c
+    fatos = c(cnpj_socio=ALFA)
+    fatos = [f if f.tipo != "despesa_ceap" else
+             Fact(tipo=f.tipo, chave=f.chave, atributos={**f.atributos, "cnpj": ALFA},
+                  fonte=f.fonte, id_oficial=f.id_oficial, url=f.url) for f in fatos]
+    assert "1" in achados(run(fatos), "R06")
+
+
+# ---------- CGU: sancionado com CNPJ alfanumérico ----------
+
+def _sancao_cgu(doc: str):
+    from sources.cgu.source import CguSource
+    from tests.unit.test_src_cgu import _linhas
+    linha = dict(_linhas("cgu_ceis_amostra.csv")[0])
+    linha["CPF OU CNPJ DO SANCIONADO"] = doc
+    linha["TIPO DE PESSOA"] = "J"
+    [f] = [x for x in CguSource(client=object()).normalize({"ceis": [linha]}) if x.tipo == "sancao"]
+    return f.atributos
+
+
+@pytest.mark.parametrize("doc", ["12.ABC.345/01DE-35", ALFA])
+def test_cgu_sancionado_com_cnpj_alfanumerico_guarda_o_cnpj(doc):
+    a = _sancao_cgu(doc)
+    assert a["cnpj"] == ALFA and a["cpf"] is None
+
+
+def test_cgu_tres_letras_nao_vira_cpf():
+    a = _sancao_cgu("12.345.6AB/000C-81")
+    assert a["cnpj"] == ALFA_TRES_LETRAS and a["cpf"] is None
+
+
+def test_cgu_cnpj_numerico_e_cpf_continuam_iguais():
+    assert _sancao_cgu("00.000.000/0001-91")["cnpj"] == BB
+    a = _sancao_cgu("111.444.777-35")
+    assert a["cpf"] == "11144477735" and a["cnpj"] is None
