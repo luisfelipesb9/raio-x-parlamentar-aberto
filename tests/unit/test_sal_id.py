@@ -59,3 +59,27 @@ def test_api_nao_sobe_sem_sal(monkeypatch):
     monkeypatch.delenv("RAIO_X_ID_SALT", raising=False)
     with pytest.raises(SalAusenteError, match="RAIO_X_ID_SALT"):
         create_app()
+
+
+@pytest.mark.parametrize("vazio", ["", "   "])
+def test_sal_explicito_vazio_tambem_e_erro_mesmo_com_o_ambiente_definido(monkeypatch, vazio):
+    monkeypatch.setenv("RAIO_X_ID_SALT", "sal-do-ambiente")
+    with pytest.raises(SalAusenteError, match="RAIO_X_ID_SALT"):
+        project(_doacao(), [], sal_id=vazio)
+    with pytest.raises(SalAusenteError):
+        build_graph(_doacao(), [], sal_id=vazio)
+
+
+def _ids_de_pessoa(sal):
+    nodes, _ = project(_doacao(), [], sal_id=sal)
+    return sorted(n.id for n in nodes if n.tipo == "pessoa")
+
+
+def test_sais_diferentes_dao_ids_diferentes_e_o_id_nao_traz_o_cpf():
+    ids_a, ids_b = _ids_de_pessoa("sal-a"), _ids_de_pessoa("sal-b")
+    assert len(ids_a) == 1 and len(ids_b) == 1
+    assert ids_a != ids_b
+    assert _ids_de_pessoa("sal-a") == ids_a  # determinístico para o mesmo sal
+    for pid in ids_a + ids_b:
+        assert "12345678901" not in pid
+        assert pid.startswith("pessoa:cpf:")

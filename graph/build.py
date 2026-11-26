@@ -52,15 +52,19 @@ class SalAusenteError(RuntimeError):
     pessoa reversíveis por força bruta do CPF."""
 
 
+def _sal_ausente() -> SalAusenteError:
+    return SalAusenteError(
+        f"A variável de ambiente {ENV_SAL_ID} não está definida. Ela é o sal secreto dos ids de "
+        "pessoa do grafo (sem ele, os ids poderiam ser revertidos por força bruta). Defina-a "
+        f"com uma string longa e fixa, fora do repositório: `export {ENV_SAL_ID}=<segredo>` no "
+        "terminal local, ou em Settings > Environment Variables no projeto da API na Vercel. "
+        "Use sempre o mesmo valor da base pseudonimizada (ver docs/adr/ADR-006).")
+
+
 def sal_do_ambiente(env: Mapping[str, str] | None = None) -> str:
     sal = (os.environ if env is None else env).get(ENV_SAL_ID, "").strip()
     if not sal:
-        raise SalAusenteError(
-            f"A variável de ambiente {ENV_SAL_ID} não está definida. Ela é o sal secreto dos ids de "
-            "pessoa do grafo (sem ele, os ids poderiam ser revertidos por força bruta). Defina-a "
-            f"com uma string longa e fixa, fora do repositório: `export {ENV_SAL_ID}=<segredo>` no "
-            "terminal local, ou em Settings > Environment Variables no projeto da API na Vercel. "
-            "Use sempre o mesmo valor da base pseudonimizada (ver docs/adr/ADR-006).")
+        raise _sal_ausente()
     return sal
 
 
@@ -223,7 +227,10 @@ def project(facts: list[Fact], findings: list[Finding], *, votou_com_k: int = 5,
     mesmo CPF íntegro viram um nó, rótulo = nome). CPF mascarado/ausente: um nó por doação/sócio,
     sem nome em id, rótulo ou atributos — nunca funde homônimos."""
     hoje = hoje or date.today()
-    sal_id = sal_id if sal_id is not None else sal_do_ambiente()  # sem valor padrão (falha fechado)
+    if sal_id is None:
+        sal_id = sal_do_ambiente()  # sem valor padrão (falha fechado)
+    if not sal_id.strip():  # sal vazio passado de forma explícita também é erro
+        raise _sal_ausente()
     facts = sorted(facts, key=lambda f: (f.tipo, f.chave))  # determinismo
     por_tipo: dict[str, list[Fact]] = defaultdict(list)
     for f in facts:

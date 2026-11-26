@@ -8,6 +8,7 @@ mas a R06b depende de comparar CPFs parcialmente visíveis.
 ## Decisão
 - `--pseudonimizar` (pipeline) substitui CPF íntegro por `hmac:<32 hex>` = HMAC-SHA256 com sal secreto `RAIO_X_ID_SALT`: mesmo CPF, mesmo
   pseudônimo (preserva junções), sem reversão sem o sal.
+- O grafo (`graph/build.py`) usa o mesmo `RAIO_X_ID_SALT` para os ids de `pessoa`, mas com **SHA-256 de `sal:valor`** (truncado), não HMAC: é outra construção, com outro propósito (id estável de nó), e não reaproveita o pseudônimo `hmac:` da ingestão. Sem o sal, a API não sobe (`SalAusenteError`); sal vazio explícito também é erro.
 - `doador_cpf_visivel` guarda só os dígitos visíveis compatíveis para a R06b continuar funcionando.
 - CPF de fornecedor PF embutido em `despesa_ceap.fornecedor` (36 casos) também é substituído.
 - `make sample-publico` gera `data/sample/raio_x_publico.duckdb` e roda `ingest.varredura`: 0 CPFs íntegros, com controle positivo de 752 na base não pseudonimizada.
