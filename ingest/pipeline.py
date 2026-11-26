@@ -286,26 +286,32 @@ class Pipeline:
     def _passo_ceap(self) -> None:
         """Um zip por ano, lido uma única vez (a leitura não depende de quantos deputados há no
         escopo: o filtro é um conjunto em memória). Os anos são processados em sequência, e só um
-        ano fica em memória por vez."""
+        ano fica em memória por vez.
+
+        O zip de um ano traz notas de outro ano (dez/2023 dentro do zip de 2024), e o
+        `delete_facts(ano_data=)` apaga pela DATA da nota, não pelo ano do arquivo. Por isso os
+        deletes de todos os anos da rodada acontecem juntos, antes de qualquer gravação (deletar
+        ano a ano apagaria nota que o zip anterior acabou de gravar). Eles esperam o primeiro ano
+        baixado e lido com despesas, para uma falha logo no início não apagar nada; se um ano
+        POSTERIOR falhar, os anos ainda não recarregados ficam sem despesas até repetir a rodada
+        (idempotente)."""
         src = self.registry["ceap"]()
+        anos = self._anos_ceap()
         por_ano: dict[int, int] = {}
         com_cnpj = 0
-        sem_data_anteriores: list[Fact] = []
-        for ano in self._anos_ceap():
+        apagou = False
+        for ano in anos:
             raw = chamar_fetch(src, ano=ano)
             fatos = [f for f in src.normalize(raw) if f.tipo == "despesa_ceap"
                      and self._no_escopo(f.atributos.get("deputado_id"))]
             del raw
-            if fatos:
-                self.store.delete_facts(
-                    "despesa_ceap", fonte=fatos[0].fonte, ano_data=ano,
-                    onde={"deputado_id": self.escopo} if self.escopo is not None else None)
+            if fatos and not apagou:
+                for a in anos:
+                    self.store.delete_facts(
+                        "despesa_ceap", fonte=fatos[0].fonte, ano_data=a,
+                        onde={"deputado_id": self.escopo} if self.escopo is not None else None)
+                apagou = True
             self._gravar(fatos)
-            if sem_data_anteriores:
-                # o delete por ano também apaga fatos sem data (não dá para saber de que carga
-                # são): regrava os dos anos anteriores desta rodada, que acabaram de ser apagados
-                self.store.upsert_facts(self._p(sem_data_anteriores))
-            sem_data_anteriores += [f for f in fatos if f.atributos.get("data") is None]
             por_ano[ano] = len(fatos)
             com_cnpj += sum(1 for f in fatos if f.atributos.get("cnpj"))
             del fatos  # o ano seguinte não pode começar com este ainda em memória

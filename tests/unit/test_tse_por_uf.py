@@ -254,3 +254,49 @@ def test_pipeline_nacional_retomado_nao_baixa_de_novo_a_uf_gravada(raw_dir):
     _nacional(TseSource(client=_servidor(_zips())))
     store, rel = _nacional(TseSource(client=_servidor(_zips())), reusar_raw=True)
     assert len(store.facts_by_tipo("candidatura")) == 4 and rel["tse"]["candidaturas"]["total"] == 4
+
+
+# ---------- --reusar-raw também com escopo (make sample) ----------
+
+def _dep_ac() -> Fact:
+    return Fact(tipo="deputado", chave="1", fonte="t", id_oficial="1", url="https://x",
+                atributos={"nome": "A", "uf": "AC", "partido": "PX"})
+
+
+def _escopo_ac(src: TseSource, **kw) -> tuple[Store, dict]:
+    store = Store(":memory:")
+    store.upsert_facts([_dep_ac()])
+    pipe = Pipeline(store, Opcoes(fontes=("tse",), uf="AC", **kw), registry={"tse": lambda: src},
+                    log=lambda _: None)
+    return store, pipe.executar()
+
+
+def test_com_escopo_reusar_raw_le_o_bruto_da_uf_do_disco_e_da_o_mesmo_resultado(raw_dir):
+    s1, rel1 = _escopo_ac(TseSource(client=_servidor(_zips())))
+    s2, rel2 = _escopo_ac(TseSource(client=ClienteQueFalha()), reusar_raw=True)  # nada de rede
+    assert rel1["tse"] == rel2["tse"]
+    assert ({(f.tipo, f.chave) for f in s1.load_facts()}
+            == {(f.tipo, f.chave) for f in s2.load_facts()})
+    assert rel1["tse"]["candidaturas"]["total"] == 4  # as 4 candidaturas da UF foram lidas
+
+
+def test_com_escopo_sem_reusar_raw_baixa_mesmo_com_bruto_em_disco(raw_dir, monkeypatch):
+    _escopo_ac(TseSource(client=_servidor(_zips())))
+    abertos = _contar_membros(monkeypatch)
+    _escopo_ac(TseSource(client=_servidor(_zips())))
+    assert any("_AC." in m for m in abertos)
+
+
+def test_bruto_de_disco_e_lido_uma_vez_por_uf(raw_dir, monkeypatch):
+    list(TseSource(client=_servidor(_zips())).fetch_por_uf("AC", conjuntos=CONJ))
+    lidos: list[str] = []
+    original = TseSource._parte_em_disco
+
+    def conta(self, uf, ano, conjuntos):
+        lidos.append(uf)
+        return original(self, uf, ano, conjuntos)
+
+    monkeypatch.setattr(TseSource, "_parte_em_disco", conta)
+    list(TseSource(client=ClienteQueFalha()).fetch_por_uf("AC", conjuntos=CONJ, reusar_raw=True))
+    list(TseSource(client=_servidor(_zips())).fetch_por_uf(conjuntos=CONJ, reusar_raw=True))
+    assert lidos == ["AC", "AC", "MG"]  # 1 leitura por UF em cada chamada
