@@ -62,7 +62,7 @@ O levantamento de licenças, com o que está confirmado e o que ainda não, est�
 
 O nível de certeza diz o quanto o sistema confia em uma conclusão, em quatro níveis: alta (a partir de 0,7), média (a partir de 0,4), indício (a partir de 0,2) e inconclusivo (abaixo de 0,2). O número, de 0 a 1, não é uma probabilidade.
 
-Os valores são escolhas do especialista e ainda não foram calibrados com casos rotulados. Pense neles como graus de confiança em ordem, não como chance de acerto. Veja [fator de certeza](/glossario#fator-de-certeza).
+Os valores são escolhas do especialista e ainda não foram calibrados com casos rotulados. Pense neles como graus de confiança em ordem, não como chance de acerto. Veja [fator de certeza](/glossario#cf).
 
 ## Por que votação simbólica não aparece nas contas de voto?
 
@@ -92,4 +92,4 @@ O deputado pode ter mais votos onde atua há mais tempo, e por isso mandar mais 
 
 Abra uma issue com o modelo "Correção de dado" no repositório, diga qual informação está errada e indique o link da fonte oficial que mostra o correto. Nunca cole CPF, nem o seu, nem o de terceiros.
 
-O projeto verifica na fonte, corrige em prazo razoável (é voluntário e não tem prazo contratual) e registra a correção. Se o erro for de identidade, como um homônimo, o dado é removido. A base publicada não tem CPF íntegro: CPFs de terceiros viram um código irreversível. Leia a [política de uso e correção](https://github.com/luisfelipesb9/raio-x-parlamentar-aberto/blob/main/docs/politica-de-uso-e-correcao.md).
+O projeto verifica na fonte, corrige em prazo razoável (é voluntário e não tem prazo contratual) e registra a correção. Se o erro for de identidade, como um homônimo, o dado é removido. A base publicada não tem CPF íntegro: CPFs de terceiros viram um código que não se reverte sem a chave secreta (pseudonimização, não anonimização). Leia a [política de uso e correção](https://github.com/luisfelipesb9/raio-x-parlamentar-aberto/blob/main/docs/politica-de-uso-e-correcao.md).

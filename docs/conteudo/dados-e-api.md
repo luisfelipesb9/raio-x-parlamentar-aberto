@@ -23,11 +23,11 @@ As rotas são:
 - `/deputados/{id}/metricas`: métricas por regra e janela de votos;
 - `/cobertura`: fontes, janela de votos e contagens da base;
 - `/findings/{id}/explicar`: trilha de explicação de um achado;
-- `/grafo` e `/grafo/backlinks/{node_id}`: nós e arestas em torno de um centro;
+- `/grafo`: nós e arestas em torno de um centro; `/grafo/backlinks/{node_id}`: lista as ligações que apontam para um nó;
 - `/perguntar`: prova regressiva de um objetivo para um deputado;
 - `/comparar`: comparação lado a lado de dois deputados.
 
-A documentação interativa fica em `/docs` da própria API. A API pública do projeto está em `https://raio-x-api.vercel.app`; ela respondeu a `/saude` em 26/11/2026 com 20 deputados e 40 achados. O projeto não definiu limite de uso, garantia de disponibilidade nem prazo de atualização.
+A documentação interativa fica em `/docs` da própria API. A API pública do projeto está em `https://raio-x-api.vercel.app`; ela respondeu a `/saude` em 26/11/2026 com 20 deputados e 40 achados. Atenção: em 26/11/2026 a instância pública ainda roda o contrato 0.1.0 e não tem as rotas `/cobertura` nem `/deputados/{id}/metricas`; esta página descreve o contrato 0.2.0 do repositório, que você obtém rodando o sistema na sua máquina. O projeto não definiu limite de uso, garantia de disponibilidade nem prazo de atualização.
 
 ## Como chamar a API?
 
@@ -64,7 +64,7 @@ A explicação (`Explanation`) traz `finding_id`, `como` (passos com regra, cond
 
 O nível de certeza é um número de 0 a 1, o fator de certeza (CF), que vira um de quatro níveis: alta a partir de 0,7, média a partir de 0,4, indício a partir de 0,2 e inconclusivo abaixo disso. Ele não é uma probabilidade e não foi calibrado.
 
-O número é a confiança da regra, multiplicada pela confiança nos dados e pelas penalidades. Veja o [método](/metodo) e o termo [fator de certeza](/glossario#fator-de-certeza).
+O número é a confiança da regra, multiplicada pela confiança nos dados e pelas penalidades. Veja o [método](/metodo) e o termo [fator de certeza](/glossario#cf).
 
 ## Como rodar o sistema na sua máquina?
 
@@ -116,12 +116,12 @@ Textos de crédito prontos estão em [`docs/licencas/atribuicao.md`](https://git
 
 ## O que vale sobre dados pessoais e LGPD?
 
-Ser público não dispensa finalidade, boa-fé e interesse público (LGPD, art. 7º, § 3º). Por isso o projeto minimiza dados: o CPF de terceiros (doadores, sócios, fornecedores) é trocado por um código irreversível sem a chave (HMAC-SHA256 com sal, ADR-006), e a base publicada não tem CPF íntegro. Uma varredura confere isso antes de publicar: 0 CPFs íntegros, com controle positivo de 752 na base não pseudonimizada.
+Ser público não dispensa finalidade, boa-fé e interesse público (LGPD, art. 7º, § 3º). Por isso o projeto minimiza dados: o CPF de terceiros (doadores, sócios, fornecedores) é trocado por um código que não se reverte sem a chave secreta (HMAC-SHA256 com sal, ADR-006), e a base publicada não tem CPF íntegro. Uma varredura confere isso antes de publicar: 0 CPFs íntegros, com controle positivo de 752 na base não pseudonimizada.
 
-Pseudonimizar não é anonimizar: quem tiver o sal pode reidentificar. Para corrigir um dado, abra uma issue "Correção de dado" e **nunca cole CPF**. Veja o termo [pseudonimização](/glossario#pseudonimizacao).
+Pseudonimizar não é anonimizar: quem tiver o sal pode reidentificar. Para corrigir um dado, abra uma issue "Correção de dado" e **nunca cole CPF**. Veja o termo pseudonimização.
 
 ## Como contribuir com uma fonte nova?
 
-Abra uma issue com o modelo "Nova fonte" e leia o `CONTRIBUTING.md` e o roteiro do projeto, em `docs/ROADMAP.md`. Cada fonte é um plugin em `sources/NOME/source.py` e todo fato precisa de fonte, id oficial e URL.
+Abra uma issue com o modelo "Nova fonte de dados" e leia o `CONTRIBUTING.md` e o roteiro do projeto, em `docs/ROADMAP.md`. Cada fonte é um plugin em `sources/NOME/source.py` e todo fato precisa de fonte, id oficial e URL.
 
 Veja também as [regras](/regras), a página [para estudantes](/para-estudantes) e as [perguntas frequentes](/faq).
