@@ -4,8 +4,9 @@
 
 ## Como rodar
 ```
-make setup && make test          # 504 testes Python (pytest); web: 50 unit + 45 e2e
-make sample                      # ingere 20 deputados de MG (2024) + roda o motor -> data/sample/raio_x_sample.duckdb
+make setup && make test          # testes Python (pytest); web: 50 unit + 45 e2e
+make sample                      # ingere 20 deputados de MG (votações de fev–mar/2025, CEAP do arquivo de 2024, TSE 2022) + roda o motor -> data/sample/raio_x_sample.duckdb
+make verifica                    # confere governismo e CEAP contra os brutos (ver "Cobertura e verificação")
 RAIO_X_DB=data/sample/raio_x_sample.duckdb make dev    # API em http://localhost:8000 (/docs)
 cd web && pnpm install && pnpm dev                     # web em http://localhost:3000
 ```
@@ -39,6 +40,20 @@ cd web && pnpm install && pnpm dev                     # web em http://localhost
 ## Resultados na amostra (40 findings)
 R01: 14 · R03: 2 · R04: 5 · R05: 10 · R07: 9 (CF médio 0,384 = 0,6 × 0,8 do link por nome × 0,8 Pix) · R02 removeu 121 votações simbólicas e R08 0 processos (guardrails, sem finding). Objetivo da R05: `pontuacao_producao_legislativa`. R06 e R06b: 0 com `--limite-rfb 50` (com 300 surge 1 R06b: o zero era cobertura, não ausência). **R06 confirmado não dispara com dados da RFB**: o QSA vem sempre mascarado (617 sócios mascarados, 96 sem CPF, 0 íntegros), então só a R06b é alcançável.
 Escopo da amostra: 2.083 emendas ligadas (o total global da CGU é 37.297 ligadas de 77.113), 1.008 doações, 17.060 votos_municipio.
+
+## Cobertura e verificação
+- **Endpoints** (somente leitura, ver `api/README.md`): `GET /cobertura` (janela das votações, agregado por fonte com
+  menor/maior `coletado_em`, nº de deputados e findings) e `GET /deputados/{id}/metricas` (votos do deputado e `valores` de
+  cada regra; 404 se o deputado não existe). `/perguntar` agora traz `diagnostico` nos passos sem conclusão
+  (`dados_insuficientes`, `abaixo_do_limiar`, `sem_regra_aplicavel`; só a R01 tem diagnosticador).
+- **Manifest** `data/raw/manifest.json`: sha256, tamanho e data de cada arquivo bruto, gravado por `save_raw`/`registrar_raw`.
+  `Evidence.coletado_em` vem do fato; `Evidence.sha256_bruto` só quando a fonte tem UM arquivo no manifest (Câmara, CGU e RFB
+  têm vários e ficam sem hash). Findings gravados antes disso são completados pela API na leitura.
+- **`make verifica`** (`scripts/verifica.py`): recalcula, sem usar o motor, o governismo e o total CEAP de cada deputado do
+  banco a partir dos brutos e confronta com banco e findings; confere o manifest. Opções via `ARGS=`: `--gerar-manifesto`
+  (manifest retroativo para brutos que já existiam, `origem: retroativo`), `--online` (amostra a contagem de votos na API da
+  Câmara; desligado por padrão). Escreve `docs/relatorio/verificacao.md`; sai com código 1 se houver divergência.
+  Última rodada na amostra: 44 conferências, 0 divergências (a conferência `--online` não foi executada).
 
 ## Operação e privacidade
 - A base de amostra **não é versionada**: contém CPF de terceiros (minimização, LGPD). Gere com `make sample`.
