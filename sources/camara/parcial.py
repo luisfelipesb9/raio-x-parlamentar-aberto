@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -41,5 +42,14 @@ class Parcial:
         tmp.write_text(json.dumps(dados, ensure_ascii=False), encoding="utf-8")
         os.replace(tmp, destino)
 
-    def limpar(self) -> None:
-        shutil.rmtree(self.pasta, ignore_errors=True)
+    def limpar(self, nomes: Iterable[str] | None = None) -> None:
+        """Apaga as etapas `nomes` (todas, sem argumento). Pasta vazia some junto."""
+        if nomes is None:
+            shutil.rmtree(self.pasta, ignore_errors=True)
+            return
+        for nome in nomes:
+            self._arquivo(nome).unlink(missing_ok=True)
+        try:
+            self.pasta.rmdir()  # só se ficou vazia
+        except OSError:
+            pass

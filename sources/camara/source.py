@@ -1,6 +1,9 @@
 """Câmara dos Deputados — API v2 (dadosabertos.camara.leg.br/api/v2). Sem autenticação."""
 from __future__ import annotations
 
+import hashlib
+import json
+import logging
 import os
 import re
 import time
@@ -21,6 +24,7 @@ from sources.camara.parcial import Parcial
 BASE = "https://dadosabertos.camara.leg.br/api/v2"
 FONTE = "camara_api_v2"
 
+_log = logging.getLogger(__name__)
 _RE_DEPUTADO_URI = re.compile(r"/deputados/(\d+)$")
 _ESPERA_MAX = 60.0
 FONTES_VOTOS = ("api", "dump")
@@ -143,7 +147,7 @@ class CamaraSource(Source):
         if incluir_proposicoes:  # opt-in: 2 chamadas por proposição + listagem
             prop = self._coletar_proposicoes(data_inicio, data_fim,
                                              [str(d["id"]) for d in deputados],
-                                             siglas_tipo, max_proposicoes)
+                                             siglas_tipo, max_proposicoes, parcial)
             raw["proposicoes"] = prop["proposicoes"]
             if prop["erros"]:
                 raw["proposicoes_erros"] = prop["erros"]
@@ -295,24 +299,90 @@ class CamaraSource(Source):
     def fetch_proposicoes(self, data_inicio: str, data_fim: str,
                           deputado_ids: Iterable[str | int] | None = None,
                           siglas_tipo: Iterable[str] | None = None,
-                          max_proposicoes: int | None = None) -> dict:
+                          max_proposicoes: int | None = None, retomar: bool = True) -> dict:
         """Proposições apresentadas em [data_inicio, data_fim] + autores + relatores.
 
         Com `deputado_ids`: só proposições em que algum deles consta como autor
         (`idDeputadoAutor`) — logo a relatoria só aparece em proposição de autoria de um dos
         ids. Sem `deputado_ids`: toda a janela (cobre relatoria de proposição alheia, mas só
         das apresentadas na janela). Custo: 2 chamadas por proposição (autores, tramitações).
-        Devolve {"proposicoes": [...], "erros": [...]} e grava o bruto em data/raw/camara/.
+
+        Sem teto por padrão (`max_proposicoes=None`): é o modo para os 513 deputados. O teto é só
+        para demonstração: corta em ordem de id da proposição entre os primeiros autores
+        consultados, uma amostra enviesada (e avisa no log).
+
+        O que já foi buscado fica em `data/raw/camara/parcial/`: se a coleta cair, a seguinte
+        retoma dali. Devolve {"proposicoes": [...], "erros": [...]} e grava o bruto em
+        data/raw/camara/.
         """
+        parcial = Parcial(manifest.raw_dir_padrao() / self.nome / "parcial", retomar)
         out = self._coletar_proposicoes(data_inicio, data_fim, deputado_ids, siglas_tipo,
-                                        max_proposicoes)
+                                        max_proposicoes, parcial)
         self.save_raw(f"camara_proposicoes_{data_inicio}_{data_fim}.json", out)
+        parcial.limpar([self._nome_parcial_proposicoes(data_inicio, data_fim, deputado_ids,
+                                                       siglas_tipo, max_proposicoes)])
         return out
+
+    @staticmethod
+    def _nome_parcial_proposicoes(data_inicio: str, data_fim: str,
+                                  deputado_ids: Iterable[str | int] | None,
+                                  siglas_tipo: Iterable[str] | None,
+                                  max_proposicoes: int | None) -> str:
+        """Um parcial por pedido: outra janela, outros autores, outros tipos ou outro teto são
+        outro pedido, e não podem herdar o que este guardou."""
+        chave = json.dumps([data_inicio, data_fim,
+                            None if deputado_ids is None else sorted(str(i) for i in deputado_ids),
+                            sorted(siglas_tipo or []), max_proposicoes])
+        return f"proposicoes_{data_inicio}_{data_fim}_{hashlib.sha1(chave.encode()).hexdigest()[:10]}"
 
     def _coletar_proposicoes(self, data_inicio: str, data_fim: str,
                              deputado_ids: Iterable[str | int] | None,
                              siglas_tipo: Iterable[str] | None,
-                             max_proposicoes: int | None) -> dict:
+                             max_proposicoes: int | None,
+                             parcial: Parcial | None = None) -> dict:
+        deputado_ids = None if deputado_ids is None else list(deputado_ids)
+        siglas_tipo = None if siglas_tipo is None else list(siglas_tipo)
+        nome = self._nome_parcial_proposicoes(data_inicio, data_fim, deputado_ids, siglas_tipo,
+                                              max_proposicoes)
+        guardado = (parcial.ler(nome) if parcial else None) or {}
+        lista = guardado.get("lista")
+        prontas: dict[str, dict] = guardado.get("prontas", {})
+        if lista is None:
+            lista = self._listar_proposicoes(data_inicio, data_fim, deputado_ids, siglas_tipo,
+                                             max_proposicoes)
+            if parcial:
+                parcial.gravar(nome, {"lista": lista, "prontas": prontas})
+
+        erros: list[dict] = []
+        novas = 0
+        try:
+            for p in lista:
+                if str(p["id"]) in prontas:
+                    continue
+                try:
+                    autores = self._get_all(f"/proposicoes/{p['id']}/autores", paginar=False)
+                    tramitacoes = self._get_all(f"/proposicoes/{p['id']}/tramitacoes",
+                                                paginar=False)
+                except httpx.HTTPError as e:  # dado parcial não entra: vai p/ erros
+                    erros.append({"id": p["id"], "erro": str(e)})
+                    continue
+                relatores = [{"sequencia": t.get("sequencia"), "siglaOrgao": t.get("siglaOrgao"),
+                              "uriUltimoRelator": t["uriUltimoRelator"]}
+                             for t in tramitacoes if t.get("uriUltimoRelator")]
+                prontas[str(p["id"])] = {**p, "_autores": autores, "_relatores": relatores}
+                novas += 1
+                if parcial and novas % LOTE_CHECKPOINT == 0:
+                    parcial.gravar(nome, {"lista": lista, "prontas": prontas})
+        finally:
+            if parcial and novas:
+                parcial.gravar(nome, {"lista": lista, "prontas": prontas})
+        return {"proposicoes": [prontas[str(p["id"])] for p in lista if str(p["id"]) in prontas],
+                "erros": erros}
+
+    def _listar_proposicoes(self, data_inicio: str, data_fim: str,
+                            deputado_ids: list[str | int] | None,
+                            siglas_tipo: list[str] | None,
+                            max_proposicoes: int | None) -> list[dict]:
         params: dict[str, Any] = {"dataApresentacaoInicio": data_inicio,
                                   "dataApresentacaoFim": data_fim,
                                   "ordem": "ASC", "ordenarPor": "id"}
@@ -327,21 +397,13 @@ class CamaraSource(Source):
             if max_proposicoes is not None and len(achadas) >= max_proposicoes:
                 break
         lista = [achadas[i] for i in sorted(achadas)][:max_proposicoes]
-
-        proposicoes: list[dict] = []
-        erros: list[dict] = []
-        for p in lista:
-            try:
-                autores = self._get_all(f"/proposicoes/{p['id']}/autores", paginar=False)
-                tramitacoes = self._get_all(f"/proposicoes/{p['id']}/tramitacoes", paginar=False)
-            except httpx.HTTPError as e:  # proposição com dado parcial não entra: vai p/ erros
-                erros.append({"id": p["id"], "erro": str(e)})
-                continue
-            relatores = [{"sequencia": t.get("sequencia"), "siglaOrgao": t.get("siglaOrgao"),
-                          "uriUltimoRelator": t["uriUltimoRelator"]}
-                         for t in tramitacoes if t.get("uriUltimoRelator")]
-            proposicoes.append({**p, "_autores": autores, "_relatores": relatores})
-        return {"proposicoes": proposicoes, "erros": erros}
+        if max_proposicoes is not None and len(achadas) >= max_proposicoes:
+            _log.warning(
+                "max_proposicoes=%s atingido: a coleta parou aqui e guardou só %s proposições, "
+                "em ordem de id entre os primeiros autores consultados. É amostra de "
+                "demonstração, enviesada; no modo nacional use max_proposicoes=None.",
+                max_proposicoes, len(lista))
+        return lista
 
     def _normalize_proposicao(self, p: dict) -> list[Fact]:
         pid, url = str(p["id"]), p.get("uri")
