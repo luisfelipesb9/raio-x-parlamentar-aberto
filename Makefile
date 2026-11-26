@@ -1,4 +1,4 @@
-.PHONY: setup ingest infer test dev lint sample sample-publico deploy-check verifica
+.PHONY: setup ingest infer test dev lint sample sample-publico deploy-check verifica checa-pii
 setup:
 	uv sync
 ingest:
@@ -26,3 +26,6 @@ verifica:
 # Antes de publicar: só a base pública, sem CPF íntegro de terceiros, e nenhum outro .duckdb na árvore.
 deploy-check:
 	uv run python -m ingest.deploy_check --raiz . --publico data/sample/raio_x_publico.duckdb
+# Reprova CPF íntegro (fora da allowlist de scripts/checa_pii.py) e segredos óbvios nos arquivos versionados.
+checa-pii:
+	uv run python -m scripts.checa_pii
