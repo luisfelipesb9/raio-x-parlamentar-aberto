@@ -1,9 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { Efeitos } from "@/components/Efeitos";
+import { JsonLd } from "@/components/JsonLd";
 import { Logo } from "@/components/Logo";
 import { Nav, PausaToggle, TemaToggle } from "@/components/Nav";
 import { TLink, TransicaoProvider } from "@/components/Transicao";
+import { organizacaoLd, siteLd } from "@/lib/jsonld";
+import { DESCRICAO_PADRAO, NOME_SITE, SITE_URL } from "@/lib/seo";
 import { CONTRACT_VERSION } from "@/types/contracts";
 import "./globals.css";
 import "./ux.css";
@@ -11,10 +14,21 @@ import "./ux.css";
 // Manrope variável (200–800): única família da identidade (ver DESIGN.md)
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", display: "swap" });
 
+// Códigos de verificação dos buscadores vêm do ambiente (opcionais; nenhum valor fica no repositório).
+const verificacao: NonNullable<Metadata["verification"]> = {};
+if (process.env.GOOGLE_SITE_VERIFICATION) verificacao.google = process.env.GOOGLE_SITE_VERIFICATION;
+if (process.env.BING_SITE_VERIFICATION) verificacao.other = { "msvalidate.01": process.env.BING_SITE_VERIFICATION };
+
+// Sem `alternates.canonical` aqui: cada página declara o seu (um canonical fixo no layout apontaria tudo para a mesma URL).
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
-  title: { default: "Raio-X Parlamentar", template: "%s · Raio-X Parlamentar" },
-  description: "Tudo o que é público sobre deputados federais, explicado em linguagem simples, com nível de certeza e link para a fonte oficial.",
+  metadataBase: new URL(SITE_URL),
+  applicationName: NOME_SITE,
+  title: { default: NOME_SITE, template: `%s · ${NOME_SITE}` },
+  description: DESCRICAO_PADRAO,
+  openGraph: { type: "website", locale: "pt_BR", siteName: NOME_SITE },
+  twitter: { card: "summary_large_image" },
+  robots: { index: true, follow: true },
+  verification: verificacao,
 };
 
 export const viewport: Viewport = {
@@ -34,6 +48,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
       </head>
       <body>
+        <JsonLd data={organizacaoLd()} />
+        <JsonLd data={siteLd()} />
         <TransicaoProvider>
           <a className="pular" href="#conteudo">
             Pular para o conteúdo

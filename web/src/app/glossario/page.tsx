@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
+import { canonical } from "@/lib/seo";
 import { GLOSSARIO } from "@/lib/glossario";
 
-export const metadata: Metadata = { title: "Glossário" };
+export const metadata: Metadata = {
+  title: "Glossário",
+  description: "CEAP, votação nominal, emenda Pix, nível de certeza e outros termos das fichas dos deputados, explicados em palavras simples.",
+  alternates: canonical("/glossario"),
+};
 
 export default function Glossario() {
   return (
