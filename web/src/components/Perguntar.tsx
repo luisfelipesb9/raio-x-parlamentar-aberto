@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useId, useRef, useState } from "react";
-import type { PassoProva, PerfilDeputado, PerguntarResposta } from "@/types/contracts";
+import { useEffect, useId, useRef, useState } from "react";
+import type { PerfilDeputado, PerguntarResposta } from "@/types/contracts";
 import { OBJETIVOS } from "@/lib/formato";
-import { fraseDiagnostico, resumoDiagnosticos, type ProximoPasso } from "@/lib/diagnostico";
+import { resumoDiagnosticos, type ProximoPasso } from "@/lib/diagnostico";
+import { movimentoReduzido } from "@/lib/movimento";
 import { formataCf, NIVEIS } from "@/lib/nivel";
-import { montaArvore, type NoProva } from "@/lib/trilha";
 import { useApi } from "@/lib/useApi";
+import { ArvoreProva } from "./ArvoreProva";
 import { AvisoNaoAcusacao } from "./Aviso";
 import { Carregando, ErroApi } from "./Estados";
 import { PickerDeputado } from "./Picker";
@@ -26,6 +27,8 @@ export function Perguntar() {
   const [feita, setFeita] = useState<string | null>(OBJETIVOS.some((o) => o.id === objetivoUrl) ? (objetivoUrl as string) : null);
   const selectId = useId();
   const selectRef = useRef<HTMLSelectElement>(null);
+  /** Quantas vezes a pessoa apertou "Perguntar": só então a resposta recebe foco (nunca ao abrir a página). */
+  const [pedido, setPedido] = useState(0);
 
   const perfil = useApi<PerfilDeputado>(deputado ? `/deputados/${encodeURIComponent(deputado)}` : null);
   const resposta = useApi<PerguntarResposta>(deputado && feita ? "/perguntar" : null, { deputado: deputado ?? undefined, objetivo: feita ?? undefined });
@@ -42,6 +45,7 @@ export function Perguntar() {
   function enviar(e: React.FormEvent) {
     e.preventDefault();
     setFeita(objetivo);
+    setPedido((n) => n + 1);
     const p = new URLSearchParams(sp.toString());
     p.set("objetivo", objetivo);
     router.replace(`/perguntar?${p.toString()}`, { scroll: false });
@@ -73,18 +77,28 @@ export function Perguntar() {
         </button>
       </form>
 
+      <p className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+        {resposta.estado.status === "ok"
+          ? `Resposta pronta: ${pergunta(resposta.estado.data.objetivo)} Nível de certeza ${formataCf(resposta.estado.data.cf)} de 1, ${NIVEIS[resposta.estado.data.nivel].rotulo}.`
+          : ""}
+      </p>
       {resposta.estado.status === "carregando" && <Carregando texto="O sistema está raciocinando…" />}
       {resposta.estado.status === "erro" && <ErroApi erro={resposta.estado.erro} onTentarDeNovo={resposta.recarregar} />}
-      {resposta.estado.status === "ok" && <Resultado r={resposta.estado.data} aoPerguntarOutra={() => selectRef.current?.focus()} />}
+      {resposta.estado.status === "ok" && <Resultado r={resposta.estado.data} pedido={pedido} aoPerguntarOutra={() => selectRef.current?.focus()} />}
     </div>
   );
 }
 
-function Resultado({ r, aoPerguntarOutra }: { r: PerguntarResposta; aoPerguntarOutra: () => void }) {
-  const arvore = montaArvore(r.trilha);
+function Resultado({ r, pedido, aoPerguntarOutra }: { r: PerguntarResposta; pedido: number; aoPerguntarOutra: () => void }) {
+  const bloco = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (pedido === 0 || !bloco.current) return;
+    bloco.current.focus({ preventScroll: true });
+    bloco.current.scrollIntoView({ block: "start", behavior: movimentoReduzido() ? "auto" : "smooth" });
+  }, [pedido]);
   const semConclusao = r.regras_usadas.length === 0 ? resumoDiagnosticos(r.trilha) : null;
   return (
-    <section className="resposta" aria-label="Resposta do sistema">
+    <section ref={bloco} tabIndex={-1} className="resposta" aria-label="Resposta do sistema">
       <p className="eyebrow">Resposta do sistema</p>
       <h2>{pergunta(r.objetivo)}</h2>
       <div className="resposta-cf">
@@ -118,13 +132,9 @@ function Resultado({ r, aoPerguntarOutra }: { r: PerguntarResposta; aoPerguntarO
       <h3>Trilha da prova</h3>
       <p className="nota">
         O sistema parte da pergunta e procura quais regras poderiam responder; se uma regra depende de outra conclusão, ela vira um novo
-        passo (<Termo id="guardrail">travas</Termo> incluídas). Cada linha mostra a certeza daquele passo.
+        passo (<Termo id="guardrail">travas</Termo> incluídas). Cada linha mostra a certeza daquele passo. Com o teclado, use as setas para percorrer a trilha e as setas direita e esquerda para abrir e fechar um passo.
       </p>
-      <ul className="arvore" role="tree" aria-label="Trilha da prova">
-        {arvore.map((n, i) => (
-          <NoArvore key={i} no={n} nivel={1} />
-        ))}
-      </ul>
+      <ArvoreProva trilha={r.trilha} />
       {r.trilha.filter((p) => p.cf > 0).length >= 2 && (
         <p className="nota">
           Mais de uma regra confirmou a conclusão. O sistema combina as certezas (como no sistema MYCIN), por isso o resultado final pode ser
@@ -145,14 +155,6 @@ function Resultado({ r, aoPerguntarOutra }: { r: PerguntarResposta; aoPerguntarO
       )}
     </section>
   );
-}
-
-function notaLegivel(passo: PassoProva): string {
-  if (passo.diagnostico) return fraseDiagnostico(passo.diagnostico);
-  const f = passo.nota.match(/^finding (.+)$/);
-  if (f) return `Gerou o alerta ${f[1]}.`;
-  if (passo.nota === "condições não satisfeitas") return fraseDiagnostico(null);
-  return passo.nota;
 }
 
 /** Quando nenhuma regra se confirmou: diz o motivo concreto e o que a pessoa pode fazer em seguida. */
@@ -184,29 +186,5 @@ function SemConclusao({ frases, proximos, aoPerguntarOutra }: { frases: string[]
         )}
       </div>
     </div>
-  );
-}
-
-function NoArvore({ no, nivel }: { no: NoProva; nivel: number }) {
-  const { passo } = no;
-  const confirmado = passo.cf > 0;
-  return (
-    <li role="treeitem" aria-level={nivel} aria-selected="false" aria-expanded={no.filhos.length > 0 ? true : undefined} className={confirmado ? "no-sim" : "no-nao"}>
-      <div className="no-linha">
-        <span className="no-regra">{passo.regra ?? "—"}</span>
-        <span className="no-obj">{pergunta(passo.objetivo)}</span>
-        <span className="no-cf">
-          CF {formataCf(passo.cf)} · <strong>{confirmado ? "confirmado" : "não confirmado"}</strong>
-        </span>
-      </div>
-      <p className="no-nota">{notaLegivel(passo)}</p>
-      {no.filhos.length > 0 && (
-        <ul role="group">
-          {no.filhos.map((f, i) => (
-            <NoArvore key={i} no={f} nivel={nivel + 1} />
-          ))}
-        </ul>
-      )}
-    </li>
   );
 }

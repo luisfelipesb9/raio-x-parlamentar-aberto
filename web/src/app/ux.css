@@ -29,3 +29,28 @@
   letter-spacing: 0.04em;
   color: var(--muted);
 }
+
+/* ---------- /perguntar: bloco de resposta e trilha navegável por teclado ---------- */
+.resposta:focus {
+  outline: none;
+}
+.resposta:focus-visible {
+  outline: 3px solid var(--acento);
+  outline-offset: 6px;
+  border-radius: var(--raio);
+}
+.arvore [role="treeitem"] {
+  outline: none;
+}
+.arvore [role="treeitem"]:focus-visible > .no-linha {
+  outline: 3px solid var(--acento);
+  outline-offset: 2px;
+}
+.no-pai > .no-linha {
+  cursor: pointer;
+}
+.no-seta {
+  flex: none;
+  width: 1em;
+  color: var(--muted);
+}
