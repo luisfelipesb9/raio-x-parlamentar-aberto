@@ -3,7 +3,12 @@ import pytest
 
 from contracts import Fact
 from ingest import deploy_check
-from ingest.deploy_check import TAMANHO_MINIMO_SAL, verificar_envio, verificar_sal
+from ingest.deploy_check import (
+    DISTINTOS_MINIMO_SAL,
+    TAMANHO_MINIMO_SAL,
+    verificar_envio,
+    verificar_sal,
+)
 from repo.store import Store
 
 SAL_BOM = "x7Kq9vR2mN4pL8sT1wY6zB3cD5fG0hJ-"  # 32 caracteres, inventado para o teste
@@ -37,6 +42,16 @@ def test_reprova_sal_curto():
     assert "curto" in erro and str(TAMANHO_MINIMO_SAL) in erro and curto not in erro
 
 
+@pytest.mark.parametrize("sal", ["a" * 64, "ab" * 32, "0123456" * 6])  # longos, mas com < 8 distintos
+def test_reprova_sal_longo_com_pouca_variedade(sal):
+    (erro,) = verificar_sal(sal)
+    assert "distintos" in erro and str(DISTINTOS_MINIMO_SAL) in erro and sal not in erro
+
+
+def test_aceita_sal_com_exatamente_o_minimo_de_distintos():
+    assert verificar_sal("01234567" * 4) == []
+
+
 def test_aceita_sal_longo_e_desconhecido():
     assert verificar_sal(SAL_BOM) == []
     assert verificar_sal(f"  {SAL_BOM}  ") == []
@@ -59,6 +74,7 @@ def test_reprova_env_local_no_pacote(tmp_path, nome):
     arq.write_text("RAIO_X_ID_SALT=segredo-que-nao-pode-ir\n")
     (erro,) = verificar_envio(tmp_path, pub)
     assert nome in erro and "segredo" in erro
+    assert f"rm {nome}" in erro  # a mensagem diz como limpar
     assert "segredo-que-nao-pode-ir" not in erro
 
 

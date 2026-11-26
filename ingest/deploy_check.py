@@ -4,7 +4,8 @@ Falha (exit 1) se: a base pública não existe ou tem CPF íntegro de terceiro; 
 outro `*.duckdb` / `*.duckdb.wal` na árvore (a base de trabalho tem CPF íntegro); existe um
 `.env`/`.env.*` local (segredo; só `.env.example`/`.sample`/`.template` passam); ou o
 `RAIO_X_ID_SALT` do ambiente (o que gerou a base pública) está ausente, tem menos de 32
-caracteres ou é um valor público conhecido (versão antiga, demo, testes). O valor do sal nunca é
+caracteres, menos de 8 caracteres distintos ou é um valor público conhecido (versão antiga,
+demo, testes). O valor do sal nunca é
 impresso. Ignora .git, .venv, node_modules, .next e caches.
 
 Uso: python -m ingest.deploy_check [--raiz .] [--publico data/sample/raio_x_publico.duckdb]
@@ -23,6 +24,7 @@ IGNORAR = {".git", ".venv", "node_modules", ".next", ".pytest_cache", ".ruff_cac
            "__pycache__"}
 ENV_DE_EXEMPLO = {".env.example", ".env.sample", ".env.template"}
 TAMANHO_MINIMO_SAL = 32
+DISTINTOS_MINIMO_SAL = 8  # "aaaa…" ou "abab…" têm tamanho, mas não entropia
 # Sais que estão (ou estiveram) no repositório: com eles o HMAC do CPF se desfaz por força bruta.
 SAIS_PUBLICOS = frozenset({
     "raio-x-v1",                 # sal padrão das versões antigas
@@ -43,6 +45,10 @@ def verificar_sal(sal: str | None) -> list[str]:
     if len(valor) < TAMANHO_MINIMO_SAL:
         return [(f"{ENV_SALT} curto demais ({len(valor)} caracteres; mínimo {TAMANHO_MINIMO_SAL}): "
                 "gere um sal secreto novo e refaça a base com `make sample-publico`")]
+    if len(set(valor)) < DISTINTOS_MINIMO_SAL:
+        return [(f"{ENV_SALT} com pouca variedade ({len(set(valor))} caracteres distintos; mínimo "
+                 f"{DISTINTOS_MINIMO_SAL}): gere com `python -c \"import secrets; print(secrets.token_urlsafe(48))\"` "
+                 "e refaça a base com `make sample-publico`")]
     return []
 
 
@@ -71,8 +77,9 @@ def verificar_envio(raiz: Path | str, publico: Path | str = PUBLICO) -> list[str
     arquivos = sorted(_arquivos(raiz))
     erros = [f"banco fora da base pública no que seria enviado: {p.relative_to(raiz)}"
              for p in arquivos if _e_banco(p) and p.resolve() != pub]
-    erros += [f"arquivo de segredo local no que seria enviado: {p.relative_to(raiz)} "
-              "(mova o valor para as variáveis de ambiente da plataforma)"
+    erros += [f"arquivo de segredo local no que seria enviado: {p.relative_to(raiz)}. Os valores "
+              "ficam nas variáveis de ambiente da plataforma; apague antes do envio com "
+              f"`rm {p.relative_to(raiz)}` (o .env.local do `vercel env pull` também conta)"
               for p in arquivos if _e_segredo_local(p)]
     if not pub.exists():
         return [f"a base pública não existe: {pub.relative_to(raiz) if pub.is_relative_to(raiz) else pub}",
