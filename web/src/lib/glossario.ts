@@ -62,9 +62,9 @@ export const GLOSSARIO: readonly Termo[] = [
   },
   {
     id: "cf",
-    termo: "Fator de certeza (CF)",
+    termo: "Nível de certeza (fator de certeza, CF)",
     definicao:
-      "Número de 0 a 1 que diz o quanto o sistema confia numa conclusão. Perto de 1: base forte. Perto de 0: base fraca.",
+      "Número de 0 a 1 (o fator de certeza, CF) que diz o quanto o sistema confia numa conclusão. Perto de 1: base forte. Perto de 0: base fraca.",
     porQueImporta: "Mostra o tamanho da dúvida. Nenhuma conclusão do sistema é prova de culpa.",
   },
   {
@@ -77,6 +77,30 @@ export const GLOSSARIO: readonly Termo[] = [
     id: "backlink",
     termo: "Backlink",
     definicao: "Todas as ligações deste item no mapa de relações: as que chegam até ele e as que saem dele.",
+  },
+  {
+    id: "cobertura-dados",
+    termo: "Cobertura dos dados",
+    definicao: "O que a base já tem de cada fonte oficial e de quando é. Onde a cobertura é pequena, o sistema pode não achar nada sem que isso queira dizer alguma coisa.",
+    porQueImporta: "Ausência de alerta pode ser só falta de dado. A página Fontes e método mostra o que foi coletado.",
+  },
+  {
+    id: "janela-votacao",
+    termo: "Janela de votação",
+    definicao: "O período das votações que o sistema usa para calcular o alinhamento com o governo (da primeira à última data coletada).",
+    porQueImporta: "Uma janela curta tem poucas votações; por isso o sistema reduz a certeza da conclusão.",
+  },
+  {
+    id: "nivel-certeza-maximo",
+    termo: "Nível de certeza máximo",
+    definicao: "O teto de certeza que uma regra consegue atingir com os dados atuais. Ele cai quando há poucas votações ou pouca evidência.",
+    porQueImporta: "Mesmo um padrão muito claro não passa desse teto enquanto a base for pequena.",
+  },
+  {
+    id: "votos-validos",
+    termo: "Votos válidos",
+    definicao: "Votos Sim ou Não de um deputado em votação nominal na qual o governo orientou Sim ou Não. Abstenção, obstrução e votação simbólica não entram.",
+    porQueImporta: "É a conta que decide se há dado suficiente: o sistema só conclui a partir de um mínimo de votos válidos.",
   },
 ];
 

@@ -117,7 +117,7 @@ export function AlertaCard({ finding }: { finding: Finding }) {
         {finding.conclusao}
       </h3>
       <p className="alerta-cf">
-        <Termo id="cf">Fator de certeza (CF)</Termo>: <strong>{formataCf(finding.cf)}</strong> de 1,00
+        <Termo id="cf">Nível de certeza (CF)</Termo>: <strong>{formataCf(finding.cf)}</strong> de 1,00
       </p>
       <p className="alerta-aviso">Isto não é acusação; é o que os dados públicos mostram.</p>
       <button type="button" className="btn" aria-expanded={aberto} aria-controls={painelId} onClick={() => setAberto((a) => !a)}>

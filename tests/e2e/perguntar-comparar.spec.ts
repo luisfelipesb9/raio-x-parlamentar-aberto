@@ -9,7 +9,7 @@ test("perguntar: mostra CF, nível em texto e a trilha de prova como árvore leg
 
   const resultado = page.getByRole("region", { name: /resposta do sistema/i });
   await expect(resultado).toBeVisible();
-  await expect(resultado.getByText(/fator de certeza/i).first()).toBeVisible();
+  await expect(resultado.getByText(/nível de certeza/i).first()).toBeVisible();
   await expect(resultado.getByText(/certeza (alta|média)|apenas indício|inconclusivo/i).first()).toBeVisible();
   const arvore = resultado.getByRole("tree", { name: /trilha da prova/i });
   await expect(arvore).toBeVisible();

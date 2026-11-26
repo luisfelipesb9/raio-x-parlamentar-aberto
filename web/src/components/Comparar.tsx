@@ -68,7 +68,7 @@ export function Comparar() {
             <p>
               Votaram igual em <strong>{c.afinidade_votos.n_iguais}</strong> de <strong>{c.afinidade_votos.n_votacoes_comuns}</strong>{" "}
               <Termo id="votacao-nominal">votações nominais</Termo> em que os dois participaram.{" "}
-              <Termo id="cf">Fator de certeza (CF)</Termo> desta comparação: <strong>{formataCf(c.afinidade_votos.cf)}</strong>
+              <Termo id="cf">Nível de certeza (CF)</Termo> desta comparação: <strong>{formataCf(c.afinidade_votos.cf)}</strong>
               {c.afinidade_votos.n_votacoes_comuns < 30 ? " (baixo porque são poucas votações em comum)" : ""}.
             </p>
           </>

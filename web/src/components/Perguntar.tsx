@@ -104,11 +104,11 @@ function Resultado({ r, pedido, aoPerguntarOutra }: { r: PerguntarResposta; pedi
       <div className="resposta-cf">
         <div>
           <p className="resposta-cf-rotulo">
-            <Termo id="cf">Fator de certeza (CF)</Termo>
+            <Termo id="cf">Nível de certeza (CF)</Termo>
           </p>
           <p className="resposta-cf-num">{formataCf(r.cf)}</p>
         </div>
-        <div className="medidor" role="img" aria-label={`Fator de certeza ${formataCf(r.cf)} de 1,00`}>
+        <div className="medidor" role="img" aria-label={`Nível de certeza ${formataCf(r.cf)} de 1,00`}>
           <span style={{ width: `${Math.max(0, Math.min(1, r.cf)) * 100}%` }} />
         </div>
         <SeloCerteza nivel={r.nivel} />
@@ -124,7 +124,7 @@ function Resultado({ r, pedido, aoPerguntarOutra }: { r: PerguntarResposta; pedi
       <AvisoNaoAcusacao compacto />
 
       <p className="nota">
-        <strong>Como ler o número:</strong> o <Termo id="cf">fator de certeza</Termo> mede o quanto o sistema confia na <em>evidência</em>, não
+        <strong>Como ler o número:</strong> o <Termo id="cf">nível de certeza</Termo> (também chamado fator de certeza, CF) mede o quanto o sistema confia na <em>evidência</em>, não
         o tamanho de um problema nem a resposta a um sim/não. Quando vários indícios apontam na mesma direção, as certezas se combinam
         (método do sistema MYCIN) e o resultado pode passar de 0,40 mesmo que cada indício, sozinho, seja de 0,40 ou menos.
       </p>
