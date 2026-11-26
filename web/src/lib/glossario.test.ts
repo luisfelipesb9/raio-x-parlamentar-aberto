@@ -15,6 +15,13 @@ describe("glossário", () => {
     expect(`${cf?.termo} ${cf?.definicao}`.toLowerCase()).toContain("fator de certeza");
   });
 
+  it("a impressão digital só garante que o arquivo guardado não mudou, não que seja igual ao do site oficial", () => {
+    const h = buscaTermo("hash-arquivo");
+    expect(h?.porQueImporta).toContain("não mudou desde a coleta");
+    expect(h?.porQueImporta).toContain("Não prova");
+    expect(h?.porQueImporta).not.toMatch(/é igual ao que a fonte oficial publicou/);
+  });
+
   it("explica os termos da cobertura dos dados e do limite da certeza", () => {
     for (const id of ["cobertura-dados", "janela-votacao", "nivel-certeza-maximo", "votos-validos"]) {
       expect(buscaTermo(id), id).toBeDefined();

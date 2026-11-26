@@ -106,7 +106,8 @@ export const GLOSSARIO: readonly Termo[] = [
     id: "hash-arquivo",
     termo: "Impressão digital do arquivo (hash)",
     definicao: "Código curto calculado a partir do conteúdo de um arquivo. Se o arquivo mudar em qualquer detalhe, o código muda.",
-    porQueImporta: "Permite conferir se o arquivo que o sistema usou é igual ao que a fonte oficial publicou.",
+    porQueImporta:
+      "Permite conferir que o arquivo que o sistema guardou não mudou desde a coleta. Não prova que ele é igual ao publicado no site oficial: para isso, use o link da fonte.",
   },
   {
     id: "mapa-relacoes",
