@@ -6,10 +6,6 @@ resposta: "O Raio-X Parlamentar mostra o que os dados públicos indicam sobre de
 atualizado: 2026-11-26
 ---
 
-**Isto não é acusação; é o que os dados públicos mostram.** Um achado é uma pista para quem quiser investigar, não uma conclusão sobre a conduta de alguém. Processo sem condenação definitiva não é culpa. Confira sempre na fonte oficial indicada. Para corrigir um dado, veja a [política de uso e correção](https://github.com/luisfelipesb9/raio-x-parlamentar-aberto/blob/main/docs/politica-de-uso-e-correcao.md).
-
-A base pública cobre 20 deputados de Minas Gerais, votações de 04/02/2025 a 27/03/2025, despesas da cota de 2024 e a eleição de 2022.
-
 ## O que é o Raio-X Parlamentar?
 
 O Raio-X Parlamentar é um sistema aberto que reúne dados públicos sobre deputados federais (votos, projetos, gastos da cota, emendas, doações, empresas e sanções) e os explica em linguagem simples. Cada conclusão mostra como foi obtida e o quanto é certa.
