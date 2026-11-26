@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ROTAS_FIXAS, montaSitemap, ultimaColeta } from "./sitemap";
+import { ROTAS_FIXAS, fallbackSeBuild, montaSitemap, ultimaColeta } from "./sitemap";
 import { SITE_URL } from "./seo";
 
 describe("ultimaColeta", () => {
@@ -49,5 +49,18 @@ describe("montaSitemap", () => {
   it("ignora ids que não são seguros para URL", () => {
     const urls = montaSitemap(["12", "../x", "a b", ""]).map((e) => e.url);
     expect(urls.filter((u) => u.includes("/deputado/"))).toEqual([`${SITE_URL}/deputado/12`]);
+  });
+});
+
+describe("fallbackSeBuild", () => {
+  const erro = new Error("API fora do ar");
+
+  it("durante o build devolve só as rotas fixas, sem quebrar", () => {
+    const s = fallbackSeBuild(erro, "phase-production-build");
+    expect(s.map((e) => e.url)).toEqual(ROTAS_FIXAS.map((r) => `${SITE_URL}${r}`));
+  });
+
+  it.each([undefined, "phase-production-server", "phase-development-server"])("em runtime (%s) relança o erro para o Next manter a versão anterior", (fase) => {
+    expect(() => fallbackSeBuild(erro, fase)).toThrow(erro);
   });
 });

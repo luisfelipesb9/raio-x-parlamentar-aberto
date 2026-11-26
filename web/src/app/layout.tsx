@@ -6,7 +6,7 @@ import { Logo } from "@/components/Logo";
 import { Nav, PausaToggle, TemaToggle } from "@/components/Nav";
 import { TLink, TransicaoProvider } from "@/components/Transicao";
 import { organizacaoLd, siteLd } from "@/lib/jsonld";
-import { DESCRICAO_PADRAO, NOME_SITE, SITE_URL } from "@/lib/seo";
+import { DESCRICAO_PADRAO, NOME_SITE, SITE_URL, permiteIndexar } from "@/lib/seo";
 import { CONTRACT_VERSION } from "@/types/contracts";
 import "./globals.css";
 import "./ux.css";
@@ -27,7 +27,8 @@ export const metadata: Metadata = {
   description: DESCRICAO_PADRAO,
   openGraph: { type: "website", locale: "pt_BR", siteName: NOME_SITE },
   twitter: { card: "summary_large_image" },
-  robots: { index: true, follow: true },
+  // index/follow só com site público de fato; localhost e deploy de pré-visualização saem com noindex
+  robots: permiteIndexar(SITE_URL, process.env.VERCEL_ENV) ? { index: true, follow: true } : { index: false, follow: false },
   verification: verificacao,
 };
 
