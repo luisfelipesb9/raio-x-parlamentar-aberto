@@ -1,4 +1,4 @@
-.PHONY: setup ingest infer test dev lint sample sample-publico deploy-check verifica checa-pii
+.PHONY: setup ingest infer test dev lint sample sample-publico deploy-check verifica checa-pii seed-demo demo
 setup:
 	uv sync
 ingest:
@@ -29,3 +29,16 @@ deploy-check:
 # Reprova CPF íntegro (fora da allowlist de scripts/checa_pii.py) e segredos óbvios nos arquivos versionados.
 checa-pii:
 	uv run python -m scripts.checa_pii
+# Demo OFFLINE: banco 100% fictício (6 deputados inventados), sem rede e sem dados reais.
+seed-demo:
+	uv run python -m scripts.seed_demo
+demo: seed-demo
+	@echo ""
+	@echo "Demo pronta em data/sample/raio_x_demo.duckdb (DADOS FICTÍCIOS PARA DEMONSTRAÇÃO). Agora, em dois terminais:"
+	@echo ""
+	@echo "  1) API (na raiz do repositório):"
+	@echo "     RAIO_X_ID_SALT=demo-ficticio RAIO_X_DB=data/sample/raio_x_demo.duckdb uv run uvicorn api.main:app --port 8000"
+	@echo "  2) Site (instale uma vez com: pnpm --dir web install):"
+	@echo "     pnpm --dir web dev     # abra http://localhost:3000 (a API padrão é http://localhost:8000)"
+	@echo ""
+	@echo "Passo a passo e o que ver: docs/demo.md"
