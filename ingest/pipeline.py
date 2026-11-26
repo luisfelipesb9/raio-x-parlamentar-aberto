@@ -479,7 +479,8 @@ class Pipeline:
 def _lista_de_anos(texto: str) -> tuple[int, ...]:
     """'2023,2024' -> (2023, 2024), sem repetição e na ordem dada."""
     partes = [p.strip() for p in texto.split(",")]
-    if not all(re.fullmatch(r"\d{4}", p) and 2000 <= int(p) <= 2100 for p in partes):
+    if not all(p.isascii() and p.isdigit() and len(p) == 4 and 2000 <= int(p) <= 2100
+               for p in partes):
         raise argparse.ArgumentTypeError(
             f"anos inválidos: {texto!r} (esperado ANO[,ANO...] com 4 dígitos, ex.: 2023,2024)")
     return tuple(dict.fromkeys(int(p) for p in partes))
