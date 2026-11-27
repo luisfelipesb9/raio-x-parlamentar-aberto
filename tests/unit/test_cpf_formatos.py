@@ -134,3 +134,60 @@ def test_checa_pii_pega_cpf_de_10_digitos_em_chave_cpf(trecho):
 def test_checa_pii_ignora_10_digitos_fora_de_chave_cpf():
     n = str(int(CPF_ZERO))
     assert achados_em_texto("x.json", f'"protocolo": {n}', permitidos=frozenset()) == []
+
+
+# ---------- SQ_CANDIDATO (id público do TSE) que coincide com dígitos verificadores de CPF ----------
+
+def _sq_com_dv_de_cpf() -> str:
+    """11 dígitos que fecham como CPF por coincidência, como alguns SQ_CANDIDATO reais."""
+    return cpf("600016034")
+
+
+def test_sq_candidato_nao_e_trocado_por_hash_em_nenhum_tipo():
+    sq = _sq_com_dv_de_cpf()
+    assert dv_ok(sq)
+    for tipo in ("votos_municipio", "doacao"):
+        f = Fact(tipo=tipo, chave=f"2022:{sq}:1", fonte="t", id_oficial=f"2022:{sq}:1", url="https://x",
+                 atributos={"ano": 2022, "sq_candidato": sq})
+        assert pseudonimizar_fatos([f], SAL)[0].atributos["sq_candidato"] == sq
+
+
+def test_campo_cpf_continua_sendo_trocado_no_mesmo_tipo():
+    f = Fact(tipo="doacao", chave="d", fonte="t", id_oficial="d", url="https://x",
+             atributos={"sq_candidato": _sq_com_dv_de_cpf(), "doador_cpf_cnpj": CPF})
+    saida = pseudonimizar_fatos([f], SAL)[0].atributos
+    assert saida["doador_cpf_cnpj"] == hash_cpf(CPF, SAL)
+
+
+def test_varredura_ignora_sq_candidato_mas_acha_cpf_de_verdade():
+    from ingest.varredura import cpfs_integros
+    sq = _sq_com_dv_de_cpf()
+    ok = [Fact(tipo="candidatura", chave=sq, fonte="t", id_oficial=sq, url="https://x", atributos={}),
+          Fact(tipo="votos_municipio", chave=f"2022:{sq}:1", fonte="t", id_oficial=f"2022:{sq}:1",
+               url="https://x", atributos={"sq_candidato": sq})]
+    assert cpfs_integros(ok) == []
+    mau = Fact(tipo="doacao", chave="d", fonte="t", id_oficial="d", url="https://x",
+               atributos={"sq_candidato": sq, "doador_cpf_cnpj": CPF})
+    assert [(a.tipo, a.campo) for a in cpfs_integros([mau])] == [("doacao", "doador_cpf_cnpj")]
+    # chave de outro tipo com 11 dígitos que fecham como CPF continua sendo acusada
+    outro = Fact(tipo="despesa_ceap", chave=sq, fonte="t", id_oficial="x", url="https://x", atributos={})
+    assert [(a.tipo, a.campo) for a in cpfs_integros([outro])] == [("despesa_ceap", "chave")]
+
+
+def test_varredura_de_derivados_ignora_so_ids_publicos_e_valor_cru():
+    from ingest.varredura import tem_cpf_derivado
+    sq, outro = _sq_com_dv_de_cpf(), CPF
+    # ignorados: referência à candidatura, evidência de votos_municipio e valor em reais cru
+    sqs = {sq}
+    assert not tem_cpf_derivado(f"candidatura:{sq}", sqs)
+    assert not tem_cpf_derivado('{"tipo":"votos_municipio","id_oficial":"' + sq + ':14931"}', sqs)
+    assert not tem_cpf_derivado('{"valor_emendas":' + sq[:9] + "." + sq[9:] + "}")
+    # continuam acusados: CPF solto, em outro tipo de evidência, formatado, ou colado a "candidatura:"
+    assert tem_cpf_derivado(f"doador {outro}")
+    assert tem_cpf_derivado('{"tipo":"doacao","id_oficial":"' + outro + ':1"}')
+    assert tem_cpf_derivado(f"{outro[:3]}.{outro[3:6]}.{outro[6:9]}-{outro[9:]}")
+    assert tem_cpf_derivado(f"{outro[:3]}.{outro[3:6]}.{outro[6:9]}.{outro[9:]}")
+    assert tem_cpf_derivado(f"despesa:{outro}")
+    # o mesmo número, se NÃO é o SQ de uma candidatura do banco, é acusado
+    assert tem_cpf_derivado(f"candidatura:{sq}")
+    assert tem_cpf_derivado(f"candidatura:{sq}", {outro})
