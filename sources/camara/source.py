@@ -328,6 +328,8 @@ class CamaraSource(Source):
         retoma dali. Devolve {"proposicoes": [...], "erros": [...]} e grava o bruto em
         data/raw/camara/.
         """
+        siglas_tipo = None if siglas_tipo is None else list(siglas_tipo)  # gerador: consome 1 vez
+        deputado_ids = None if deputado_ids is None else list(deputado_ids)
         parcial = Parcial(manifest.raw_dir_padrao() / self.nome / "parcial", retomar)
         out = self._coletar_proposicoes(data_inicio, data_fim, deputado_ids, siglas_tipo,
                                         max_proposicoes, parcial)

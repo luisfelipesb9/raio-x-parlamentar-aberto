@@ -182,3 +182,12 @@ def test_fetch_nao_apaga_arquivo_de_parcial_que_nao_e_dele(raw_dir):
     estranho.write_text("[]", encoding="utf-8")
     _fonte(FakeApi()).fetch(max_votacoes=0)
     assert estranho.exists()
+
+
+def test_gerador_em_siglas_tipo_e_ids_nao_deixa_parcial_para_tras(raw_dir):
+    """Um gerador é consumido na coleta; o nome do parcial a apagar tem de ser o mesmo."""
+    parcial = _pasta_parcial(raw_dir)
+    out = _fonte(FakeApi()).fetch_proposicoes(
+        *JANELA, deputado_ids=(i for i in ["62881"]), siglas_tipo=(s for s in ["PL", "PEC"]))
+    assert out["proposicoes"]
+    assert not parcial.exists() or list(parcial.iterdir()) == []
