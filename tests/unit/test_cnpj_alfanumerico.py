@@ -451,3 +451,10 @@ def test_cgu_cnpj_numerico_e_cpf_continuam_iguais():
     assert _sancao_cgu("00.000.000/0001-91")["cnpj"] == BB
     a = _sancao_cgu("111.444.777-35")
     assert a["cpf"] == "11144477735" and a["cnpj"] is None
+
+
+def test_cpf_integro_recusa_cnpj_alfanumerico():
+    from graph.build import _cpf_integro
+    assert _cpf_integro("12ABC34501DE35") is None
+    assert _cpf_integro("12.ABC.345/01DE-35") is None
+    assert _cpf_integro("hmac:abc123") == "hmac:abc123"  # pseudônimo segue valendo

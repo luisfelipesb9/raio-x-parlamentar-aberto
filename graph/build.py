@@ -119,6 +119,8 @@ def _cpf_integro(x: Any) -> str | None:
     (nunca extrai dígitos do hex). CPF mascarado/ausente não identifica ninguém."""
     if _pseudonimo(x):
         return str(x)
+    if re.search(r"[A-Za-z]", str(x or "")):  # letra = CNPJ alfanumérico, nunca CPF
+        return None
     d = _digits(x)
     return d if len(d) == 11 and "*" not in str(x) else None
 
