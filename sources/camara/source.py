@@ -21,6 +21,7 @@ from contracts import Fact
 from sources import manifest
 from sources.base import Source
 from sources.camara.dumps import CONJUNTOS, url_dump, votacoes_do_dump
+from sources.camara.escopo import escopo_da_coleta
 from sources.camara.janelas import fatiar_janela
 from sources.camara.parcial import Parcial
 
@@ -129,6 +130,9 @@ class CamaraSource(Source):
         cair, a chamada seguinte retoma dali (`retomar=False` ignora e refaz); coleta concluída
         apaga o parcial.
 
+        O bruto leva `_escopo` (legislatura, janela, fonte de votos e teto de votações): o pipeline
+        o confere antes de reaproveitá-lo com `--reusar-raw`.
+
         Votos: `fonte_votos="api"` (padrão; 2 chamadas por votação de Plenário) ou `"dump"`
         (3 arquivos CSV anuais oficiais, lidos em streaming; recomendado para mais de um
         trimestre). Nos dois, só votação NOMINAL tem voto individual. O dump muda todo dia: só é
@@ -146,7 +150,11 @@ class CamaraSource(Source):
         votacoes = (self._votacoes_dump(data_inicio, data_fim, max_votacoes, reusar_dumps)
                     if fonte_votos == "dump"
                     else self._votacoes_api(data_inicio, data_fim, max_votacoes, parcial))
-        raw = {"deputados": deputados, "votacoes": votacoes}
+        raw = {"deputados": deputados, "votacoes": votacoes,
+               "_escopo": escopo_da_coleta(
+                   legislatura=legislatura, legislatura_completa=legislatura_completa,
+                   janela_inicio=data_inicio, janela_fim=data_fim, fonte_votos=fonte_votos,
+                   max_votacoes=max_votacoes)}
         if erros_det:
             raw["deputados_erros"] = erros_det
         if incluir_proposicoes:  # opt-in: 2 chamadas por proposição + listagem

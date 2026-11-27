@@ -120,7 +120,7 @@ def test_max_votacoes_zero_nao_lista_nem_busca_votos(raw_dir):
 def test_formato_do_bruto_nao_mudou(raw_dir):
     api = Api()
     raw = _fonte(api).fetch(data_inicio=Q1, data_fim="2025-03-31")
-    assert set(raw) == {"deputados", "votacoes"}
+    assert set(raw) == {"deputados", "votacoes", "_escopo"}
     a = raw["votacoes"][0]
     assert a["siglaOrgao"] == "PLEN" and a["uri"] == f"v-{Q1}-A"
     assert a["_votos"] == [{"tipoVoto": "Sim", "deputado_": {"id": 1}}]

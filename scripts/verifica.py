@@ -1,13 +1,14 @@
 """Verificação independente: recalcula, direto dos brutos, o que o banco e o motor afirmam.
 
-Uso: python -m scripts.verifica [--db BANCO] [--raw PASTA] [--saida ARQUIVO.md]
+Uso: python -m scripts.verifica [--db BANCO] [--raw PASTA] [--saida ARQUIVO.md] [--anos-ceap 2023,2024]
                                 [--gerar-manifesto] [--online] [--amostra-online N] [--semente S]
 
 O que confere (tolerância zero para contagens; até 1 centavo para valores em reais):
   1. votações: total, nominais e com orientação Sim/Não do JSON bruto da Câmara x banco;
   2. governismo: por deputado do banco, nº de votos válidos e taxa recalculados do JSON bruto x
      banco (SQL) x finding da R01 (o motor), inclusive a decisão de disparar ou não;
-  3. CEAP: por deputado do banco, nº de despesas e total do bruto (zip oficial) x banco;
+  3. CEAP: por deputado do banco, nº de despesas e total do bruto (soma dos zips oficiais de
+     ceap/Ano-*.json.zip, ou só dos de --anos-ceap) x banco;
   4. manifesto: o sha256 de cada arquivo de data/raw bate com data/raw/manifest.json;
   5. (opcional, --online) contagem de votos de votações sorteadas direto na API da Câmara.
 
@@ -21,6 +22,7 @@ na tabela e no relatório, e não vira "ok".
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import os
 import random
@@ -218,23 +220,89 @@ def _conferir_governismo(raw: dict[str, Any], store: Store, deputados: dict[str,
     return linhas
 
 
-def _achar_zip_ceap(raw_dir: Path) -> Path | None:
-    zips = sorted((raw_dir / "ceap").glob("Ano-*.json.zip")) if (raw_dir / "ceap").is_dir() else []
-    return zips[-1] if zips else None
+_ZIP_CEAP = re.compile(r"Ano-(\d{4})\.json\.zip")
 
 
-def _conferir_ceap(raw_dir: Path, store: Store, deputados: dict[str, str]) -> list[Linha]:
-    arquivo = _achar_zip_ceap(raw_dir)
-    if arquivo is None:
+def _achar_zips_ceap(raw_dir: Path) -> dict[int, Path]:
+    """{ano: zip} de `ceap/Ano-<ano>.json.zip`, em ordem de ano."""
+    pasta = raw_dir / "ceap"
+    achados = {int(m[1]): arq for arq in pasta.iterdir() if (m := _ZIP_CEAP.fullmatch(arq.name))} \
+        if pasta.is_dir() else {}
+    return dict(sorted(achados.items()))
+
+
+MAX_ZIPS_NA_BUSCA = 10  # a busca testa todos os subconjuntos (2^n): acima disso, usa todos
+
+
+def _somar(partes: Sequence[dict[str, tuple[int, int]]]) -> dict[str, tuple[int, int]]:
+    out: dict[str, tuple[int, int]] = {}
+    for parte in partes:
+        for dep, (n, total) in parte.items():
+            n0, t0 = out.get(dep, (0, 0))
+            out[dep] = (n0 + n, t0 + total)
+    return out
+
+
+def _fecha(bruto: dict[str, tuple[int, int]], banco: dict[str, tuple[int, int]],
+           deputados: set[str]) -> bool:
+    """O bruto bate com o banco em todos os deputados (mesmas regras da conferência)."""
+    return all(bruto.get(d, (0, 0))[0] == banco.get(d, (0, 0))[0]
+               and abs(bruto.get(d, (0, 0))[1] - banco.get(d, (0, 0))[1]) <= TOLERANCIA_CENTAVOS
+               for d in deputados)
+
+
+def _zips_ingeridos(por_zip: dict[int, dict[str, tuple[int, int]]],
+                    banco: dict[str, tuple[int, int]], deputados: set[str]) -> list[int]:
+    """Anos dos zips que, somados, fecham com o banco: são os efetivamente ingeridos (o banco não
+    guarda de que zip veio cada despesa, e uma nota de dez/2023 vem no zip de 2024). O maior
+    subconjunto que fecha vence. Se nenhum fecha, devolve todos, e a divergência aparece."""
+    anos = sorted(por_zip)
+    if len(anos) <= 1 or len(anos) > MAX_ZIPS_NA_BUSCA:
+        return anos
+    for tamanho in range(len(anos), 0, -1):
+        for combinacao in itertools.combinations(anos, tamanho):
+            if _fecha(_somar([por_zip[a] for a in combinacao]), banco, deputados):
+                return list(combinacao)
+    return anos
+
+
+def _conferir_ceap(raw_dir: Path, store: Store, deputados: dict[str, str],
+                   anos: Sequence[int] | None = None,
+                   avisos: list[str] | None = None) -> list[Linha]:
+    """Confere a CEAP somando os zips de `ceap/`. `anos` (--anos-ceap) fixa quais; sem ele valem os
+    zips que, somados, fecham com o banco (os efetivamente ingeridos): zip de outro ano que sobrou
+    em disco não conta e é avisado."""
+    achados = _achar_zips_ceap(raw_dir)
+    if anos:
+        faltam = [a for a in anos if a not in achados]
+        if faltam:
+            return [Linha("ceap", "CEAP", "—", "—", NAO_VERIFICADO,
+                          f"sem zip em ceap/ para o(s) ano(s) {', '.join(map(str, faltam))}; "
+                          "despesas não conferidas")]
+        achados = {a: achados[a] for a in anos}
+    if not achados:
         return [Linha("ceap", "CEAP", "—", "—", NAO_VERIFICADO,
                       "sem zip em ceap/Ano-*.json.zip; despesas não conferidas")]
-    try:
-        bruto = ceap_do_bruto(arquivo, set(deputados))
-    except (zipfile.BadZipFile, ValueError, OSError) as e:
-        return [Linha("ceap", arquivo.name, "—", "—", NAO_VERIFICADO,
-                      f"não foi possível ler o zip: {e}")]
+    por_zip: dict[int, dict[str, tuple[int, int]]] = {}
+    for ano, arquivo in achados.items():
+        try:
+            por_zip[ano] = ceap_do_bruto(arquivo, set(deputados))
+        except (zipfile.BadZipFile, ValueError, OSError) as e:
+            return [Linha("ceap", arquivo.name, "—", "—", NAO_VERIFICADO,
+                          f"não foi possível ler o zip: {e}")]
     banco = store.despesas_por_deputado()
-    linhas = []
+    usados = list(achados) if anos else _zips_ingeridos(por_zip, banco, set(deputados))
+    bruto = _somar([por_zip[a] for a in usados])
+    if len(achados) > 1 and avisos is not None:
+        nomes = {a: achados[a].name for a in achados}
+        sobras = [nomes[a] for a in achados if a not in usados]
+        avisos.append("CEAP conferida somando os zips " + ", ".join(nomes[a] for a in usados)
+                      + (f"; ignorado(s), porque não fecham com o banco: {', '.join(sobras)} "
+                         "(`--anos-ceap` fixa os anos)" if sobras else ""))
+    # zip que sobrou da busca: pode ser um ano que faltou entrar no banco, e isso não pode passar por "ok"
+    linhas = [Linha("ceap", achados[a].name, "—", "—", NAO_VERIFICADO,
+                    "não fecha com o banco; confirme com --anos-ceap")
+              for a in achados if a not in usados]
     for dep, nome in sorted(deputados.items(), key=lambda kv: (len(kv[0]), kv[0])):
         (n_b, c_b), (n_d, c_d) = bruto.get(dep, (0, 0)), banco.get(dep, (0, 0))
         problemas = []
@@ -321,7 +389,8 @@ def _achar_raw_camara(raw_dir: Path, inicio: date | None = None,
 
 def verificar(db: Path | str, raw_dir: Path | str, *, gerar_manifesto: bool = False,
               online: bool = False, cliente_http: httpx.Client | None = None,
-              amostra_online: int = 5, semente: int = 0) -> Resultado:
+              amostra_online: int = 5, semente: int = 0,
+              anos_ceap: Sequence[int] | None = None) -> Resultado:
     raw_dir = Path(raw_dir)
     store = Store(db, read_only=True)
     try:
@@ -339,7 +408,7 @@ def verificar(db: Path | str, raw_dir: Path | str, *, gerar_manifesto: bool = Fa
             raw = json.loads(arq_camara.read_text(encoding="utf-8"))
             res.linhas += _conferir_votacoes(raw, store)
             res.linhas += _conferir_governismo(raw, store, deputados)
-        res.linhas += _conferir_ceap(raw_dir, store, deputados)
+        res.linhas += _conferir_ceap(raw_dir, store, deputados, anos_ceap, res.avisos)
         if gerar_manifesto:
             res.manifesto_gerado = manifest.gerar_retroativo(raw_dir)
         res.linhas += _conferir_manifesto(raw_dir)
@@ -432,12 +501,22 @@ def renderizar_md(res: Resultado, quando: str | None = None) -> str:
 
 
 # --------------------------------------------------------------------------- CLI
+def _anos(texto: str) -> tuple[int, ...]:
+    """'2023,2024' -> (2023, 2024)."""
+    partes = [p.strip() for p in texto.split(",")]
+    if not all(p.isascii() and p.isdigit() and len(p) == 4 for p in partes):
+        raise argparse.ArgumentTypeError(f"anos inválidos: {texto!r} (esperado ANO[,ANO...], ex.: 2023,2024)")
+    return tuple(dict.fromkeys(int(p) for p in partes))
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m scripts.verifica",
                                  description="Confere banco e motor contra os brutos.")
     ap.add_argument("--db", type=Path, default=None, help="banco (padrão: $RAIO_X_DB)")
     ap.add_argument("--raw", type=Path, default=None, help="pasta data/raw (padrão: $RAIO_X_RAW)")
     ap.add_argument("--saida", type=Path, default=RELATORIO, help=f"relatório .md (padrão: {RELATORIO.relative_to(RAIZ)})")
+    ap.add_argument("--anos-ceap", type=_anos, default=None, metavar="ANO[,ANO...]",
+                    help="confere só os zips CEAP desses anos (padrão: todos os de ceap/Ano-*.json.zip)")
     ap.add_argument("--gerar-manifesto", action="store_true",
                     help="registra no manifesto os arquivos de data/raw que ainda não constam (origem retroativo)")
     ap.add_argument("--online", action="store_true", help="confere por amostragem na API da Câmara (usa rede)")
@@ -448,7 +527,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not db or not Path(db).exists():
         ap.error(f"banco não encontrado: {db or '(use --db ou RAIO_X_DB)'}")
     res = verificar(db, args.raw or manifest.raw_dir_padrao(), gerar_manifesto=args.gerar_manifesto,
-                    online=args.online, amostra_online=args.amostra_online, semente=args.semente)
+                    online=args.online, amostra_online=args.amostra_online, semente=args.semente,
+                    anos_ceap=args.anos_ceap)
     print(renderizar_tabela(res))
     args.saida.parent.mkdir(parents=True, exist_ok=True)
     args.saida.write_text(renderizar_md(res), encoding="utf-8")

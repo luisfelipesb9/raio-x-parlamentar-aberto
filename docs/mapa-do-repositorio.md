@@ -42,12 +42,21 @@ make infer    # roda o motor e materializa findings
 make sample   # ingere a amostra (20 deputados de MG; votações de fev–mar/2025, CEAP do arquivo de 2024, eleição TSE de 2022) em data/sample/raio_x_sample.duckdb e roda o motor
 make sample-publico  # amostra pseudonimizada (HMAC) + varredura de CPF em $TMPDIR/raio_x_publico_origem.duckdb (fora da árvore), depois `make publicar`
 make publicar # origem pseudonimizada -> data/sample/raio_x_publico.duckdb (enxuto, sem chave primária; ADR-011)
+make ingest-nacional   # Onda 4: deputados em exercício (sem --amostra, sem teto de votações/proposições) na origem pseudonimizada ($ORIGEM_NACIONAL); coleta longa
+make verifica-nacional # confere $ORIGEM_NACIONAL contra os brutos, só nos anos de $ANOS_CEAP (relatório em data/nacional/)
+make deploy-check-nacional # como deploy-check, sobre $DESTINO_NACIONAL
+make publicar-nacional # depois do anterior: motor, varredura de CPF e o arquivo enxuto em $DESTINO_NACIONAL (data/nacional/, não versionado; origem em $ORIGEM_NACIONAL)
 make test     # pytest
 make verifica # recalcula governismo e CEAP dos brutos e confronta com o banco/motor (docs/relatorio/verificacao.md)
 make lint     # ruff
 make dev      # sobe só a API (uvicorn api.main:app --reload); o web roda à parte: `pnpm dev` em web/
 ```
 `make sample` usa `--reusar-raw` (reaproveita `data/raw/`) e `RAIO_X_DB` para apontar o motor ao banco de amostra.
+`make ingest-nacional` roda `python -m ingest.pipeline --nacional` (exige `RAIO_X_ID_SALT`); variáveis `ANOS_CEAP`, `JANELA_INICIO`,
+`JANELA_FIM`, `FONTE_VOTOS`, `LIMITE_RFB` e `ARGS` (ex.: `ARGS="--reusar-raw --reusar-dumps"`). Flags da Câmara no pipeline:
+`--legislatura-completa`, `--fonte-votos {api,dump}`, `--reusar-dumps`, `--retomar/--sem-retomar`. Com `--reusar-raw`, o bruto da Câmara
+só é reaproveitado se o escopo gravado nele (`_escopo`: legislatura, janela, fonte de votos, teto de votações) servir ao pedido.
+Detalhes: `docs/ampliacao/ingest-nacional.md`.
 Banco: `--db` > `$RAIO_X_DB` > `data/raio_x.duckdb`.
 
 ## Como adicionar uma FONTE de dados

@@ -2,6 +2,46 @@
 
 Parte da Onda 4 (513 deputados). Contexto e números de volume em [pesquisa.md](pesquisa.md).
 
+## Modo nacional (`--nacional`, `make ingest-nacional`)
+
+`python -m ingest.pipeline --nacional ...` junta o que a Onda 4 precisa: todos os deputados em exercício (sem `--uf`/`--amostra`;
+combinar é erro), sem teto de votações nem de proposições (`--max-votacoes`/`--max-proposicoes` só valem se dados; os tetos de 30 e
+300 continuam sendo o padrão do modo amostra), TSE por UF e CEAP de vários anos (`--anos-ceap`). O Makefile acrescenta o resto
+(`make ingest-nacional`: dump anual de votos, detalhe dos deputados, proposições, pseudonimização, saída em `$(ORIGEM_NACIONAL)`); `make
+publicar-nacional` roda o motor, a varredura de CPF e o `publicar` depois, com origem e destino próprios
+(`ORIGEM_NACIONAL`, padrão `$TMPDIR/raio_x_nacional_origem.duckdb`; `DESTINO_NACIONAL`, padrão `data/nacional/raio_x_publico.duckdb`),
+sem tocar na origem nem no arquivo público da amostra. `data/nacional/` é ignorado pelo git (`data/*`, `*.duckdb`) e **não** vai no deploy
+da Vercel (o `.vercelignore` só reabre `data/sample/raio_x_publico.duckdb`): para subir a base nacional, MOVA-a (não copie: o `deploy-check` reprova um segundo `.duckdb` na árvore) para esse caminho depois de
+tirar a da amostra do lugar. `make deploy-check-nacional` confere o destino nacional (e reprova se houver outro `.duckdb` na árvore). `make sample` e `make sample-publico` não mudam
+(20 deputados de MG, teto de 145 votações e de 300 proposições).
+
+Flags da Câmara repassadas ao `CamaraSource.fetch`: `--legislatura-completa` (878 da legislatura em vez dos 513 em exercício),
+`--fonte-votos {api,dump}`, `--reusar-dumps` e `--retomar`/`--sem-retomar` (padrão: retomar o checkpoint; vale também para as
+proposições). No modo nacional as proposições são pedidas pela janela inteira, sem filtrar por autor (o `fetch_proposicoes` sem
+`deputado_ids`); só ficam proposição e autoria de deputado conhecido.
+
+### Quem entra: a lista de deputados conhecidos
+
+Sem escopo (`--nacional` ou uma rodada sem `--uf`/`--amostra`), o pipeline só grava voto, autoria e despesa de quem está entre os deputados
+conhecidos. Antes, voto de quem não está na lista (ex-deputado, suplente que já saiu; o dump de votos traz todo mundo que votou na janela)
+virava fato órfão e podia gerar achado sobre quem não tem ficha. O filtro vale para voto, autoria, despesa CEAP, candidatura (`_restringir`), emenda (só fica a que liga a deputado),
+links de PEP, o ranking de CNPJs da Receita (`--limite-rfb`) e `_ligar_cnpj`: todos passam por `_no_escopo`. Se o banco ainda não tem
+deputados (rodada só de CEAP, TSE, CGU ou OpenSanctions, sem a Câmara antes), nada é filtrado e o pipeline avisa no log
+(`ATENÇÃO: sem deputados no banco, nada filtrado`). Efeito: candidato que nunca foi deputado deixa de ser gravado (e, como o
+`publicar` copia a candidatura inteira da origem, de ser publicado), o que vale para a origem gerada por esta versão; uma origem
+antiga continua com o que já tinha. Com escopo (`--uf`, `--amostra`) vale o recorte de sempre. Os deletes pré-gravação do modo sem escopo não filtram por
+deputado, então rodar de novo remove o voto órfão deixado por uma rodada antiga.
+
+### `--reusar-raw` e o escopo gravado no bruto da Câmara
+
+O `fetch` grava `_escopo` no `camara_<início>_<fim>.json`: `legislatura`, `legislatura_completa`, `janela`, `fonte_votos` e `max_votacoes`
+(`None` = sem teto). Com `--reusar-raw` (ou `--detalhar-deputados`, que lê a lista de deputados do bruto), o pipeline só reaproveita o
+arquivo se ele serve ao pedido: mesma legislatura completa ou não, mesma janela, mesma fonte de votos e teto igual ou menor que o gravado
+(bruto sem teto serve a qualquer pedido; bruto de 145 votações não serve a um pedido sem teto). Se não serve, o pipeline avisa
+(`ATENÇÃO: ... não reaproveitado: <motivo>; coletando de novo`) e coleta de novo, sobrescrevendo o arquivo. Bruto de antes do registro
+(sem `_escopo`, possivelmente com a legislatura inteira) só serve à rodada de amostra, com aviso; numa rodada nacional é recusado. O
+formato do bruto ganhou só esta chave (`normalize` a ignora). Os brutos do TSE já eram por UF e conferidos por ano e UF.
+
 ## TSE, uma UF por vez
 
 Sem `--uf` nem `--amostra`, `_passo_tse` usa `TseSource.fetch_por_uf` em vez de `fetch(uf=None)`
@@ -65,5 +105,15 @@ vez) e vale no lugar de `--ano`. `relatorio["ceap"]["por_ano"]` traz a contagem 
   230 a 281 mil linhas. Cabe numa máquina comum e no runner do GitHub (16 GB); se for um limite,
   o próximo passo é normalizar e gravar por lote de deputados (linhas idênticas ficam juntas
   porque têm o mesmo `idDeputado`, então o sufixo `-2`, `-3` da chave continua correto).
-- `scripts/verifica.py` compara com **um** zip (`Ano-*.json.zip`); com vários anos no banco ele
-  precisa somar os anos antes de conferir o total por deputado (fora desta mudança).
+- `scripts/verifica.py` soma, por deputado, os zips `data/raw/ceap/Ano-*.json.zip` antes de conferir o total com o banco (cada
+  zip é uma partição das despesas). O padrão são os zips **efetivamente ingeridos**: o banco não guarda de que zip veio cada
+  despesa (e uma nota de dez/2023 vem no zip de 2024), então o `verifica` procura o maior conjunto de zips cuja soma fecha
+  com o banco. Dois casos que a busca não distingue sozinha: (1) um zip **sobrando** em disco (nunca ingerido) e (2) um **ano que
+  deveria ter entrado e não entrou** no banco. Nos dois o zip fica de fora da soma e vira uma linha "não verificado" ("não fecha com o
+  banco; confirme com --anos-ceap"): não reprova, mas o relatório deixa de dizer que tudo foi conferido. Quem sabe quais anos ingeriu
+  resolve com `--anos-ceap`, que fixa os anos (sem busca): com um ano que falta no banco, ele DIVERGE. Se nenhum conjunto fecha, soma
+  todos e a divergência aparece. Zip ilegível ou de ano pedido e ausente é "não verificado", nunca "ok". A busca testa todos os
+  subconjuntos, por isso só roda até 10 zips em disco (acima disso soma todos).
+  Base nacional: `make verifica-nacional` (equivale a `RAIO_X_DB=$ORIGEM_NACIONAL python -m scripts.verifica --anos-ceap $(ANOS_CEAP)`,
+  relatório em `data/nacional/verificacao.md`, sem tocar no `docs/relatorio/verificacao.md` da amostra). Na mão, `make verifica` precisa de
+  `RAIO_X_DB=$ORIGEM_NACIONAL`, senão confere a amostra.

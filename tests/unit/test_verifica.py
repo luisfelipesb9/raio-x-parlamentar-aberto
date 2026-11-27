@@ -196,6 +196,141 @@ def test_ceap_sem_zip_vira_aviso_e_nao_aprova_em_silencio(ambiente):
     assert r.nao_verificados >= 1
 
 
+# --------------------------------------------------------------------------- CEAP de vários anos
+def _linhas_2023():
+    base = {"ano": 2023, "mes": 5, "descricao": "COMBUSTÍVEL", "dataEmissao": "2023-05-10T00:00:00",
+            "fornecedor": "Posto", "cnpjCPF": "11.222.333/0001-81", "parcela": 0, "lote": 1}
+    return [{**base, "idDeputado": 1, "idDocumento": 31, "numero": "x", "valorLiquido": 40.0},
+            {**base, "idDeputado": 1, "idDocumento": 32, "numero": "y", "valorLiquido": 60.5},
+            {**base, "idDeputado": 2, "idDocumento": 33, "numero": "z", "valorLiquido": 5.0}]
+
+
+def _zip_ano(raw: Path, ano: int, linhas: list[dict]) -> None:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr(f"Ano-{ano}.json", json.dumps({"dados": linhas}))
+    (raw / "ceap" / f"Ano-{ano}.json.zip").write_bytes(buf.getvalue())
+
+
+@pytest.fixture
+def ambiente_dois_anos(ambiente):
+    """O ambiente de sempre (CEAP 2024) mais o zip de 2023, também ingerido no banco."""
+    db, raw = ambiente
+    linhas = _linhas_2023()
+    _zip_ano(raw, 2023, linhas)
+    s = Store(db)
+    s.upsert_facts([f for f in CeapSource().normalize({"dados": linhas})])
+    s.con.close()
+    return db, raw
+
+
+def test_ceap_soma_os_zips_de_todos_os_anos_do_diretorio(ambiente_dois_anos):
+    db, raw = ambiente_dois_anos
+    linhas = {lin.item.split(" ")[0]: lin for lin in por(rodar(db, raw), "ceap")}
+    assert linhas["1"].esperado == linhas["1"].obtido == "5 despesas, R$ 350,75"  # 250,25 + 100,50
+    assert linhas["2"].esperado == linhas["2"].obtido == "2 despesas, R$ 15,00"
+    assert all(x.status == "ok" for x in linhas.values())
+
+
+def test_ceap_de_varios_anos_avisa_quais_zips_somou(ambiente_dois_anos):
+    db, raw = ambiente_dois_anos
+    r = rodar(db, raw)
+    assert any("Ano-2023.json.zip" in a and "Ano-2024.json.zip" in a for a in r.avisos)
+
+
+def test_ceap_de_um_ano_so_nao_gera_aviso_de_zips(ambiente):
+    db, raw = ambiente
+    assert not any("Ano-" in a for a in rodar(db, raw).avisos)
+
+
+def test_ceap_diverge_se_falta_no_banco_uma_despesa_de_um_dos_anos(ambiente_dois_anos):
+    db, raw = ambiente_dois_anos
+    s = Store(db)
+    s.con.execute("DELETE FROM fact WHERE tipo = 'despesa_ceap' AND json_extract_string(atributos, "
+                  "'$.data') LIKE '2023%' AND json_extract_string(atributos, '$.deputado_id') = '2'")
+    s.con.close()
+    lin = next(x for x in por(rodar(db, raw), "ceap") if x.item.startswith("2 "))
+    assert lin.status == "diverge" and "1 despesas" in lin.obtido and "2 despesas" in lin.esperado
+
+
+def test_ceap_zip_de_um_ano_ilegivel_e_nao_verificado_e_nao_aprova(ambiente_dois_anos):
+    db, raw = ambiente_dois_anos
+    (raw / "ceap" / "Ano-2023.json.zip").write_bytes(b"isto nao e um zip")
+    [lin] = por(rodar(db, raw), "ceap")
+    assert lin.status == "nao_verificado" and "Ano-2023.json.zip" in lin.item
+
+
+def test_ceap_anos_restringe_os_zips_conferidos(ambiente_dois_anos):
+    db, raw = ambiente_dois_anos
+    _zip_ano(raw, 2020, [{**_linhas_2023()[0], "ano": 2020, "idDocumento": 77}])  # zip velho, fora do banco
+    ok = por(rodar(db, raw, anos_ceap=(2023, 2024)), "ceap")
+    assert ok and all(x.status == "ok" for x in ok)
+    forcado = por(rodar(db, raw, anos_ceap=(2020, 2024)), "ceap")  # o usuário manda: vale o que pediu
+    assert any(x.status == "diverge" for x in forcado)
+
+
+def test_banco_so_com_2024_e_zips_2023_e_2024_em_disco_confere_sem_divergir(ambiente):
+    """O padrão são os anos efetivamente ingeridos: o zip de 2023 sobrando não reprova, mas também
+    não fica como se estivesse conferido."""
+    db, raw = ambiente
+    _zip_ano(raw, 2023, _linhas_2023())  # não foi ingerido neste banco
+    r = rodar(db, raw)
+    deputados = [x for x in por(r, "ceap") if x.item[0].isdigit()]
+    assert deputados and all(x.status == "ok" for x in deputados) and r.divergencias == 0
+    [zip_sobrando] = [x for x in por(r, "ceap") if x.item == "Ano-2023.json.zip"]
+    assert zip_sobrando.status == "nao_verificado"
+    assert "não fecha com o banco" in zip_sobrando.detalhe and "--anos-ceap" in zip_sobrando.detalhe
+    assert r.nao_verificados >= 1
+    assert any("Ano-2023.json.zip" in a and "ignorado" in a for a in r.avisos)
+
+
+def test_ano_que_faltou_entrar_no_banco_nao_passa_como_ok(ambiente):
+    """Banco com 2023, zip de 2024 íntegro em disco que não foi ingerido: o 2024 sai como não
+    verificado, e o relatório não diz que tudo foi conferido."""
+    db, raw = ambiente
+    _zip_ano(raw, 2023, _linhas_2023())
+    s = Store(db)
+    s.con.execute("DELETE FROM fact WHERE tipo = 'despesa_ceap'")  # o banco só tem 2023
+    s.upsert_facts(CeapSource().normalize({"dados": _linhas_2023()}))
+    s.con.close()
+    r = rodar(db, raw)
+    assert r.divergencias == 0
+    [faltou] = [x for x in por(r, "ceap") if x.item == "Ano-2024.json.zip"]
+    assert faltou.status == "nao_verificado" and "--anos-ceap" in faltou.detalhe
+    assert "Ano-2024.json.zip" in verifica.renderizar_md(r).split("## Não verificado")[1]
+
+
+def test_zip_sobrando_nao_mascara_despesa_que_falta_no_banco(ambiente):
+    db, raw = ambiente
+    _zip_ano(raw, 2023, _linhas_2023())
+    s = Store(db)
+    s.con.execute("DELETE FROM fact WHERE chave IN (SELECT chave FROM fact WHERE tipo = 'despesa_ceap' "
+                  "AND json_extract_string(atributos, '$.deputado_id') = '1' LIMIT 1)")
+    s.con.close()
+    assert any(x.status == "diverge" for x in por(rodar(db, raw), "ceap"))
+
+
+def test_ceap_anos_com_zip_ausente_e_nao_verificado(ambiente):
+    db, raw = ambiente
+    [lin] = por(rodar(db, raw, anos_ceap=(2023, 2024)), "ceap")
+    assert lin.status == "nao_verificado" and "2023" in lin.detalhe
+
+
+def test_cli_anos_ceap_e_repassado(ambiente_dois_anos, tmp_path):
+    db, raw = ambiente_dois_anos
+    _zip_ano(raw, 2020, [{**_linhas_2023()[0], "ano": 2020, "idDocumento": 77}])
+    args = ["--db", str(db), "--raw", str(raw), "--gerar-manifesto", "--saida", str(tmp_path / "v.md")]
+    assert verifica.main(args) == 0  # padrão: os anos ingeridos
+    assert verifica.main([*args, "--anos-ceap", "2023,2024"]) == 0
+    assert verifica.main([*args, "--anos-ceap", "2020,2024"]) == 1
+
+
+def test_cli_anos_ceap_invalido_e_erro_claro(ambiente, tmp_path):
+    db, raw = ambiente
+    with pytest.raises(SystemExit):
+        verifica.main(["--db", str(db), "--raw", str(raw), "--anos-ceap", "24"])
+
+
 # --------------------------------------------------------------------------- manifesto
 def test_sem_manifesto_vira_uma_linha_nao_verificado_e_nao_reprova(ambiente):
     db, raw = ambiente

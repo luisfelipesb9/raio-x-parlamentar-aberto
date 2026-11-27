@@ -22,6 +22,7 @@ cd web && pnpm install && pnpm dev                     # web em http://localhost
 | Regras R01–R09 e R06b | prontas (R09 só no regressivo) |
 | graph/ (projeção, subgrafo, backlinks, afinidade de votos) | pronto |
 | api/ (endpoints GET somente leitura, ver `api/README.md`; RFC 7807, cache por impressão digital do banco) | pronto |
+| Pipeline nacional (`--nacional`, `make ingest-nacional`/`publicar-nacional`): flags da Câmara, escopo gravado no bruto, `verifica` com CEAP de vários anos | implementado e testado **sem rede**; **nenhuma rodada nacional real foi executada**, então tempo, memória e tamanho do arquivo continuam não medidos (ADR-011, critérios de aceite) |
 | DB de amostra (`data/sample/raio_x_sample.duckdb`) | pronto, gerado por `make sample` |
 | web/ (ficha, grafo Cytoscape, perguntar/comparar, glossário) | **pronto**: rotas em `web/src/app` (busca, ficha, grafo, perguntar, comparar, glossário, fontes); lint/test/build e e2e Playwright em desktop e 375px; identidade visual "raio-x" em `web/DESIGN.md` |
 | Relatório e roteiro de apresentação | `docs/relatorio/` (este commit) |
@@ -39,6 +40,13 @@ cd web && pnpm install && pnpm dev                     # web em http://localhost
    `verifica` roda só na origem pseudonimizada. Falta fazê-lo, no público, conferir que findings, contagens (`publicacao_meta`) e ausência de
    CPF batem com a origem (hash `origem_sha256` já está registrado). Também pendente: repetir o teste de escala com dados nacionais reais
    (`docs/ampliacao/medicoes.md`, seção 5, é sintético).
+
+8. **Ingest nacional (Onda 4)**: falta rodar `make ingest-nacional` com a rede e o sal reais, depois `make publicar-nacional`, `make verifica-nacional`
+   (`RAIO_X_DB=$ORIGEM_NACIONAL` e `--anos-ceap $(ANOS_CEAP)`; zip de CEAP que não fecha com o banco, seja sobra em disco ou ano que não entrou, sai "não verificado"),
+   `make deploy-check-nacional` (o arquivo nacional, em `data/nacional/`, tem de ser MOVIDO para `data/sample/raio_x_publico.duckdb` para ir à Vercel) e medir o que o ADR-011 pede (arquivo público, pico de RAM da API, partida a frio).
+   Variáveis: `ORIGEM_NACIONAL`, `DESTINO_NACIONAL`, `RELATORIO_NACIONAL`, `ANOS_CEAP`, `JANELA_*`, `FONTE_VOTOS`, `LIMITE_RFB`. Decisões ainda abertas: janela de votos e anos de CEAP padrão do Makefile (`JANELA_*`, `ANOS_CEAP`) são valores de configuração, não medidos;
+   proposições nacionais pedem a janela inteira sem filtro de autor (custo não medido); `--limite-rfb` segue o padrão de 50 (BrasilAPI, um CNPJ por vez).
+   Detalhes: `docs/ampliacao/ingest-nacional.md`.
 
 ## Resultados na amostra (40 findings no relatório; 38 na base publicada em 26/11/2026)
 Nota: a base publicada em 26/11/2026 foi recoletada (CEAP, CGU e OpenSanctions baixados de novo) e deu 38 findings (R01 14, R03 2, R04 3, R05 10, R07 9); `make verifica` confere 44 de 44 contra o bruto. Os números abaixo são os do relatório (coleta anterior).

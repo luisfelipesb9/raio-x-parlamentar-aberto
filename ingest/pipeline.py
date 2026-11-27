@@ -39,7 +39,10 @@ from ingest.resolve import (
 from ingest.resolve.comum import cnpj_valido, deputados_unicos
 from repo.store import Store
 from sources import REGISTRY
+from sources.camara.escopo import avaliar_reuso, escopo_da_coleta
+from sources.camara.source import FONTES_VOTOS
 
+FONTES_QUE_FILTRAM = ("ceap", "cgu", "tse", "opensanctions")  # só gravam o que é de deputado conhecido
 ORDEM = ("camara", "ceap", "cgu", "tse", "opensanctions", "rfb")  # ordem de execução fixa
 
 
@@ -136,6 +139,12 @@ class Opcoes:
     siglas_proposicoes: tuple[str, ...] = ("PL", "PEC", "PLP")
     pseudonimizar: bool = False  # HMAC do CPF de terceiros (precisa de RAIO_X_ID_SALT)
     fixture: str | None = None  # JSON bruto da Câmara em vez de baixar
+    # Câmara: o que `CamaraSource.fetch` aceita (ver sources/camara/README.md)
+    legislatura_completa: bool = False  # 878 da legislatura em vez dos 513 em exercício
+    fonte_votos: str = "api"  # "api" ou "dump" (CSV anual oficial; para mais de um trimestre)
+    reusar_dumps: bool = False  # o dump muda todo dia: só é reaproveitado do disco se pedido
+    retomar: bool = True  # retoma o checkpoint de uma coleta que caiu
+    nacional: bool = False  # todos os deputados em exercício (a CLI também tira os tetos)
 
 
 @dataclass
@@ -147,12 +156,22 @@ class Pipeline:
     log: Callable[[str], None] = print
     todos_deputados: list[Fact] = field(default_factory=list)
     escopo: set[str] | None = None
+    # ids dos deputados conhecidos. Sem escopo (modo nacional ou rodada sem --uf/--amostra) é ele que
+    # decide quem entra: voto de quem não está na lista (ex-deputado, suplente que saiu) não vira fato
+    # órfão, que inflaria os achados.
+    universo: set[str] = field(default_factory=set)
     relatorio: dict[str, Any] = field(default_factory=dict)
     salt: str | None = None
 
     # ----- orquestração -----
 
     def executar(self) -> dict[str, Any]:
+        if self.opcoes.nacional and (self.opcoes.uf or self.opcoes.amostra):
+            raise ValueError("modo nacional não combina com --uf/--amostra: ele cobre todos os "
+                             "deputados em exercício")
+        if self.opcoes.fonte_votos not in FONTES_VOTOS:
+            raise ValueError(f"fonte_votos deve ser um de {FONTES_VOTOS}, "
+                             f"recebi {self.opcoes.fonte_votos!r}")
         desconhecidas = [f for f in self.opcoes.fontes if f not in self.registry]
         if desconhecidas:
             raise ValueError(f"fonte desconhecida: {desconhecidas} (use {sorted(self.registry)})")
@@ -168,6 +187,9 @@ class Pipeline:
         for nome in ORDEM:
             if nome in self.opcoes.fontes:
                 self.log(f"[{nome}] ...")
+                if nome in FONTES_QUE_FILTRAM and self.escopo is None and not self.universo:
+                    self.log("    ATENÇÃO: sem deputados no banco, nada filtrado (rode a fonte camara "
+                             "antes para só gravar o que é de deputado)")
                 getattr(self, f"_passo_{nome}")()
         if {"ceap", "cgu", "rfb"} & set(self.opcoes.fontes):
             self._ligar_cnpj()
@@ -179,9 +201,12 @@ class Pipeline:
     def _deputados_do_banco(self) -> None:
         self.todos_deputados = list(deputados_unicos(self.store.facts_by_tipo("deputado")).values())
         self.escopo = selecionar_escopo(self.todos_deputados, self.opcoes.uf, self.opcoes.amostra)
+        self.universo = {d.chave for d in self.todos_deputados}
 
     def _no_escopo(self, dep_id: Any) -> bool:
-        return self.escopo is None or str(dep_id) in self.escopo
+        if self.escopo is not None:
+            return str(dep_id) in self.escopo
+        return not self.universo or str(dep_id) in self.universo  # sem deputados conhecidos: tudo
 
     def _ufs_do_escopo(self) -> list[str | None]:
         if self.opcoes.uf:
@@ -208,15 +233,17 @@ class Pipeline:
         self.log(f"    {n} fatos gravados, {len(res.links) if res else 0} links")
 
     def _restringir(self, res: Resolucao, tipo: str) -> tuple[list[Fact], Resolucao]:
-        """No modo escopo, só ficam fatos ligados a deputado do escopo (e seus links)."""
-        if self.escopo is None:
+        """Só ficam fatos ligados a deputado do escopo (e seus links). Sem escopo vale a lista de
+        deputados conhecidos: candidato ou autor de emenda que não é deputado não é gravado (sem
+        deputados conhecidos, nada é filtrado)."""
+        if self.escopo is None and not self.universo:
             return res.fatos, res
         fatos = [f for f in res.fatos if self._no_escopo(f.atributos.get("deputado_id"))
                  and f.atributos.get("deputado_id")]
         ficam = {f"{tipo}:{f.chave}" for f in fatos}
         links = [lk for lk in res.links if lk.origem in ficam
-                 and lk.destino.removeprefix("deputado:") in self.escopo]
-        amb = [a for a in res.ambiguos if any(c.removeprefix("deputado:") in self.escopo
+                 and self._no_escopo(lk.destino.removeprefix("deputado:"))]
+        amb = [a for a in res.ambiguos if any(self._no_escopo(c.removeprefix("deputado:"))
                                               for c in a.candidatos)]
         return fatos, Resolucao(fatos=fatos, links=links, ambiguos=amb)
 
@@ -230,6 +257,7 @@ class Pipeline:
         self.todos_deputados = list(deputados_unicos(
             [f for f in fatos if f.tipo == "deputado"]).values())
         self.escopo = selecionar_escopo(self.todos_deputados, o.uf, o.amostra)
+        self.universo = {d.chave for d in self.todos_deputados}
         ficam = [f for f in fatos if f.tipo == "votacao"] + \
                 [f for f in self.todos_deputados if self._no_escopo(f.chave)] + \
                 [f for f in fatos if f.tipo in ("voto", "autoria")
@@ -252,9 +280,10 @@ class Pipeline:
         de deputado do escopo, e a proposição que tem ao menos uma delas."""
         o = self.opcoes
         ids = None if self.escopo is None else sorted(self.escopo, key=lambda x: (len(x), x))
-        raw = src.fetch_proposicoes(o.janela_inicio, o.janela_fim, deputado_ids=ids,
-                                    siglas_tipo=o.siglas_proposicoes,
-                                    max_proposicoes=o.max_proposicoes)
+        pedido = {"data_inicio": o.janela_inicio, "data_fim": o.janela_fim, "deputado_ids": ids,
+                  "siglas_tipo": o.siglas_proposicoes, "max_proposicoes": o.max_proposicoes,
+                  "retomar": o.retomar}
+        raw = src.fetch_proposicoes(**montar_kwargs(src.fetch_proposicoes, pedido))
         fatos = src.normalize({"proposicoes": raw.get("proposicoes", [])})
         autorias = [f for f in fatos if f.tipo == "autoria"
                     and self._no_escopo(f.atributos.get("deputado_id"))]
@@ -275,6 +304,7 @@ class Pipeline:
         alvo = src.raw_path(f"camara_{o.janela_inicio}_{o.janela_fim}.json")
         cache = (json.loads(alvo.read_text(encoding="utf-8"))
                  if alvo.exists() and (o.reusar_raw or o.detalhar_deputados) else None)
+        cache = self._cache_do_escopo(cache, alvo.name)
         extra: dict[str, Any] = {}
         if o.detalhar_deputados:
             self._exigir_detalhamento(src)
@@ -285,7 +315,32 @@ class Pipeline:
                 cache["votacoes"] = cache.get("votacoes", [])[:o.max_votacoes]
             return cache
         return chamar_fetch(src, data_inicio=o.janela_inicio, data_fim=o.janela_fim,
-                            max_votacoes=o.max_votacoes, **extra)
+                            max_votacoes=o.max_votacoes, **self._opcoes_camara(), **extra)
+
+    def _opcoes_camara(self) -> dict[str, Any]:
+        o = self.opcoes
+        return {"legislatura_completa": o.legislatura_completa, "fonte_votos": o.fonte_votos,
+                "reusar_dumps": o.reusar_dumps, "retomar": o.retomar}
+
+    def _cache_do_escopo(self, cache: dict | None, nome: str) -> dict | None:
+        """O bruto em disco só vale se o escopo gravado nele (legislatura, janela, fonte e teto de
+        votações) serve ao pedido; senão é ignorado e a coleta refeita, COM aviso. Bruto sem registro
+        de escopo (de antes dele existir) só serve à rodada de amostra."""
+        if cache is None:
+            return None
+        o = self.opcoes
+        pedido = escopo_da_coleta(legislatura_completa=o.legislatura_completa,
+                                  janela_inicio=o.janela_inicio, janela_fim=o.janela_fim,
+                                  fonte_votos=o.fonte_votos, max_votacoes=o.max_votacoes)
+        pode, msg = avaliar_reuso(cache.get("_escopo"), pedido,
+                                  estrito=o.nacional or not (o.uf or o.amostra))
+        if not pode:
+            if o.reusar_raw:  # sem --reusar-raw ninguém esperava reaproveitar
+                self.log(f"    ATENÇÃO: {nome} não reaproveitado: {msg}; coletando de novo")
+            return None
+        if msg and o.reusar_raw:
+            self.log(f"    ATENÇÃO: {nome}: {msg}")
+        return cache
 
     @staticmethod
     def _exigir_detalhamento(src: Any) -> None:
@@ -303,7 +358,7 @@ class Pipeline:
             return True
         if cache is None:
             cache = chamar_fetch(src, data_inicio=o.janela_inicio, data_fim=o.janela_fim,
-                                 max_votacoes=0)
+                                 max_votacoes=0, **self._opcoes_camara())
         deputados = [f for f in src.normalize({"deputados": cache.get("deputados", [])})
                      if f.tipo == "deputado"]
         escopo = selecionar_escopo(deputados, o.uf, o.amostra) or set()
@@ -420,7 +475,9 @@ class Pipeline:
         sqs = {f.chave for f in ficam if f.atributos.get("deputado_id")}
         self.store.delete_facts("candidatura", fonte=cand_raw[0].fonte if cand_raw else None,
                                 onde={"ano": [o.ano_eleicao], **({"uf": [uf]} if uf else {})})
-        self._gravar(ficam, res_c, origens=[f"candidatura:{f.chave}" for f in ficam])
+        # todos os candidatos lidos (não só os mantidos): link e ambiguidade de quem deixou de ser
+        # mantido também são limpos
+        self._gravar(ficam, res_c, origens=[f"candidatura:{f.chave}" for f in cand_raw])
         contagem["gravadas"] += len(ficam)
 
         todos_sq = [f.chave for f in cand_raw]
@@ -462,8 +519,8 @@ class Pipeline:
         ficam = [f for f in peps if f"pep:{f.chave}" in ligados]
         links = [lk for lk in res.links if lk.origem in ligados
                  and self._no_escopo(lk.destino.removeprefix("deputado:"))]
-        amb = [a for a in res.ambiguos if self.escopo is None or any(
-            c.removeprefix("deputado:") in self.escopo for c in a.candidatos)]
+        amb = [a for a in res.ambiguos if any(
+            self._no_escopo(c.removeprefix("deputado:")) for c in a.candidatos)]
         self._gravar(ficam, Resolucao(links=links, ambiguos=amb), origens=sorted(ligados))
         self.relatorio["opensanctions"] = {"peps_lidos": len(peps), **res.resumo(),
                                            "gravados": len(ficam)}
@@ -532,7 +589,7 @@ def _lista_de_anos(texto: str) -> tuple[int, ...]:
     return tuple(dict.fromkeys(int(p) for p in partes))
 
 
-def main(argv: list[str] | None = None) -> None:
+def _parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--fontes", "--fonte", default="camara",
                     help=f"lista separada por vírgula de: {','.join(ORDEM)}")
@@ -543,35 +600,69 @@ def main(argv: list[str] | None = None) -> None:
                          "vale no lugar de --ano)")
     ap.add_argument("--ano-eleicao", type=int, default=2022)
     ap.add_argument("--amostra", type=int, help="só os N primeiros deputados (da UF, se dada)")
+    ap.add_argument("--nacional", action="store_true",
+                    help="todos os deputados em exercício: sem --uf/--amostra e, salvo se dados, sem "
+                         "teto de votações (--max-votacoes) nem de proposições (--max-proposicoes)")
     ap.add_argument("--limite-rfb", type=int, default=50, help="máx. de CNPJs consultados (0=nenhum)")
-    ap.add_argument("--max-votacoes", type=int, default=30)
+    ap.add_argument("--max-votacoes", type=int, default=None,
+                    help="teto de votações da janela toda (padrão: 30; sem teto com --nacional)")
     ap.add_argument("--janela-inicio", default="2025-01-01")
     ap.add_argument("--janela-fim", default="2025-03-31")
+    ap.add_argument("--legislatura-completa", action="store_true",
+                    help="os 878 deputados da legislatura (com suplentes) em vez dos 513 em exercício")
+    ap.add_argument("--fonte-votos", choices=FONTES_VOTOS, default="api",
+                    help="de onde vêm os votos: api (2 chamadas por votação) ou dump (CSV anual "
+                         "oficial; recomendado para mais de um trimestre)")
+    ap.add_argument("--reusar-dumps", action="store_true",
+                    help="reaproveita os CSV de data/raw/camara/dumps/ (o dump muda todo dia)")
+    ap.add_argument("--retomar", dest="retomar", action="store_true", default=True,
+                    help="retoma o checkpoint de uma coleta da Câmara que caiu (padrão)")
+    ap.add_argument("--sem-retomar", dest="retomar", action="store_false",
+                    help="ignora o checkpoint e refaz a coleta da Câmara do zero")
     ap.add_argument("--max-pep", type=int, help="limita entidades lidas do OpenSanctions (teste)")
     ap.add_argument("--reusar-raw", action="store_true",
                     help="usa o bruto já baixado em vez de baixar de novo: Câmara (data/raw/camara/), "
-                         "TSE por UF (data/raw/tse/) e Receita por CNPJ (data/raw/rfb/)")
+                         "TSE por UF (data/raw/tse/) e Receita por CNPJ (data/raw/rfb/). O bruto da "
+                         "Câmara só é reaproveitado se o escopo gravado nele (legislatura, fonte e "
+                         "janela de votos) servir ao pedido")
     ap.add_argument("--detalhar-deputados", action="store_true",
                     help="GET /deputados/{id} (cpf, nome civil) só dos deputados do escopo")
     ap.add_argument("--incluir-proposicoes", action="store_true",
                     help="coleta proposicao/autoria (PL, PEC, PLP) dos deputados do escopo")
-    ap.add_argument("--max-proposicoes", type=int, default=300,
-                    help="teto de proposições (2 chamadas cada); padrão 300")
+    ap.add_argument("--max-proposicoes", type=int, default=None,
+                    help="teto de proposições (2 chamadas cada); padrão 300; sem teto com --nacional")
     ap.add_argument("--pseudonimizar", action="store_true",
                     help="troca o CPF íntegro de terceiros por HMAC-SHA256 (sal em $RAIO_X_ID_SALT)")
     ap.add_argument("--fixture", help="JSON bruto local da Câmara em vez de baixar")
     ap.add_argument("--db", help="arquivo DuckDB (padrão: $RAIO_X_DB ou data/raio_x.duckdb)")
+    return ap
+
+
+def opcoes_da_cli(argv: list[str] | None = None) -> tuple[Opcoes, str | None]:
+    """(Opcoes, caminho do banco) da linha de comando. O modo amostra mantém os tetos de sempre
+    (30 votações, 300 proposições); `--nacional` os tira, a não ser que sejam dados."""
+    ap = _parser()
     a = ap.parse_args(argv)
+    if a.nacional and (a.uf or a.amostra):
+        ap.error("--nacional não combina com --uf/--amostra (cobre todos os deputados em exercício)")
+    max_votacoes = a.max_votacoes if a.max_votacoes is not None else (None if a.nacional else 30)
+    max_prop = a.max_proposicoes if a.max_proposicoes is not None else (None if a.nacional else 300)
     fontes = tuple(f.strip() for f in a.fontes.split(",") if f.strip())
     op = Opcoes(fontes=fontes, uf=a.uf, ano=a.ano, anos_ceap=a.anos_ceap,
                 ano_eleicao=a.ano_eleicao, amostra=a.amostra,
-                limite_rfb=a.limite_rfb, max_votacoes=a.max_votacoes,
+                limite_rfb=a.limite_rfb, max_votacoes=max_votacoes,
                 janela_inicio=a.janela_inicio, janela_fim=a.janela_fim, max_pep=a.max_pep,
                 reusar_raw=a.reusar_raw, detalhar_deputados=a.detalhar_deputados,
-                incluir_proposicoes=a.incluir_proposicoes, max_proposicoes=a.max_proposicoes,
-                pseudonimizar=a.pseudonimizar,
-                fixture=a.fixture)
-    rel = Pipeline(Store(a.db), op).executar()
+                incluir_proposicoes=a.incluir_proposicoes, max_proposicoes=max_prop,
+                pseudonimizar=a.pseudonimizar, fixture=a.fixture,
+                legislatura_completa=a.legislatura_completa, fonte_votos=a.fonte_votos,
+                reusar_dumps=a.reusar_dumps, retomar=a.retomar, nacional=a.nacional)
+    return op, a.db
+
+
+def main(argv: list[str] | None = None) -> None:
+    op, db = opcoes_da_cli(argv)
+    rel = Pipeline(Store(db), op).executar()
     print(json.dumps(rel, ensure_ascii=False, indent=2))
 
 
