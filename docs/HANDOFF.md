@@ -35,6 +35,10 @@ cd web && pnpm install && pnpm dev                     # web em http://localhost
 5. Validação com leigos (plano, passo 9): não feita. Comparação externa: parcial, só a R01
    (`docs/relatorio/comparacao-externa.md`).
 6. Fato `processo` (guardrail R08) ainda sem fonte: o guardrail existe, mas nenhum plugin produz `processo`.
+7. **Pendência da ADR-011, não implementada:** `make verifica` no banco público enxuto. O banco público não tem as despesas cruas, então
+   `verifica` roda só na origem pseudonimizada. Falta fazê-lo, no público, conferir que findings, contagens (`publicacao_meta`) e ausência de
+   CPF batem com a origem (hash `origem_sha256` já está registrado). Também pendente: repetir o teste de escala com dados nacionais reais
+   (`docs/ampliacao/medicoes.md`, seção 5, é sintético).
 
 ## Resultados na amostra (40 findings no relatório; 38 na base publicada em 26/11/2026)
 Nota: a base publicada em 26/11/2026 foi recoletada (CEAP, CGU e OpenSanctions baixados de novo) e deu 38 findings (R01 14, R03 2, R04 3, R05 10, R07 9); `make verifica` confere 44 de 44 contra o bruto. Os números abaixo são os do relatório (coleta anterior).

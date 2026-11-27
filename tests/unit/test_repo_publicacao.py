@@ -186,3 +186,38 @@ def test_voto_de_votacao_simbolica_nao_vai_para_o_arquivo_publico(tmp_path):
     # (votação ausente) fica, como em `Store.contagem_votos`
     assert sorted(f.chave for f in pub.facts_by_tipo("voto")) == ["nom:1", "orfao:1"]
     pub.con.close()
+
+
+# ---------- leituras por deputado (API sob demanda) ----------
+def test_votos_do_deputado_traz_so_os_dele_como_fatos_completos(store):
+    store.upsert_facts([
+        F("voto", "v1:1", votacao_id="v1", deputado_id="1", voto="Sim"),
+        F("voto", "v1:2", votacao_id="v1", deputado_id="2", voto="Não"),
+        F("voto", "v2:1", votacao_id="v2", deputado_id="1", voto="Não"),
+        F("votacao", "v1", nominal=True)])
+    votos = store.votos_do_deputado("1")
+    assert [(f.chave, f.atributos["voto"]) for f in votos] == [("v1:1", "Sim"), ("v2:1", "Não")]
+    assert store.votos_do_deputado("999") == []
+
+
+def test_fatos_leves_acham_pelo_par_tipo_id_oficial_sem_atributos(store):
+    store.upsert_facts([F("despesa_ceap", "c1", valor=10), F("despesa_ceap", "c2", valor=20),
+                        F("emenda", "c1", valor=30)])
+    achados = store.fatos_leves({("despesa_ceap", "c1"), ("emenda", "c1"), ("emenda", "zzz")})
+    assert sorted((f.tipo, f.id_oficial) for f in achados) == [("despesa_ceap", "c1"), ("emenda", "c1")]
+    assert all(f.atributos == {} and f.fonte == "teste" and f.coletado_em for f in achados)
+    assert store.fatos_leves(set()) == []
+
+
+def test_fatos_leves_com_muitos_pares_usa_lotes(store):
+    store.upsert_facts([F("despesa_ceap", f"c{i}") for i in range(1200)])
+    achados = store.fatos_leves({("despesa_ceap", f"c{i}") for i in range(0, 1200, 2)})
+    assert len(achados) == 600
+
+
+def test_fatos_leves_voltam_em_ordem_deterministica(store):
+    store.upsert_facts([F("emenda", "b"), F("despesa_ceap", "z"), F("despesa_ceap", "a"),
+                        F("emenda", "a")])
+    pares = {("emenda", "a"), ("emenda", "b"), ("despesa_ceap", "z"), ("despesa_ceap", "a")}
+    ordem = [(f.tipo, f.chave) for f in store.fatos_leves(pares)]
+    assert ordem == [("despesa_ceap", "a"), ("despesa_ceap", "z"), ("emenda", "a"), ("emenda", "b")]

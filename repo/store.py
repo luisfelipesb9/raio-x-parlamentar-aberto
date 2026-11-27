@@ -414,3 +414,32 @@ class Store:
             return False
         return bool(self.con.execute("SELECT count(*) FROM publicacao_meta WHERE chave = ?",
                                      [CHAVE_PUBLICADO]).fetchone()[0])
+
+    # ---------- leituras por deputado (API sob demanda, ADR-011) ----------
+
+    def votos_do_deputado(self, deputado_id: str) -> list[Fact]:
+        """Fatos `voto` de um deputado (a API não carrega os votos de todos)."""
+        rows = self.con.execute(
+            "SELECT tipo, chave, atributos, fonte, id_oficial, url, coletado_em FROM fact "
+            "WHERE tipo = 'voto' AND json_extract_string(atributos, '$.deputado_id') = ? "
+            "ORDER BY chave", [str(deputado_id)]).fetchall()
+        return [self._fato(r) for r in rows]
+
+    def fatos_leves(self, pares: Collection[tuple[str, str]], lote: int = 500) -> list[Fact]:
+        """Fatos cujo par (tipo, id_oficial) está em `pares`, SEM `atributos`: só o que a proveniência
+        das evidências usa (`fonte`, `coletado_em`). Todos os fatos que repetem o par voltam, como em
+        `engine.proveniencia.indexar`."""
+        por_tipo: dict[str, list[str]] = {}
+        for tipo, id_oficial in pares:
+            por_tipo.setdefault(tipo, []).append(id_oficial)
+        saida: list[Fact] = []
+        for tipo in sorted(por_tipo):
+            ids = sorted(set(por_tipo[tipo]))
+            for i in range(0, len(ids), lote):
+                parte = ids[i:i + lote]
+                rows = self.con.execute(
+                    "SELECT tipo, chave, fonte, id_oficial, url, coletado_em FROM fact WHERE tipo = ? "
+                    f"AND id_oficial IN ({','.join('?' * len(parte))}) ORDER BY chave", [tipo, *parte]).fetchall()
+                saida += [Fact(tipo=r[0], chave=r[1], atributos={}, fonte=r[2], id_oficial=r[3],
+                               url=r[4], coletado_em=r[5]) for r in rows]
+        return saida
