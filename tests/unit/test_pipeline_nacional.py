@@ -4,6 +4,8 @@ Sem rede: a fonte da Câmara é um dublê que só registra o que recebeu.
 """
 from __future__ import annotations
 
+from typing import ClassVar
+
 import pytest
 
 from contracts import Fact
@@ -88,7 +90,7 @@ def _fato(tipo: str, chave: str, **atributos) -> Fact:
 
 class CamaraFalsa(Source):
     nome = "camara"
-    chamadas: list[tuple[str, dict]] = []
+    chamadas: ClassVar[list[tuple[str, dict]]] = []
 
     def fetch(self, legislatura=57, data_inicio="x", data_fim="y", max_votacoes=None,
               detalhar_deputados=False, legislatura_completa=False, retomar=True,
@@ -196,3 +198,88 @@ def test_rodada_nacional_apaga_o_voto_orfao_que_uma_rodada_antiga_deixou():
     Pipeline(store, Opcoes(fontes=("camara",), nacional=True), registry={"camara": CamaraFalsa},
              log=lambda _: None).executar()
     assert {f.atributos["deputado_id"] for f in store.facts_by_tipo("voto")} == {"1", "2"}
+
+
+# ---------- --reusar-raw confere o escopo gravado no bruto ----------
+
+JANELA = ("2025-01-01", "2025-03-31")
+
+
+@pytest.fixture
+def raw_dir(tmp_path, monkeypatch):
+    import sources.base
+    monkeypatch.setattr(sources.base, "RAW_DIR", tmp_path)
+    return tmp_path
+
+
+def _bruto_em_disco(raw_dir, escopo: dict | None) -> None:
+    import json
+    arq = raw_dir / "camara" / f"camara_{JANELA[0]}_{JANELA[1]}.json"
+    arq.parent.mkdir(parents=True)
+    bruto = {"deputados": [{"id": 1}], "votacoes": []}
+    if escopo is not None:
+        bruto["_escopo"] = escopo
+    arq.write_text(json.dumps(bruto), encoding="utf-8")
+
+
+def _escopo(**kw) -> dict:
+    return {"legislatura": 57, "legislatura_completa": False, "janela": list(JANELA),
+            "fonte_votos": "api", "max_votacoes": None, **kw}
+
+
+def _rodar_com_log(**kw):
+    linhas: list[str] = []
+    Pipeline(Store(":memory:"), Opcoes(fontes=("camara",), reusar_raw=True, **kw),
+             registry={"camara": CamaraFalsa}, log=linhas.append).executar()
+    return linhas
+
+
+def _buscou() -> bool:
+    return any(n == "fetch" for n, _ in CamaraFalsa.chamadas)
+
+
+def test_bruto_de_mesmo_escopo_e_reaproveitado(raw_dir):
+    _bruto_em_disco(raw_dir, _escopo())
+    linhas = _rodar_com_log(nacional=True, max_votacoes=None)
+    assert not _buscou() and any("reaproveitando" in ln for ln in linhas)
+
+
+def test_bruto_de_amostra_com_teto_nao_alimenta_rodada_nacional(raw_dir):
+    _bruto_em_disco(raw_dir, _escopo(max_votacoes=145))
+    linhas = _rodar_com_log(nacional=True, max_votacoes=None)
+    assert _buscou()
+    assert any("não reaproveitado" in ln and "145" in ln for ln in linhas)
+    assert not any("reaproveitando" in ln for ln in linhas)
+
+
+def test_bruto_de_outra_fonte_de_votos_nao_e_reaproveitado(raw_dir):
+    _bruto_em_disco(raw_dir, _escopo(fonte_votos="api"))
+    linhas = _rodar_com_log(nacional=True, max_votacoes=None, fonte_votos="dump")
+    assert _buscou() and any("fonte de votos" in ln for ln in linhas)
+
+
+def test_bruto_dos_513_nao_serve_a_pedido_de_legislatura_completa(raw_dir):
+    _bruto_em_disco(raw_dir, _escopo())
+    _rodar_com_log(nacional=True, max_votacoes=None, legislatura_completa=True)
+    assert _buscou()
+
+
+def test_bruto_antigo_sem_escopo_e_recusado_no_nacional_com_aviso(raw_dir):
+    _bruto_em_disco(raw_dir, None)
+    linhas = _rodar_com_log(nacional=True, max_votacoes=None)
+    assert _buscou() and any("sem registro de escopo" in ln for ln in linhas)
+
+
+def test_bruto_antigo_sem_escopo_continua_servindo_a_amostra_mas_avisa(raw_dir):
+    _bruto_em_disco(raw_dir, None)
+    linhas = _rodar_com_log(uf="MG", amostra=1)
+    assert not _buscou()
+    assert any("sem registro de escopo" in ln for ln in linhas)
+    assert any("reaproveitando" in ln for ln in linhas)
+
+
+def test_sem_reusar_raw_o_pipeline_baixa_mesmo_com_bruto_compativel(raw_dir):
+    _bruto_em_disco(raw_dir, _escopo())
+    Pipeline(Store(":memory:"), Opcoes(fontes=("camara",), nacional=True, max_votacoes=None),
+             registry={"camara": CamaraFalsa}, log=lambda _: None).executar()
+    assert _buscou()

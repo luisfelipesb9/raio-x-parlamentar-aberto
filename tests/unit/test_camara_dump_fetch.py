@@ -68,7 +68,7 @@ def test_baixa_os_tres_arquivos_do_ano_e_nao_usa_a_api_de_votacoes(raw_dir):
         "/arquivos/votacoesOrientacoes/csv/votacoesOrientacoes-2025.csv",
         "/arquivos/votacoesVotos/csv/votacoesVotos-2025.csv"]
     assert site.listagens_api() == []
-    assert set(raw) == {"deputados", "votacoes"}  # mesmo formato do bruto da API
+    assert set(raw) == {"deputados", "votacoes", "_escopo"}  # mesmo formato do bruto da API
     assert [v["id"] for v in raw["votacoes"]] == ["2458405-38", "2458405-40", "2442848-52"]
     assert len(raw["votacoes"][2]["_votos"]) == 3
 

@@ -163,13 +163,13 @@ def test_fetch_salva_bruto_em_data_raw(raw_dir):
 def test_fetch_padrao_nao_chama_proposicoes_e_opt_in_acrescenta(raw_dir):
     api = FakeApi()
     base = _fonte(api).fetch(max_votacoes=0)
-    assert set(base) == {"deputados", "votacoes"}  # comportamento anterior intacto
+    assert set(base) == {"deputados", "votacoes", "_escopo"}  # comportamento anterior intacto
     assert api.paths("/proposicoes") == []
 
     api2 = FakeApi()
     comp = _fonte(api2).fetch(max_votacoes=0, incluir_proposicoes=True,
                               data_inicio="2023-01-01", data_fim="2025-12-31")
-    assert set(comp) == {"deputados", "votacoes", "proposicoes"}
+    assert set(comp) == {"deputados", "votacoes", "proposicoes", "_escopo"}
     assert [p["id"] for p in comp["proposicoes"]] == [PEC, PL719, PL2338]
     ids = {r.url.params.get("idDeputadoAutor") for r in api2.pedidos
            if r.url.path.endswith("/proposicoes")}

@@ -39,6 +39,7 @@ from ingest.resolve import (
 from ingest.resolve.comum import cnpj_valido, deputados_unicos
 from repo.store import Store
 from sources import REGISTRY
+from sources.camara.escopo import avaliar_reuso, escopo_da_coleta
 
 FONTES_VOTOS = ("api", "dump")  # mesmas de sources.camara.source.FONTES_VOTOS
 ORDEM = ("camara", "ceap", "cgu", "tse", "opensanctions", "rfb")  # ordem de execução fixa
@@ -297,6 +298,7 @@ class Pipeline:
         alvo = src.raw_path(f"camara_{o.janela_inicio}_{o.janela_fim}.json")
         cache = (json.loads(alvo.read_text(encoding="utf-8"))
                  if alvo.exists() and (o.reusar_raw or o.detalhar_deputados) else None)
+        cache = self._cache_do_escopo(cache, alvo.name)
         extra: dict[str, Any] = {}
         if o.detalhar_deputados:
             self._exigir_detalhamento(src)
@@ -313,6 +315,25 @@ class Pipeline:
         o = self.opcoes
         return {"legislatura_completa": o.legislatura_completa, "fonte_votos": o.fonte_votos,
                 "reusar_dumps": o.reusar_dumps, "retomar": o.retomar}
+
+    def _cache_do_escopo(self, cache: dict | None, nome: str) -> dict | None:
+        """O bruto em disco só vale se o escopo gravado nele (legislatura, janela, fonte e teto de
+        votações) serve ao pedido; senão é ignorado e a coleta refeita, COM aviso. Bruto sem registro
+        de escopo (de antes dele existir) só serve à rodada de amostra."""
+        if cache is None:
+            return None
+        o = self.opcoes
+        pedido = escopo_da_coleta(legislatura_completa=o.legislatura_completa,
+                                  janela_inicio=o.janela_inicio, janela_fim=o.janela_fim,
+                                  fonte_votos=o.fonte_votos, max_votacoes=o.max_votacoes)
+        pode, msg = avaliar_reuso(cache.get("_escopo"), pedido,
+                                  estrito=o.nacional or not (o.uf or o.amostra))
+        if not pode:
+            self.log(f"    ATENÇÃO: {nome} não reaproveitado: {msg}; coletando de novo")
+            return None
+        if msg and o.reusar_raw:
+            self.log(f"    ATENÇÃO: {nome}: {msg}")
+        return cache
 
     @staticmethod
     def _exigir_detalhamento(src: Any) -> None:
