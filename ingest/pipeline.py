@@ -40,8 +40,8 @@ from ingest.resolve.comum import cnpj_valido, deputados_unicos
 from repo.store import Store
 from sources import REGISTRY
 from sources.camara.escopo import avaliar_reuso, escopo_da_coleta
+from sources.camara.source import FONTES_VOTOS
 
-FONTES_VOTOS = ("api", "dump")  # mesmas de sources.camara.source.FONTES_VOTOS
 ORDEM = ("camara", "ceap", "cgu", "tse", "opensanctions", "rfb")  # ordem de execução fixa
 
 
@@ -229,15 +229,17 @@ class Pipeline:
         self.log(f"    {n} fatos gravados, {len(res.links) if res else 0} links")
 
     def _restringir(self, res: Resolucao, tipo: str) -> tuple[list[Fact], Resolucao]:
-        """No modo escopo, só ficam fatos ligados a deputado do escopo (e seus links)."""
-        if self.escopo is None:
+        """Só ficam fatos ligados a deputado do escopo (e seus links). Sem escopo vale a lista de
+        deputados conhecidos: candidato ou autor de emenda que não é deputado não é gravado (sem
+        deputados conhecidos, nada é filtrado)."""
+        if self.escopo is None and not self.universo:
             return res.fatos, res
         fatos = [f for f in res.fatos if self._no_escopo(f.atributos.get("deputado_id"))
                  and f.atributos.get("deputado_id")]
         ficam = {f"{tipo}:{f.chave}" for f in fatos}
         links = [lk for lk in res.links if lk.origem in ficam
-                 and lk.destino.removeprefix("deputado:") in self.escopo]
-        amb = [a for a in res.ambiguos if any(c.removeprefix("deputado:") in self.escopo
+                 and self._no_escopo(lk.destino.removeprefix("deputado:"))]
+        amb = [a for a in res.ambiguos if any(self._no_escopo(c.removeprefix("deputado:"))
                                               for c in a.candidatos)]
         return fatos, Resolucao(fatos=fatos, links=links, ambiguos=amb)
 
@@ -329,7 +331,8 @@ class Pipeline:
         pode, msg = avaliar_reuso(cache.get("_escopo"), pedido,
                                   estrito=o.nacional or not (o.uf or o.amostra))
         if not pode:
-            self.log(f"    ATENÇÃO: {nome} não reaproveitado: {msg}; coletando de novo")
+            if o.reusar_raw:  # sem --reusar-raw ninguém esperava reaproveitar
+                self.log(f"    ATENÇÃO: {nome} não reaproveitado: {msg}; coletando de novo")
             return None
         if msg and o.reusar_raw:
             self.log(f"    ATENÇÃO: {nome}: {msg}")

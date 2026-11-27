@@ -1,4 +1,4 @@
-.PHONY: setup ingest infer test dev lint sample sample-publico publicar ingest-nacional publicar-nacional deploy-check verifica checa-pii seed-demo demo dev-demo
+.PHONY: setup ingest infer test dev lint sample sample-publico publicar ingest-nacional publicar-nacional deploy-check deploy-check-nacional verifica checa-pii seed-demo demo dev-demo
 setup:
 	uv sync
 ingest:
@@ -28,25 +28,33 @@ sample-publico:
 # ainda lê, sem chave primária; reprova se sobrar CPF íntegro de terceiro. Refaz o DESTINO a cada rodada.
 # Exige o mesmo RAIO_X_ID_SALT da pseudonimização.
 publicar:
+	mkdir -p $(dir $(DESTINO))
 	rm -f $(DESTINO) $(DESTINO).wal
 	uv run python -m publicar --origem $(ORIGEM) --destino $(DESTINO)
 # Onda 4: os deputados em exercício (sem --uf/--amostra e sem teto de votações nem de proposições), na origem
-# pseudonimizada (ORIGEM, fora da árvore; exige RAIO_X_ID_SALT). TSE uma UF por vez, CEAP de vários anos, votos pelo dump
+# pseudonimizada do nacional (ORIGEM_NACIONAL, fora da árvore e separada da ORIGEM da amostra; exige RAIO_X_ID_SALT). TSE uma UF por vez, CEAP de vários anos, votos pelo dump
 # anual. É uma coleta longa e pesada em rede: rode com calma (nada é medido nem prometido aqui). Retoma de onde caiu
 # (checkpoint em data/raw/camara/parcial/); ajuste por variável (`make ingest-nacional ANOS_CEAP=2024`) ou por ARGS
 # (`ARGS="--reusar-raw --reusar-dumps"`: o bruto só é reaproveitado se o escopo gravado nele servir).
+ORIGEM_NACIONAL ?= $(or $(TMPDIR),/tmp)/raio_x_nacional_origem.duckdb
+DESTINO_NACIONAL ?= data/nacional/raio_x_publico.duckdb
 ANOS_CEAP ?= 2023,2024
 JANELA_INICIO ?= 2025-01-01
 JANELA_FIM ?= 2025-12-31
 FONTE_VOTOS ?= dump
 LIMITE_RFB ?= 50
 ingest-nacional:
-	uv run python -m ingest.pipeline --nacional --fontes camara,ceap,cgu,tse,opensanctions,rfb --anos-ceap $(ANOS_CEAP) --janela-inicio $(JANELA_INICIO) --janela-fim $(JANELA_FIM) --fonte-votos $(FONTE_VOTOS) --limite-rfb $(LIMITE_RFB) --detalhar-deputados --incluir-proposicoes --pseudonimizar --db $(ORIGEM) $(ARGS)
-# Depois do `ingest-nacional`: motor, varredura de CPF e o arquivo enxuto em DESTINO (mesmo caminho do `sample-publico`).
+	uv run python -m ingest.pipeline --nacional --fontes camara,ceap,cgu,tse,opensanctions,rfb --anos-ceap $(ANOS_CEAP) --janela-inicio $(JANELA_INICIO) --janela-fim $(JANELA_FIM) --fonte-votos $(FONTE_VOTOS) --limite-rfb $(LIMITE_RFB) --detalhar-deputados --incluir-proposicoes --pseudonimizar --db $(ORIGEM_NACIONAL) $(ARGS)
+# Depois do `ingest-nacional`: motor, varredura de CPF e o arquivo enxuto em DESTINO_NACIONAL (data/nacional/, ignorado
+# pelo git; não sobrescreve o artefato da amostra). Para subir à Vercel, o arquivo tem de estar em data/sample/raio_x_publico.duckdb
+# (único caminho que o .vercelignore reabre): copie-o para lá, tirando a amostra do lugar antes (o deploy-check reprova outro .duckdb).
 publicar-nacional:
-	RAIO_X_DB=$(ORIGEM) uv run python -m engine.run
-	uv run python -m ingest.varredura --db $(ORIGEM)
-	$(MAKE) publicar
+	RAIO_X_DB=$(ORIGEM_NACIONAL) uv run python -m engine.run
+	uv run python -m ingest.varredura --db $(ORIGEM_NACIONAL)
+	$(MAKE) publicar ORIGEM=$(ORIGEM_NACIONAL) DESTINO=$(DESTINO_NACIONAL)
+# Como `deploy-check`, mas sobre a base nacional; reprova se a base da amostra (ou qualquer outro .duckdb) estiver na árvore.
+deploy-check-nacional:
+	uv run python -m ingest.deploy_check --raiz . --publico $(DESTINO_NACIONAL)
 # Recalcula governismo e CEAP direto dos brutos e confronta com banco/motor; grava docs/relatorio/verificacao.md.
 # Banco: $RAIO_X_DB (padrão: a amostra). Opções: `make verifica ARGS="--gerar-manifesto --online"`.
 verifica:

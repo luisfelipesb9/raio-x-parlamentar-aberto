@@ -22,6 +22,7 @@ na tabela e no relatório, e não vira "ok".
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import os
 import random
@@ -230,12 +231,47 @@ def _achar_zips_ceap(raw_dir: Path) -> dict[int, Path]:
     return dict(sorted(achados.items()))
 
 
+MAX_ZIPS_NA_BUSCA = 10  # a busca testa todos os subconjuntos (2^n): acima disso, usa todos
+
+
+def _somar(partes: Sequence[dict[str, tuple[int, int]]]) -> dict[str, tuple[int, int]]:
+    out: dict[str, tuple[int, int]] = {}
+    for parte in partes:
+        for dep, (n, total) in parte.items():
+            n0, t0 = out.get(dep, (0, 0))
+            out[dep] = (n0 + n, t0 + total)
+    return out
+
+
+def _fecha(bruto: dict[str, tuple[int, int]], banco: dict[str, tuple[int, int]],
+           deputados: set[str]) -> bool:
+    """O bruto bate com o banco em todos os deputados (mesmas regras da conferência)."""
+    return all(bruto.get(d, (0, 0))[0] == banco.get(d, (0, 0))[0]
+               and abs(bruto.get(d, (0, 0))[1] - banco.get(d, (0, 0))[1]) <= TOLERANCIA_CENTAVOS
+               for d in deputados)
+
+
+def _zips_ingeridos(por_zip: dict[int, dict[str, tuple[int, int]]],
+                    banco: dict[str, tuple[int, int]], deputados: set[str]) -> list[int]:
+    """Anos dos zips que, somados, fecham com o banco: são os efetivamente ingeridos (o banco não
+    guarda de que zip veio cada despesa, e uma nota de dez/2023 vem no zip de 2024). O maior
+    subconjunto que fecha vence. Se nenhum fecha, devolve todos, e a divergência aparece."""
+    anos = sorted(por_zip)
+    if len(anos) <= 1 or len(anos) > MAX_ZIPS_NA_BUSCA:
+        return anos
+    for tamanho in range(len(anos), 0, -1):
+        for combinacao in itertools.combinations(anos, tamanho):
+            if _fecha(_somar([por_zip[a] for a in combinacao]), banco, deputados):
+                return list(combinacao)
+    return anos
+
+
 def _conferir_ceap(raw_dir: Path, store: Store, deputados: dict[str, str],
                    anos: Sequence[int] | None = None,
                    avisos: list[str] | None = None) -> list[Linha]:
-    """Confere a CEAP somando os zips de `ceap/` (todos, ou só os `anos` pedidos). Com vários anos
-    no banco é preciso somar todos antes de comparar o total por deputado; zip de outro ano que não
-    foi ingerido faz divergir, e `anos` serve para restringir."""
+    """Confere a CEAP somando os zips de `ceap/`. `anos` (--anos-ceap) fixa quais; sem ele valem os
+    zips que, somados, fecham com o banco (os efetivamente ingeridos): zip de outro ano que sobrou
+    em disco não conta e é avisado."""
     achados = _achar_zips_ceap(raw_dir)
     if anos:
         faltam = [a for a in anos if a not in achados]
@@ -247,20 +283,22 @@ def _conferir_ceap(raw_dir: Path, store: Store, deputados: dict[str, str],
     if not achados:
         return [Linha("ceap", "CEAP", "—", "—", NAO_VERIFICADO,
                       "sem zip em ceap/Ano-*.json.zip; despesas não conferidas")]
-    bruto: dict[str, tuple[int, int]] = {}  # soma dos zips: cada ano é uma partição das despesas
-    arquivo = next(iter(achados.values()))
-    try:
-        for arquivo in achados.values():
-            for dep, (n, total) in ceap_do_bruto(arquivo, set(deputados)).items():
-                n0, t0 = bruto.get(dep, (0, 0))
-                bruto[dep] = (n0 + n, t0 + total)
-    except (zipfile.BadZipFile, ValueError, OSError) as e:
-        return [Linha("ceap", arquivo.name, "—", "—", NAO_VERIFICADO,
-                      f"não foi possível ler o zip: {e}")]
-    if len(achados) > 1 and avisos is not None:
-        avisos.append("CEAP conferida somando os zips " + ", ".join(a.name for a in achados.values())
-                      + "; se algum não foi ingerido, restrinja com --anos-ceap")
+    por_zip: dict[int, dict[str, tuple[int, int]]] = {}
+    for ano, arquivo in achados.items():
+        try:
+            por_zip[ano] = ceap_do_bruto(arquivo, set(deputados))
+        except (zipfile.BadZipFile, ValueError, OSError) as e:
+            return [Linha("ceap", arquivo.name, "—", "—", NAO_VERIFICADO,
+                          f"não foi possível ler o zip: {e}")]
     banco = store.despesas_por_deputado()
+    usados = list(achados) if anos else _zips_ingeridos(por_zip, banco, set(deputados))
+    bruto = _somar([por_zip[a] for a in usados])
+    if len(achados) > 1 and avisos is not None:
+        nomes = {a: achados[a].name for a in achados}
+        sobras = [nomes[a] for a in achados if a not in usados]
+        avisos.append("CEAP conferida somando os zips " + ", ".join(nomes[a] for a in usados)
+                      + (f"; ignorado(s), porque não fecham com o banco: {', '.join(sobras)} "
+                         "(`--anos-ceap` fixa os anos)" if sobras else ""))
     linhas = []
     for dep, nome in sorted(deputados.items(), key=lambda kv: (len(kv[0]), kv[0])):
         (n_b, c_b), (n_d, c_d) = bruto.get(dep, (0, 0)), banco.get(dep, (0, 0))

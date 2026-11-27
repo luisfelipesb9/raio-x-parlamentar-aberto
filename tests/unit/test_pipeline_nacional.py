@@ -283,3 +283,113 @@ def test_sem_reusar_raw_o_pipeline_baixa_mesmo_com_bruto_compativel(raw_dir):
     Pipeline(Store(":memory:"), Opcoes(fontes=("camara",), nacional=True, max_votacoes=None),
              registry={"camara": CamaraFalsa}, log=lambda _: None).executar()
     assert _buscou()
+
+
+# ---------- sem escopo, só quem é deputado conhecido (candidatura, emenda, CEAP) ----------
+
+def _cand(sq: str, nome: str) -> Fact:
+    return Fact(tipo="candidatura", chave=sq, fonte="tse", id_oficial=sq, url=f"https://x/{sq}",
+                atributos={"ano": 2022, "cpf": None, "nome": nome, "nome_urna": nome,
+                           "cargo": "Deputado Federal", "uf": "MG", "partido": "PL"})
+
+
+class TseFalso(Source):
+    nome = "tse"
+
+    def fetch(self, uf=None, ano=2022, conjuntos=(), reusar_raw=False):
+        return {"ano": ano, "candidatos": [{}], "receitas": [], "votacao": []}
+
+    def normalize(self, raw):
+        # um candidato é o deputado "Dep Um"; o outro nunca foi deputado
+        return [_cand("10", "Dep Um"), _cand("20", "Fulano Que Nunca Foi Deputado")] \
+            if raw.get("candidatos") else []
+
+
+class CguFalsa(Source):
+    nome = "cgu"
+
+    def fetch(self):
+        return {}
+
+    def normalize(self, raw):
+        return [Fact(tipo="emenda", chave=c, fonte="cgu", id_oficial=c, url="https://x",
+                     atributos={"autor_nome": n, "valor": 1.0})
+                for c, n in (("e1", "Dep Um"), ("e2", "Autor Desconhecido"))]
+
+
+class CeapFalsa(Source):
+    nome = "ceap"
+
+    def fetch(self, ano):
+        return {"ano": ano}
+
+    def normalize(self, raw):
+        return [Fact(tipo="despesa_ceap", chave=f"d{i}", fonte="ceap", id_oficial=f"d{i}",
+                     url="https://x", atributos={"deputado_id": i, "valor": 10.0,
+                                                 "data": "2024-03-01"})
+                for i in ("1", "2", "999")]
+
+
+REGISTRO = {"camara": CamaraFalsa, "tse": TseFalso, "cgu": CguFalsa, "ceap": CeapFalsa}
+
+
+def _rodar_fontes(fontes: tuple[str, ...], store: Store | None = None, **kw) -> Store:
+    store = store or Store(":memory:")
+    Pipeline(store, Opcoes(fontes=fontes, ano=2024, **kw), registry=REGISTRO,
+             log=lambda _: None).executar()
+    return store
+
+
+def _chaves(store: Store, tipo: str) -> set[str]:
+    return {f.chave for f in store.facts_by_tipo(tipo)}
+
+
+def test_candidatura_de_quem_nao_e_deputado_nao_e_gravada_sem_escopo():
+    store = _rodar_fontes(("camara", "tse"), nacional=True)
+    assert _chaves(store, "candidatura") == {"10"}
+
+
+def test_candidatura_de_quem_nao_e_deputado_nao_e_gravada_na_rodada_sem_escopo_e_sem_nacional():
+    assert _chaves(_rodar_fontes(("camara", "tse")), "candidatura") == {"10"}
+
+
+def test_candidatura_com_banco_sem_deputados_grava_tudo():
+    store = _rodar_fontes(("tse",), nacional=True)
+    assert _chaves(store, "candidatura") == {"10", "20"}
+
+
+def test_candidatura_com_deputados_no_banco_filtra_na_rodada_so_tse():
+    store = _rodar_fontes(("camara",), nacional=True)
+    _rodar_fontes(("tse",), store, nacional=True)
+    assert _chaves(store, "candidatura") == {"10"}
+
+
+def test_emenda_sem_autor_deputado_nao_e_gravada_sem_escopo():
+    store = _rodar_fontes(("camara", "cgu"), nacional=True)
+    assert _chaves(store, "emenda") == {"e1"}
+
+
+def test_despesa_de_quem_nao_e_deputado_e_descartada_na_rodada_camara_mais_ceap():
+    store = _rodar_fontes(("camara", "ceap"), nacional=True)
+    assert _chaves(store, "despesa_ceap") == {"d1", "d2"}
+
+
+def test_so_ceap_com_banco_vazio_grava_tudo():
+    assert _chaves(_rodar_fontes(("ceap",), nacional=True), "despesa_ceap") == {"d1", "d2", "d999"}
+
+
+def test_so_ceap_com_deputados_no_banco_filtra():
+    store = _rodar_fontes(("camara",), nacional=True)
+    _rodar_fontes(("ceap",), store, nacional=True)
+    assert _chaves(store, "despesa_ceap") == {"d1", "d2"}
+
+
+# ---------- aviso de bruto recusado só quando --reusar-raw foi pedido ----------
+
+def test_sem_reusar_raw_bruto_incompativel_nao_gera_aviso(raw_dir):
+    _bruto_em_disco(raw_dir, _escopo(max_votacoes=145))
+    linhas: list[str] = []
+    Pipeline(Store(":memory:"), Opcoes(fontes=("camara",), nacional=True, max_votacoes=None,
+                                       detalhar_deputados=True),
+             registry={"camara": CamaraFalsa}, log=linhas.append).executar()
+    assert not any("não reaproveitado" in ln for ln in linhas)

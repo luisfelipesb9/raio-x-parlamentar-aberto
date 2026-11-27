@@ -263,9 +263,30 @@ def test_ceap_zip_de_um_ano_ilegivel_e_nao_verificado_e_nao_aprova(ambiente_dois
 def test_ceap_anos_restringe_os_zips_conferidos(ambiente_dois_anos):
     db, raw = ambiente_dois_anos
     _zip_ano(raw, 2020, [{**_linhas_2023()[0], "ano": 2020, "idDocumento": 77}])  # zip velho, fora do banco
-    assert any(x.status == "diverge" for x in por(rodar(db, raw), "ceap"))  # somado, não bate
     ok = por(rodar(db, raw, anos_ceap=(2023, 2024)), "ceap")
     assert ok and all(x.status == "ok" for x in ok)
+    forcado = por(rodar(db, raw, anos_ceap=(2020, 2024)), "ceap")  # o usuário manda: vale o que pediu
+    assert any(x.status == "diverge" for x in forcado)
+
+
+def test_banco_so_com_2024_e_zips_2023_e_2024_em_disco_confere_sem_divergir(ambiente):
+    """O padrão são os anos efetivamente ingeridos: o zip de 2023 sobrando em disco não conta."""
+    db, raw = ambiente
+    _zip_ano(raw, 2023, _linhas_2023())  # não foi ingerido neste banco
+    r = rodar(db, raw)
+    linhas = por(r, "ceap")
+    assert linhas and all(x.status == "ok" for x in linhas) and r.divergencias == 0
+    assert any("Ano-2023.json.zip" in a and "ignorado" in a for a in r.avisos)
+
+
+def test_zip_sobrando_nao_mascara_despesa_que_falta_no_banco(ambiente):
+    db, raw = ambiente
+    _zip_ano(raw, 2023, _linhas_2023())
+    s = Store(db)
+    s.con.execute("DELETE FROM fact WHERE chave IN (SELECT chave FROM fact WHERE tipo = 'despesa_ceap' "
+                  "AND json_extract_string(atributos, '$.deputado_id') = '1' LIMIT 1)")
+    s.con.close()
+    assert any(x.status == "diverge" for x in por(rodar(db, raw), "ceap"))
 
 
 def test_ceap_anos_com_zip_ausente_e_nao_verificado(ambiente):
@@ -278,8 +299,9 @@ def test_cli_anos_ceap_e_repassado(ambiente_dois_anos, tmp_path):
     db, raw = ambiente_dois_anos
     _zip_ano(raw, 2020, [{**_linhas_2023()[0], "ano": 2020, "idDocumento": 77}])
     args = ["--db", str(db), "--raw", str(raw), "--gerar-manifesto", "--saida", str(tmp_path / "v.md")]
-    assert verifica.main(args) == 1
+    assert verifica.main(args) == 0  # padrão: os anos ingeridos
     assert verifica.main([*args, "--anos-ceap", "2023,2024"]) == 0
+    assert verifica.main([*args, "--anos-ceap", "2020,2024"]) == 1
 
 
 def test_cli_anos_ceap_invalido_e_erro_claro(ambiente, tmp_path):
