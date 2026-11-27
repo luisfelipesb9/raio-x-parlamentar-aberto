@@ -83,7 +83,8 @@ def raw_dir(tmp_path, monkeypatch):
 
 
 def _fonte(api: FakeApi) -> CamaraSource:
-    return CamaraSource(client=api.client, pausa=0)
+    # sem esperar de verdade: o FakeApi devolve 500 de propósito e a fonte tenta de novo
+    return CamaraSource(client=api.client, pausa=0, dormir=lambda s: None)
 
 
 @pytest.fixture
@@ -342,8 +343,8 @@ def test_detalhar_respeita_a_pausa_entre_chamadas(raw_dir, monkeypatch):
     monkeypatch.setattr("sources.camara.source.time.sleep", dormiu.append)
     api = FakeApi()
     CamaraSource(client=api.client, pausa=0.7).fetch(max_votacoes=0, detalhar_deputados=[62881])
-    # 1 da listagem de deputados + 1 da listagem de votações + 1 do detalhe
-    assert dormiu.count(0.7) == 3
+    # 1 da listagem de deputados + 1 do detalhe (sem votações pedidas, nem listagem delas)
+    assert dormiu.count(0.7) == 2
 
 
 def test_erro_http_no_detalhe_nao_derruba_e_fica_registrado(raw_dir):
