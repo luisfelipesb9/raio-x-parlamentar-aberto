@@ -15,9 +15,13 @@ from collections.abc import Iterable, Iterator
 from typing import Any, NamedTuple
 
 from contracts import Fact
-from ingest.pseudonimizar import CPF_EM_TEXTO, TOKEN_HASH, dv_ok
+from ingest.pseudonimizar import ATRIBUTOS_ID_PUBLICO, CPF_EM_TEXTO, TOKEN_HASH, dv_ok
 
-PERMITIDOS = {("deputado", "cpf"), ("candidatura", "cpf")}
+PERMITIDOS = {("deputado", "cpf"), ("candidatura", "cpf"),
+              # a chave da candidatura é o SQ_CANDIDATO (id público do TSE, 11 dígitos), e a de
+              # `votos_municipio` o embute: coincidem com DV de CPF em ~1% dos casos e não são CPF
+              ("candidatura", "chave"), ("candidatura", "id_oficial"),
+              ("votos_municipio", "chave"), ("votos_municipio", "id_oficial")}
 # tabelas materializadas por `publicar/` (ADR-011): (tabela, colunas de texto; a 1ª identifica a linha)
 TABELAS_MATERIALIZADAS = (("graph_node", ("id", "payload")),
                           ("graph_edge", ("origem", "destino", "rel", "payload")),
@@ -53,7 +57,7 @@ def cpfs_integros(fatos: Iterable[Fact]) -> list[Achado]:
         campos = [("chave", f.chave), ("id_oficial", f.id_oficial), ("url", f.url or "")]
         campos += list(_textos(f.atributos, ""))
         for campo, texto in campos:
-            if (f.tipo, campo) in PERMITIDOS:
+            if (f.tipo, campo) in PERMITIDOS or campo.rsplit(".", 1)[-1] in ATRIBUTOS_ID_PUBLICO:
                 continue
             if tem_cpf(texto):
                 achados[(f.tipo, f.chave, campo)] = None

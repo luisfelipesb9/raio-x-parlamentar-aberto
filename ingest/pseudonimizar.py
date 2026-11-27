@@ -32,6 +32,10 @@ CPF_EM_TEXTO = re.compile(rf"(?<!\d)\d{{3}}{_SEP}\d{{3}}{_SEP}\d{{3}}[-/.\s\u00a
 PUBLICOS = ("deputado", "candidatura")
 # o próprio hash (32 hex) pode conter, por acaso, 11 dígitos seguidos: nunca é tratado como CPF
 TOKEN_HASH = re.compile(r"hmac:[0-9a-f]{32}")
+# SQ_CANDIDATO (sequencial do TSE) tem 11 dígitos e, em cerca de 1% dos casos, dígitos verificadores
+# que "fecham" como CPF por coincidência: é um id público, nunca um CPF, e não pode ser trocado por
+# hash (quebraria a ligação entre `votos_municipio`/`doacao` e a `candidatura`, cuja chave é o SQ).
+ATRIBUTOS_ID_PUBLICO = ("sq_candidato",)
 # (tipo, atributo) cujo valor pode ser CPF de terceiro (texto ou lista de textos)
 CAMPOS: dict[str, tuple[str, ...]] = {
     "doacao": ("doador_cpf_cnpj",), "socio": ("cpf_cnpj",), "despesa_ceap": ("cpf",),
@@ -88,6 +92,8 @@ def _em_texto(valor: Any, salt: str, chave: str = "") -> Any:
     """Troca CPF válido solto dentro de texto (ex.: nome do fornecedor + CPF) pelo hash.
 
     Em chave que começa com `cpf`, também troca o CPF numérico sem o zero à esquerda."""
+    if chave in ATRIBUTOS_ID_PUBLICO:
+        return valor
     if chave.lower().startswith("cpf") and (c := _cpf_numerico(valor)):
         return hash_cpf(c, salt)
     if isinstance(valor, str):
