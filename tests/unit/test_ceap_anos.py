@@ -192,6 +192,17 @@ def test_ano_que_falha_interrompe_e_o_que_ja_foi_gravado_fica():
     assert len(store.facts_by_tipo("despesa_ceap")) == 1
 
 
+def test_ano_posterior_que_falha_apaga_o_que_o_ano_ja_carregado_tinha():
+    """Risco documentado em `_passo_ceap`: o 2024 já estava no banco, a rodada (2023, 2024) apaga
+    as notas de 2024 antes de baixá-lo e o 404 em 2024 deixa o ano sem notas até nova rodada."""
+    store, _ = _rodar(Servidor({2023: [_linha(1, 0, 2023)], 2024: [_linha(1, 0, 2024)]}),
+                      n_dep=1, anos_ceap=(2023, 2024))
+    assert len(store.facts_by_tipo("despesa_ceap")) == 2
+    with pytest.raises(httpx.HTTPStatusError):
+        _rodar(Servidor({2023: [_linha(1, 0, 2023)]}), store, n_dep=1, anos_ceap=(2023, 2024))
+    assert len(store.facts_by_tipo("despesa_ceap")) == 1  # só o de 2023 sobrou
+
+
 def test_ceap_sem_ano_nem_anos_falha_cedo():
     with pytest.raises(ValueError, match="--ano"):
         Pipeline(Store(":memory:"), Opcoes(fontes=("ceap",)), log=lambda _: None).executar()
