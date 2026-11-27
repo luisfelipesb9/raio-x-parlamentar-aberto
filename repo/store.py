@@ -11,13 +11,17 @@ from typing import Any, NamedTuple
 
 import duckdb
 
-from contracts import Explanation, Fact, Finding
+from contracts import Explanation, Fact, Finding, GraphEdge, GraphNode
 from repo.links import Ambiguidade, EntityLink
 
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "raio_x.duckdb"
 ENV_DB = "RAIO_X_DB"
 MIGRATIONS = sorted((Path(__file__).parent / "migrations").glob("*.sql"))
 SCHEMA = "\n".join(p.read_text(encoding="utf-8") for p in MIGRATIONS)  # todas idempotentes (IF NOT EXISTS)
+# Arquivo público (ADR-011): só as tabelas novas; fact/finding/entity_* nascem por CREATE TABLE AS, sem chave primária.
+SCHEMA_PUBLICACAO = (Path(__file__).parent / "migrations" / "003_publicacao.sql").read_text(encoding="utf-8")
+TABELAS_PUBLICACAO = ("graph_node", "graph_edge", "inferencia", "publicacao_meta")
+CHAVE_PUBLICADO = "gerado_em"  # a API só usa as tabelas novas se `publicacao_meta` tiver esta chave
 
 _COLUNAS_NDJSON = ("{tipo:'VARCHAR',chave:'VARCHAR',atributos:'VARCHAR',fonte:'VARCHAR',"
                    "id_oficial:'VARCHAR',url:'VARCHAR',coletado_em:'VARCHAR'}")
@@ -54,7 +58,8 @@ def _caminho(path: Path | str | None) -> Path | str:
 
 
 class Store:
-    def __init__(self, path: Path | str | None = None, read_only: bool = False):
+    def __init__(self, path: Path | str | None = None, read_only: bool = False, *,
+                 so_publicacao: bool = False):
         path = _caminho(path)
         if read_only and (path == ":memory:" or not Path(path).exists()):
             raise FileNotFoundError(
@@ -64,7 +69,14 @@ class Store:
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.con = duckdb.connect(str(path), read_only=read_only)
         if not read_only:
-            self.con.execute(SCHEMA)
+            self.con.execute(SCHEMA_PUBLICACAO if so_publicacao else SCHEMA)
+
+    @classmethod
+    def novo_publico(cls, path: Path | str) -> Store:
+        """Arquivo novo do banco público: só as tabelas da publicação; o resto vem de `copiar_enxuto`."""
+        if Path(path).exists():
+            raise FileExistsError(f"{path} já existe: o passo de publicação não sobrescreve arquivo")
+        return cls(path, so_publicacao=True)
 
     # ---------- fatos ----------
 
@@ -274,3 +286,131 @@ class Store:
         rows = self.con.execute("SELECT payload FROM finding WHERE deputado_id = ? "
                                 "ORDER BY cf DESC", [deputado_id]).fetchall()
         return [Finding.model_validate_json(r[0]) for r in rows]
+
+    def load_findings(self) -> list[Finding]:
+        rows = self.con.execute("SELECT payload FROM finding ORDER BY id").fetchall()
+        return [Finding.model_validate_json(r[0]) for r in rows]
+
+    # ---------- publicação enxuta (ADR-011): cópia, tabelas materializadas e metadados ----------
+
+    def contagem_por_tipo(self) -> dict[str, int]:
+        rows = self.con.execute("SELECT tipo, count(*) FROM fact GROUP BY 1 ORDER BY 1").fetchall()
+        return {r[0]: int(r[1]) for r in rows}
+
+    def copiar_enxuto(self, origem: Path | str, *, tipos_integrais: Sequence[str]) -> dict[str, int]:
+        """Copia da `origem` (somente leitura) o que a API pública ainda precisa, sem chave primária:
+        os fatos dos `tipos_integrais`, mais qualquer fato citado como evidência por algum finding
+        (par tipo + id_oficial, como `engine.proveniencia.indexar`); todos os findings e explicações;
+        e os `entity_link`/`entity_ambiguity` cujas pontas (`tipo:chave`) foram mantidas.
+        Devolve a quantidade de fatos mantidos por tipo."""
+        tipos = list(tipos_integrais)
+        literal = str(origem).replace("'", "''")
+        self.con.execute(f"ATTACH '{literal}' AS origem (READ_ONLY)")
+        try:
+            self.con.execute(
+                "CREATE TEMP TABLE _evidencia AS SELECT DISTINCT json_extract_string(e, '$.tipo') AS tipo, "
+                "json_extract_string(e, '$.id_oficial') AS id_oficial FROM (SELECT unnest("
+                "from_json(json_extract(payload, '$.evidencias'), '[\"JSON\"]')) AS e FROM origem.finding)")
+            self.con.execute(
+                "CREATE TABLE fact AS SELECT f.* FROM origem.fact f WHERE (f.tipo IN ("
+                + ",".join("?" * len(tipos)) + ") OR EXISTS (SELECT 1 FROM _evidencia e "
+                "WHERE e.tipo = f.tipo AND e.id_oficial = f.id_oficial)) "
+                # votação simbólica não é voto individual: o voto nem chega ao arquivo público
+                "AND NOT (f.tipo = 'voto' AND EXISTS (SELECT 1 FROM origem.fact o WHERE o.tipo = 'votacao' "
+                "AND o.chave = json_extract_string(f.atributos, '$.votacao_id') "
+                "AND coalesce(json_extract_string(o.atributos, '$.nominal'), 'false') <> 'true')) "
+                "ORDER BY f.tipo, f.chave", tipos)
+            self.con.execute("CREATE TABLE finding AS SELECT * FROM origem.finding ORDER BY id")
+            self.con.execute("CREATE TEMP TABLE _mantida AS SELECT tipo || ':' || chave AS k FROM fact")
+            self.con.execute(
+                "CREATE TABLE entity_link AS SELECT * FROM origem.entity_link WHERE origem IN "
+                "(SELECT k FROM _mantida) AND destino IN (SELECT k FROM _mantida) ORDER BY origem, destino")
+            self.con.execute(
+                "CREATE TABLE entity_ambiguity AS SELECT * FROM origem.entity_ambiguity WHERE origem IN "
+                "(SELECT k FROM _mantida) ORDER BY origem")
+        finally:
+            self.con.execute("DROP TABLE IF EXISTS _evidencia")
+            self.con.execute("DROP TABLE IF EXISTS _mantida")
+            self.con.execute("DETACH origem")
+        return self.contagem_por_tipo()
+
+    def checkpoint(self) -> None:
+        self.con.execute("CHECKPOINT")
+
+    def _carregar_ndjson(self, tabela: str, colunas: Sequence[str], json_colunas: Collection[str],
+                         linhas: Iterable[Mapping[str, str]]) -> int:
+        """INSERT em lote (NDJSON + read_json, como `upsert_facts`); valores já são texto, e as
+        colunas em `json_colunas` viram JSON."""
+        with tempfile.TemporaryDirectory(prefix="raio_x_") as d:
+            arq = Path(d) / "lote.ndjson"
+            n = 0
+            with arq.open("w", encoding="utf-8") as f:
+                for linha in linhas:
+                    f.write(json.dumps(dict(linha), ensure_ascii=False) + "\n")
+                    n += 1
+            if n:
+                spec = "{" + ",".join(f"{c}:'VARCHAR'" for c in colunas) + "}"
+                sel = ", ".join(f"{c}::JSON" if c in json_colunas else c for c in colunas)
+                self.con.execute(f"INSERT INTO {tabela} SELECT {sel} FROM read_json(?, "
+                                 f"format='newline_delimited', columns={spec})", [str(arq)])
+        return n
+
+    def save_graph(self, nodes: Sequence[GraphNode], edges: Sequence[GraphEdge]) -> None:
+        """Substitui `graph_node`/`graph_edge` pela saída de `graph.project` (calculada uma vez)."""
+        self.con.execute("DELETE FROM graph_node")
+        self.con.execute("DELETE FROM graph_edge")
+        self._carregar_ndjson("graph_node", ("id", "payload"), ("payload",), (
+            {"id": n.id, "payload": json.dumps(
+                n.model_dump(mode="json", exclude={"id"}), ensure_ascii=False)} for n in nodes))
+        self._carregar_ndjson("graph_edge", ("origem", "destino", "rel", "payload"), ("payload",), (
+            {"origem": e.origem, "destino": e.destino, "rel": e.relacao, "payload": json.dumps(
+                e.model_dump(mode="json", include={"peso", "cf", "evidencia_ids"}),
+                ensure_ascii=False)} for e in edges))
+
+    def load_graph(self) -> tuple[list[GraphNode], list[GraphEdge]]:
+        """Grafo materializado, na mesma ordem de `graph.project` (nós por id; arestas por
+        relação, origem e destino), porque o recorte e os backlinks dependem dela."""
+        nos = [GraphNode(id=r[0], **json.loads(r[1])) for r in self.con.execute(
+            "SELECT id, payload::VARCHAR FROM graph_node ORDER BY id").fetchall()]
+        arestas = [GraphEdge(origem=r[0], destino=r[1], relacao=r[2], **json.loads(r[3]))
+                   for r in self.con.execute(
+                       "SELECT origem, destino, rel, payload::VARCHAR FROM graph_edge "
+                       "ORDER BY rel, origem, destino").fetchall()]
+        return nos, arestas
+
+    def save_inferencia(self, findings: Iterable[Finding]) -> int:
+        """Substitui `inferencia` pelo resultado do forward.run. Sem as evidências (o regressivo só
+        lê id, regra, deputado e CF; as completas ficam em `finding`)."""
+        self.con.execute("DELETE FROM inferencia")
+        return self._carregar_ndjson("inferencia", ("deputado_id", "regra", "payload"), ("payload",), (
+            {"deputado_id": f.deputado_id, "regra": f.regra, "payload": f.model_copy(
+                update={"evidencias": []}).model_dump_json()} for f in findings))
+
+    def inferencia_de(self, deputado_id: str) -> list[Finding]:
+        rows = self.con.execute("SELECT payload::VARCHAR FROM inferencia WHERE deputado_id = ? "
+                                "ORDER BY regra", [str(deputado_id)]).fetchall()
+        return [Finding.model_validate_json(r[0]) for r in rows]
+
+    def save_publicacao_meta(self, meta: Mapping[str, Any]) -> None:
+        self.con.execute("DELETE FROM publicacao_meta")
+        self._carregar_ndjson("publicacao_meta", ("chave", "valor"), ("valor",), (
+            {"chave": k, "valor": json.dumps(v, ensure_ascii=False, default=str)}
+            for k, v in meta.items()))
+
+    def load_publicacao_meta(self) -> dict[str, Any]:
+        rows = self.con.execute("SELECT chave, valor::VARCHAR FROM publicacao_meta "
+                                "ORDER BY chave").fetchall()
+        return {r[0]: json.loads(r[1]) for r in rows}
+
+    def tabelas_publicacao_faltando(self) -> list[str]:
+        existentes = {r[0] for r in self.con.execute(
+            "SELECT table_name FROM information_schema.tables").fetchall()}
+        return [t for t in TABELAS_PUBLICACAO if t not in existentes]
+
+    def publicado(self) -> bool:
+        """Banco gerado por `publicar/`: tabelas novas presentes e `publicacao_meta` preenchida.
+        Banco de trabalho (tabelas vazias ou ausentes) dá False e a API usa o caminho antigo."""
+        if self.tabelas_publicacao_faltando():
+            return False
+        return bool(self.con.execute("SELECT count(*) FROM publicacao_meta WHERE chave = ?",
+                                     [CHAVE_PUBLICADO]).fetchone()[0])

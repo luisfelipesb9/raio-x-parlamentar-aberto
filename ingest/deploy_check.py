@@ -1,7 +1,8 @@
 """Confere o que seria enviado ao ar: só a base pública, limpa de CPF íntegro de terceiros, e um sal forte.
 
-Falha (exit 1) se: a base pública não existe ou tem CPF íntegro de terceiro; existe QUALQUER
-outro `*.duckdb` / `*.duckdb.wal` na árvore (a base de trabalho tem CPF íntegro); existe um
+Falha (exit 1) se: a base pública não existe, não foi gerada por `make publicar` (faltam as tabelas
+`graph_node`, `graph_edge`, `inferencia`, `publicacao_meta` ou esta última está vazia) ou tem CPF
+íntegro de terceiro; existe QUALQUER outro `*.duckdb` / `*.duckdb.wal` na árvore (a base de trabalho tem CPF íntegro); existe um
 `.env`/`.env.*` local (segredo; só `.env.example`/`.sample`/`.template` passam); ou o
 `RAIO_X_ID_SALT` do ambiente (o que gerou a base pública) está ausente, tem menos de 32
 caracteres, menos de 8 caracteres distintos ou é um valor público conhecido (versão antiga,
@@ -61,7 +62,7 @@ def _arquivos(raiz: Path) -> list[Path]:
 
 
 def _e_banco(p: Path) -> bool:
-    return p.name.endswith((".duckdb", ".duckdb.wal"))
+    return p.name.endswith((".duckdb", ".duckdb.wal", ".duckdb.tmp"))  # .tmp: gravação de `publicar` interrompida
 
 
 def _e_segredo_local(p: Path) -> bool:
@@ -84,7 +85,14 @@ def verificar_envio(raiz: Path | str, publico: Path | str = PUBLICO) -> list[str
     if not pub.exists():
         return [f"a base pública não existe: {pub.relative_to(raiz) if pub.is_relative_to(raiz) else pub}",
                 *erros]
-    achados = varrer_banco(Store(pub, read_only=True))
+    base = Store(pub, read_only=True)
+    if not base.publicado():
+        faltam = base.tabelas_publicacao_faltando()
+        erros.append("a base pública não foi gerada por `make publicar` ("
+                     + (f"faltam as tabelas {', '.join(faltam)}" if faltam
+                        else "publicacao_meta está vazia")
+                     + "): gere a base com `make sample-publico` ou `make publicar`")
+    achados = varrer_banco(base)
     if achados:
         erros.append(f"{len(achados)} ocorrência(s) de CPF íntegro de terceiro na base pública "
                      "(rode ingest.varredura para ver onde)")

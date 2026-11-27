@@ -62,6 +62,7 @@ def _base_publica(raiz):
     st = Store(pub)
     st.upsert_facts([Fact(tipo="doacao", chave="r1", atributos={"doador_cpf_cnpj": "hmac:abc"},
                           fonte="teste", id_oficial="r1", url="https://exemplo/doacao/r1")])
+    st.save_publicacao_meta({"gerado_em": "2026-11-26T00:00:00+00:00"})  # marca: gerada por `publicar`
     st.con.close()
     return pub
 
@@ -113,3 +114,35 @@ def test_main_aprova_sal_bom_e_pacote_limpo(tmp_path, monkeypatch, capsys):
     assert saida.value.code == 0
     out = capsys.readouterr().out
     assert "ok" in out and SAL_BOM not in out
+
+
+def test_reprova_base_publica_que_nao_foi_gerada_por_publicar(tmp_path):
+    pub = tmp_path / "data" / "sample" / "raio_x_publico.duckdb"
+    st = Store(pub)  # tabelas novas existem, mas vazias: é banco de trabalho
+    st.con.close()
+    (erro,) = verificar_envio(tmp_path, pub)
+    assert "make publicar" in erro
+
+
+def test_reprova_base_publica_antiga_sem_as_tabelas_novas(tmp_path):
+    import duckdb
+    pub = tmp_path / "data" / "sample" / "raio_x_publico.duckdb"
+    pub.parent.mkdir(parents=True)
+    con = duckdb.connect(str(pub))
+    con.execute("CREATE TABLE fact (tipo TEXT, chave TEXT, atributos JSON, fonte TEXT, id_oficial TEXT, "
+                "url TEXT, coletado_em TIMESTAMPTZ)")
+    con.execute("CREATE TABLE finding (id TEXT, deputado_id TEXT, regra TEXT, cf DOUBLE, payload JSON, "
+                "explanation JSON)")
+    con.execute("CREATE TABLE entity_link (origem TEXT, destino TEXT, metodo TEXT, cf DOUBLE)")
+    con.execute("CREATE TABLE entity_ambiguity (origem TEXT, candidatos JSON, motivo TEXT)")
+    con.close()
+    (erro,) = verificar_envio(tmp_path, pub)
+    assert "graph_node" in erro and "publicacao_meta" in erro and "make publicar" in erro
+
+
+@pytest.mark.parametrize("nome", ["raio_x_publico.duckdb.tmp", "outro.duckdb.wal", "x.duckdb.tmp"])
+def test_reprova_temporario_e_wal_de_banco_na_arvore(tmp_path, nome):
+    pub = _base_publica(tmp_path)
+    (tmp_path / "data" / "sample" / nome).write_text("x")
+    (erro,) = verificar_envio(tmp_path, pub)
+    assert nome in erro

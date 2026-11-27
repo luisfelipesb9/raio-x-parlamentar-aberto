@@ -69,8 +69,9 @@ A raiz não tem `package.json`, então não conflita com o `web/`. Arquivos: `ap
 (grupo `dev` não entra); não precisa de `requirements.txt`.
 
 Passo a passo:
-1. Banco: **somente a base pseudonimizada** — `RAIO_X_ID_SALT=<segredo> make sample-publico`, que gera
-   `data/sample/raio_x_publico.duckdb` e roda a varredura (precisa sair 0). NUNCA publique
+1. Banco: **somente a base pseudonimizada e enxuta** — `RAIO_X_ID_SALT=<segredo> make sample-publico`, que gera a
+   origem pseudonimizada, roda a varredura (precisa sair 0) e, por `make publicar` (ADR-011), grava
+   `data/sample/raio_x_publico.duckdb` (grafo, inferência e contagens materializados; sem as despesas cruas). NUNCA publique
    `raio_x_sample.duckdb` nem `raio_x.duckdb` (CPF de terceiros); `.vercelignore` só deixa passar a base pública. Ela é
    ignorado pelo git (`data/*`), então deploy por Git NÃO leva o banco: use o CLI a partir da raiz
    (passo 4), que envia os arquivos locais respeitando `.vercelignore`.

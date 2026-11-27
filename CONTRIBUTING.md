@@ -20,7 +20,8 @@ make setup          # instala dependências Python (uv)
 make ingest         # coleta fontes e grava em data/raw e no banco
 make infer          # roda o motor e materializa findings
 make sample         # amostra de 20 deputados de MG + motor
-make sample-publico # amostra pseudonimizada (HMAC) + varredura de CPF
+make sample-publico # amostra pseudonimizada (HMAC) + varredura de CPF, depois `make publicar`
+make publicar       # banco público enxuto (ADR-011) a partir da origem pseudonimizada
 make seed-demo      # gera o banco fictício da demonstração (offline)
 make demo           # seed-demo + instruções para subir API e site
 make dev-demo       # API sobre o banco da demo (sal e banco já definidos)
@@ -61,7 +62,7 @@ Mudou algo em `contracts/`? Escreva um ADR novo em `docs/adr/` (numeração sequ
 
 ## Dados pessoais e guardrails (não negociáveis)
 - **Nunca** versione dados reais com CPF. A pasta `data/` é ignorada pelo git; gere os bancos localmente.
-- Para publicar uma base, use `make sample-publico` (CPF trocado por HMAC) e `make deploy-check`.
+- Para publicar uma base, use `make sample-publico` (CPF trocado por HMAC, depois o banco enxuto de `make publicar`) e `make deploy-check`.
 - Antes de abrir o PR, rode `make checa-pii`.
 - Processo sem condenação definitiva não é culpa; votação simbólica não é voto individual; texto para o leitor em
   linguagem simples, sempre com nível de certeza e link para a fonte oficial.
