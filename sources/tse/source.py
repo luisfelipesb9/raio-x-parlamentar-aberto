@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import math
 import re
 import unicodedata
@@ -220,13 +221,35 @@ class TseSource(Source):
             out.append({"id": m["id"], "nome": m["nome"], "uf": ufo["sigla"]})
         return out
 
+    def _parte_em_disco(self, uf: str, ano: int, conjuntos: tuple[str, ...]) -> dict | None:
+        """O bruto já gravado desta UF (data/raw/tse/tse_{ano}_{UF}.json), ou None se ausente,
+        ilegível ou incompleto (outro ano/UF, falta algum dos `conjuntos` pedidos ou, havendo
+        votação, a lista de municípios): nesse caso a UF é baixada de novo."""
+        try:
+            parte = json.loads(self.raw_path(f"tse_{ano}_{uf}.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        if not isinstance(parte, dict) or parte.get("ano") != ano or parte.get("uf") != uf:
+            return None
+        if any(not isinstance(parte.get(c), list) for c in conjuntos):
+            return None
+        if "votacao" in conjuntos and not isinstance(parte.get("municipios_ibge"), list):
+            return None
+        return parte
+
     def fetch_por_uf(self, uf: str | None = None, ano: int = 2022,
                      conjuntos: tuple[str, ...] = ("candidatos", "receitas", "votacao"),
-                     ) -> Iterator[dict]:
+                     reusar_raw: bool = False) -> Iterator[dict]:
         """Gerador: lê UF por UF e devolve {"ano", "uf", <conjuntos>, "municipios_ibge"} de cada
         uma, já gravado em data/raw/tse/tse_{ano}_{UF}.json. Só uma UF fica em memória por vez;
         é o modo para rodar o país inteiro (normalize cada parte e grave os fatos antes da
-        próxima). Os zips são lidos por HTTP Range, só o membro da UF."""
+        próxima; solte a referência à parte antes de pedir a seguinte). Os zips são lidos por
+        HTTP Range, só o membro da UF.
+
+        Com `reusar_raw`, a UF que já tem o bruto completo em disco é devolvida dele, sem ler o
+        membro do zip nem consultar o IBGE (retomada de uma rodada interrompida); bruto ausente,
+        corrompido ou incompleto é baixado de novo. Sem UF explícita ainda é preciso abrir o
+        diretório dos zips (poucos KB por Range) para saber quais UFs existem."""
         if uf is not None and not re.fullmatch(r"[A-Za-z]{2}", uf):
             raise ValueError(f"uf inválida: {uf!r} (esperado sigla de 2 letras, ex.: 'MG')")
         desconhecidos = [c for c in conjuntos if c not in _CONJUNTOS]
@@ -234,20 +257,45 @@ class TseSource(Source):
             raise ValueError(f"conjunto desconhecido: {desconhecidos} (use {list(_CONJUNTOS)})")
         uf = uf.upper() if uf else None
         with ExitStack() as pilha:
-            zips = {c: pilha.enter_context(self._abrir_zip(_CONJUNTOS[c][0].format(ano=ano)))
-                    for c in conjuntos}
+            zips: dict[str, zipfile.ZipFile] = {}
+
+            def abrir() -> dict[str, zipfile.ZipFile]:
+                if not zips:
+                    for c in conjuntos:
+                        zips[c] = pilha.enter_context(
+                            self._abrir_zip(_CONJUNTOS[c][0].format(ano=ano)))
+                return zips
+
+            lidos: dict[str, dict | None] = {}  # bruto de disco já lido (lê cada arquivo uma vez)
+
+            def em_disco(sigla: str) -> dict | None:
+                if not reusar_raw:
+                    return None
+                if sigla not in lidos:
+                    lidos[sigla] = self._parte_em_disco(sigla, ano, conjuntos)
+                return lidos[sigla]
+
             if uf:
                 ufs = [uf]
-                for c, z in zips.items():
-                    nome = _CONJUNTOS[c][1].format(ano=ano, uf=uf)
-                    if nome not in z.namelist():
-                        raise ValueError(f"zip do TSE sem o arquivo {nome}")
+                if em_disco(uf) is None:
+                    for c, z in abrir().items():
+                        nome = _CONJUNTOS[c][1].format(ano=ano, uf=uf)
+                        if nome not in z.namelist():
+                            raise ValueError(f"zip do TSE sem o arquivo {nome}")
             else:
-                ufs = sorted({u for c, z in zips.items() for u in self._ufs_do_zip(z, c, ano)})
-            municipios = self._municipios_ibge() if "votacao" in conjuntos else None
+                ufs = sorted({u for c, z in abrir().items() for u in self._ufs_do_zip(z, c, ano)})
+            municipios: list[dict] | None = None
             for sigla in ufs:
+                if (do_disco := em_disco(sigla)) is not None:
+                    lidos.pop(sigla, None)
+                    yield do_disco
+                    del do_disco
+                    continue
+                lidos.pop(sigla, None)
+                if municipios is None and "votacao" in conjuntos:
+                    municipios = self._municipios_ibge()
                 parte: dict[str, Any] = {"ano": ano, "uf": sigla}
-                for c, z in zips.items():
+                for c, z in abrir().items():
                     modelo, colunas = _CONJUNTOS[c][1], _CONJUNTOS[c][2]
                     membro = modelo.format(ano=ano, uf=sigla)
                     linhas = self._linhas(z, membro, colunas) if membro in z.namelist() else iter(())
@@ -256,21 +304,24 @@ class TseSource(Source):
                     parte["municipios_ibge"] = municipios
                 self.save_raw(f"tse_{ano}_{sigla}.json", parte)
                 yield parte
+                del parte  # solta a UF antes de ler a próxima (o chamador também deve soltar)
 
     def fetch(self, uf: str | None = None, ano: int = 2022,
-              conjuntos: tuple[str, ...] = ("candidatos", "receitas", "votacao")) -> dict:
+              conjuntos: tuple[str, ...] = ("candidatos", "receitas", "votacao"),
+              reusar_raw: bool = False) -> dict:
         """Lê os zips do TSE por HTTP Range e devolve só Deputado Federal.
 
         `uf` (ex.: "MG") limita a um estado — use para amostra. Sem `uf` percorre as 27 UFs,
-        grava um arquivo bruto por UF (nunca um consolidado) e devolve tudo junto em memória;
-        para o país inteiro com memória limitada use `fetch_por_uf`. Devolve {"ano", "uf",
-        "candidatos", "receitas", "votacao", "municipios_ibge"}; a votação vem somada por
-        (candidato, município). Validado para ano=2022.
+        grava um arquivo bruto por UF (nunca um consolidado) e devolve tudo junto em memória:
+        só serve para amostra e testes; para o país inteiro use `fetch_por_uf` (é o que o
+        pipeline faz). `reusar_raw`: ver `fetch_por_uf`. Devolve {"ano", "uf", "candidatos",
+        "receitas", "votacao", "municipios_ibge"}; a votação vem somada por (candidato,
+        município). Validado para ano=2022.
         """
         raw: dict[str, Any] = {"ano": ano, "uf": uf.upper() if uf else None}
         for c in conjuntos:
             raw[c] = []
-        for parte in self.fetch_por_uf(uf, ano, conjuntos):
+        for parte in self.fetch_por_uf(uf, ano, conjuntos, reusar_raw):
             for c in conjuntos:
                 raw[c] += parte[c]
             if "municipios_ibge" in parte:
