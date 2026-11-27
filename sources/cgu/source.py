@@ -24,6 +24,7 @@ from typing import Any
 import httpx
 
 from contracts import Fact
+from contracts.cnpj import normalizar_cnpj
 from sources.base import Source
 
 BASE = "https://portaldatransparencia.gov.br/download-de-dados"
@@ -173,13 +174,15 @@ class CguSource(Source):
         codigo = r["CÓDIGO DA SANÇÃO"].strip()
         if not codigo:
             return None
-        doc = re.sub(r"\D", "", r["CPF OU CNPJ DO SANCIONADO"])
+        bruto = r["CPF OU CNPJ DO SANCIONADO"]
+        cnpj = normalizar_cnpj(bruto)  # numérico ou alfanumérico, testado antes de tirar letras
+        doc = "" if cnpj or re.search(r"[A-Za-z]", bruto) else re.sub(r"\D", "", bruto)
         multa = _valor(r.get("VALOR DA MULTA")) if cad == "cnep" else None
         return Fact(
             tipo="sancao", chave=f"{cad.upper()}:{codigo}", fonte=fonte, id_oficial=codigo,
             url=f"{BASE}/{cad}",
             atributos={
-                "cnpj": doc if len(doc) == 14 else None,
+                "cnpj": cnpj or (doc if len(doc) == 14 else None),
                 "cpf": doc if len(doc) == 11 else None,
                 "cadastro": cad.upper(),
                 "inicio": _data_iso(r["DATA INÍCIO SANÇÃO"]),

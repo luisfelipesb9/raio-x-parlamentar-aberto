@@ -10,6 +10,7 @@ import unicodedata
 from dataclasses import dataclass, field
 
 from contracts import Fact
+from contracts.cnpj import cnpj_valido  # noqa: F401  (reexportado: numérico e alfanumérico)
 from repo.links import Ambiguidade, EntityLink
 
 # deputado_id só é gravado no fato quando o link tem ao menos este fator de certeza
@@ -43,17 +44,6 @@ def confronto_cpf(a: str | None, b: str | None) -> str:
     if "*" not in x and "*" not in y:
         return "igual"
     return "compativel" if visiveis else "desconhecido"
-
-
-def cnpj_valido(cnpj: str) -> bool:
-    if len(cnpj) != 14 or not cnpj.isdigit() or len(set(cnpj)) == 1:
-        return False
-    for n in (12, 13):
-        pesos = [*range(n - 7, 1, -1), *range(9, 1, -1)][:n]
-        resto = sum(int(d) * p for d, p in zip(cnpj[:n], pesos, strict=True)) % 11
-        if int(cnpj[n]) != (0 if resto < 2 else 11 - resto):
-            return False
-    return True
 
 
 def nomes_do_deputado(d: Fact) -> set[str]:

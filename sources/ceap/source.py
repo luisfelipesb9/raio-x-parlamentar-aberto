@@ -20,6 +20,7 @@ from typing import IO, Any
 import httpx
 
 from contracts import Fact
+from contracts.cnpj import normalizar_cnpj
 from sources.base import Source
 
 URL_ZIP = "https://www.camara.leg.br/cotas/Ano-{ano}.json.zip"
@@ -36,6 +37,7 @@ _SEPARADORES = " \t\r\n,"
 
 # "000.000.000/0000-1" é o que a Câmara grava quando não há fornecedor (ex.: telefonia funcional).
 _PLACEHOLDER = re.compile(r"0+1?|(\d)\1+")
+_TEM_LETRA = re.compile(r"[A-Za-z]")
 
 
 def _digitos(texto: Any) -> str:
@@ -43,9 +45,21 @@ def _digitos(texto: Any) -> str:
 
 
 def _documento_fornecedor(texto: Any) -> dict[str, str]:
-    """Devolve {"cnpj": ...} (14 dígitos) ou {"cpf": ...} (11) ou {} se ausente/placeholder."""
-    d = _digitos(texto)
-    if len(d) not in (11, 14) or _PLACEHOLDER.fullmatch(d):
+    """Devolve {"cnpj": ...} (14 posições, numérico ou alfanumérico) ou {"cpf": ...} (11 dígitos)
+    ou {} se ausente, placeholder ou fora desses formatos.
+
+    O CNPJ é testado primeiro e sobre o texto inteiro, letras incluídas: tirar as letras antes
+    deixaria um CNPJ alfanumérico sem documento ou, com 3 letras, com 11 dígitos, lido como CPF.
+    Texto com letra que não tem a forma de um CNPJ não é documento nenhum. Sem letra, vale o
+    critério de sempre (só os dígitos: 14 = CNPJ, 11 = CPF). Aqui só se confere a forma; o DV é
+    checado por quem consome (`cnpj_valido`).
+    """
+    bruto = str(texto or "")
+    cnpj = normalizar_cnpj(bruto)
+    if cnpj is not None:
+        return {} if _PLACEHOLDER.fullmatch(cnpj) else {"cnpj": cnpj}
+    d = _digitos(bruto)
+    if _TEM_LETRA.search(bruto) or len(d) not in (11, 14) or _PLACEHOLDER.fullmatch(d):
         return {}
     return {"cnpj" if len(d) == 14 else "cpf": d}
 
