@@ -22,7 +22,8 @@ def _alvo(nome: str) -> str:
 
 def test_alvos_novos_estao_declarados_como_phony():
     phony = MAKEFILE.splitlines()[0].split()
-    assert all(a in phony for a in ("ingest-nacional", "publicar-nacional", "deploy-check-nacional"))
+    assert all(a in phony for a in ("ingest-nacional", "publicar-nacional", "deploy-check-nacional",
+                                  "verifica-nacional"))
 
 
 def test_ingest_nacional_ingere_os_513_na_origem_pseudonimizada():
@@ -69,6 +70,14 @@ def test_deploy_check_nacional_aponta_para_o_destino_nacional():
     assert "--publico $(DESTINO_NACIONAL)" in alvo
 
 
+def test_verifica_nacional_confere_a_origem_nacional_so_nos_anos_ingeridos():
+    alvo = _alvo("verifica-nacional")
+    assert "RAIO_X_DB=$(ORIGEM_NACIONAL)" in alvo and "python -m scripts.verifica" in alvo
+    assert "--anos-ceap $(ANOS_CEAP)" in alvo
+    assert "--saida $(RELATORIO_NACIONAL)" in alvo and "RELATORIO_NACIONAL ?= data/nacional/" in MAKEFILE
+    assert "docs/relatorio" not in alvo  # não sobrescreve o relatório da amostra
+
+
 def test_sample_e_sample_publico_continuam_na_amostra_de_20_de_mg():
     for nome in ("sample", "sample-publico"):
         alvo = _alvo(nome)
@@ -92,3 +101,10 @@ def test_dry_run_publicar_nacional_repassa_origem_e_destino_proprios():
                        cwd=RAIZ, capture_output=True, text=True, check=True)
     assert "--origem /tmp/nac.duckdb" in r.stdout and "--destino /tmp/nac_pub.duckdb" in r.stdout
     assert "data/sample/raio_x_publico.duckdb" not in r.stdout
+
+
+@pytest.mark.skipif(shutil.which("make") is None, reason="make não instalado")
+def test_dry_run_verifica_nacional_usa_a_origem_e_os_anos_do_ingest():
+    r = subprocess.run(["make", "-n", "verifica-nacional", "ORIGEM_NACIONAL=/tmp/nac.duckdb",
+                        "ANOS_CEAP=2023,2024"], cwd=RAIZ, capture_output=True, text=True, check=True)
+    assert "RAIO_X_DB=/tmp/nac.duckdb" in r.stdout and "--anos-ceap 2023,2024" in r.stdout

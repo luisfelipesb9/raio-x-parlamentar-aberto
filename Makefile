@@ -1,4 +1,4 @@
-.PHONY: setup ingest infer test dev lint sample sample-publico publicar ingest-nacional publicar-nacional deploy-check deploy-check-nacional verifica checa-pii seed-demo demo dev-demo
+.PHONY: setup ingest infer test dev lint sample sample-publico publicar ingest-nacional publicar-nacional deploy-check deploy-check-nacional verifica-nacional verifica checa-pii seed-demo demo dev-demo
 setup:
 	uv sync
 ingest:
@@ -47,11 +47,16 @@ ingest-nacional:
 	uv run python -m ingest.pipeline --nacional --fontes camara,ceap,cgu,tse,opensanctions,rfb --anos-ceap $(ANOS_CEAP) --janela-inicio $(JANELA_INICIO) --janela-fim $(JANELA_FIM) --fonte-votos $(FONTE_VOTOS) --limite-rfb $(LIMITE_RFB) --detalhar-deputados --incluir-proposicoes --pseudonimizar --db $(ORIGEM_NACIONAL) $(ARGS)
 # Depois do `ingest-nacional`: motor, varredura de CPF e o arquivo enxuto em DESTINO_NACIONAL (data/nacional/, ignorado
 # pelo git; não sobrescreve o artefato da amostra). Para subir à Vercel, o arquivo tem de estar em data/sample/raio_x_publico.duckdb
-# (único caminho que o .vercelignore reabre): copie-o para lá, tirando a amostra do lugar antes (o deploy-check reprova outro .duckdb).
+# (único caminho que o .vercelignore reabre): MOVA-o para lá (não copie: um .duckdb a mais na árvore reprova o deploy-check), tirando a amostra do lugar antes (o deploy-check reprova outro .duckdb).
 publicar-nacional:
 	RAIO_X_DB=$(ORIGEM_NACIONAL) uv run python -m engine.run
 	uv run python -m ingest.varredura --db $(ORIGEM_NACIONAL)
 	$(MAKE) publicar ORIGEM=$(ORIGEM_NACIONAL) DESTINO=$(DESTINO_NACIONAL)
+# Confere o banco nacional (ORIGEM_NACIONAL) contra os brutos, só com os anos de CEAP ingeridos; o relatório vai para
+# data/nacional/ (não sobrescreve o docs/relatorio/verificacao.md da amostra). Zip de ano que não fecha vira "não verificado".
+RELATORIO_NACIONAL ?= data/nacional/verificacao.md
+verifica-nacional:
+	RAIO_X_DB=$(ORIGEM_NACIONAL) uv run python -m scripts.verifica --anos-ceap $(ANOS_CEAP) --saida $(RELATORIO_NACIONAL) $(ARGS)
 # Como `deploy-check`, mas sobre a base nacional; reprova se a base da amostra (ou qualquer outro .duckdb) estiver na árvore.
 deploy-check-nacional:
 	uv run python -m ingest.deploy_check --raiz . --publico $(DESTINO_NACIONAL)

@@ -41,9 +41,10 @@ cd web && pnpm install && pnpm dev                     # web em http://localhost
    CPF batem com a origem (hash `origem_sha256` já está registrado). Também pendente: repetir o teste de escala com dados nacionais reais
    (`docs/ampliacao/medicoes.md`, seção 5, é sintético).
 
-8. **Ingest nacional (Onda 4)**: falta rodar `make ingest-nacional` com a rede e o sal reais, depois `make publicar-nacional`, `make verifica`
-   (`ARGS="--anos-ceap ..."` se sobrar zip de outro ano) e medir o que o ADR-011 pede (arquivo público, pico de RAM da API, partida a frio).
-   Decisões ainda abertas: janela de votos e anos de CEAP padrão do Makefile (`JANELA_*`, `ANOS_CEAP`) são valores de configuração, não medidos;
+8. **Ingest nacional (Onda 4)**: falta rodar `make ingest-nacional` com a rede e o sal reais, depois `make publicar-nacional`, `make verifica-nacional`
+   (`RAIO_X_DB=$ORIGEM_NACIONAL` e `--anos-ceap $(ANOS_CEAP)`; zip de CEAP que não fecha com o banco, seja sobra em disco ou ano que não entrou, sai "não verificado"),
+   `make deploy-check-nacional` (o arquivo nacional, em `data/nacional/`, tem de ser MOVIDO para `data/sample/raio_x_publico.duckdb` para ir à Vercel) e medir o que o ADR-011 pede (arquivo público, pico de RAM da API, partida a frio).
+   Variáveis: `ORIGEM_NACIONAL`, `DESTINO_NACIONAL`, `RELATORIO_NACIONAL`, `ANOS_CEAP`, `JANELA_*`, `FONTE_VOTOS`, `LIMITE_RFB`. Decisões ainda abertas: janela de votos e anos de CEAP padrão do Makefile (`JANELA_*`, `ANOS_CEAP`) são valores de configuração, não medidos;
    proposições nacionais pedem a janela inteira sem filtro de autor (custo não medido); `--limite-rfb` segue o padrão de 50 (BrasilAPI, um CNPJ por vez).
    Detalhes: `docs/ampliacao/ingest-nacional.md`.
 

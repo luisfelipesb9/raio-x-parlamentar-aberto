@@ -287,10 +287,10 @@ def test_sem_reusar_raw_o_pipeline_baixa_mesmo_com_bruto_compativel(raw_dir):
 
 # ---------- sem escopo, só quem é deputado conhecido (candidatura, emenda, CEAP) ----------
 
-def _cand(sq: str, nome: str) -> Fact:
+def _cand(sq: str, nome: str, partido: str = "PL") -> Fact:
     return Fact(tipo="candidatura", chave=sq, fonte="tse", id_oficial=sq, url=f"https://x/{sq}",
                 atributos={"ano": 2022, "cpf": None, "nome": nome, "nome_urna": nome,
-                           "cargo": "Deputado Federal", "uf": "MG", "partido": "PL"})
+                           "cargo": "Deputado Federal", "uf": "MG", "partido": partido})
 
 
 class TseFalso(Source):
@@ -393,3 +393,61 @@ def test_sem_reusar_raw_bruto_incompativel_nao_gera_aviso(raw_dir):
                                        detalhar_deputados=True),
              registry={"camara": CamaraFalsa}, log=linhas.append).executar()
     assert not any("não reaproveitado" in ln for ln in linhas)
+
+
+# ---------- ambiguidade só de quem é deputado conhecido ----------
+
+class TseAmbiguo(TseFalso):
+    """O candidato 30 casa com dois deputados (Dep Um em MG e outro Dep Um em MG, mesmo nome)."""
+
+    def normalize(self, raw):
+        return [_cand("30", "Dep Repetido", partido="XX")] if raw.get("candidatos") else []
+
+
+class CamaraComHomonimos(CamaraFalsa):
+    def normalize(self, raw):
+        if "proposicoes" in raw:
+            return []
+        return [_fato("deputado", "1", nome="Dep Repetido", uf="MG", partido="PL"),
+                _fato("deputado", "2", nome="Dep Repetido", uf="MG", partido="PT")]
+
+
+def test_ambiguidade_entre_deputados_conhecidos_fica_registrada():
+    store = Store(":memory:")
+    Pipeline(store, Opcoes(fontes=("camara", "tse"), nacional=True),
+             registry={"camara": CamaraComHomonimos, "tse": TseAmbiguo}, log=lambda _: None).executar()
+    assert {a.origem for a in store.load_ambiguities()} == {"candidatura:30"}
+
+
+def test_ambiguidade_velha_de_candidato_que_deixou_de_ser_ambiguo_e_limpa():
+    from repo.links import Ambiguidade
+    store = Store(":memory:")
+    store.save_ambiguities([Ambiguidade("candidatura:20", ("deputado:1", "deputado:2"), "x")])
+    Pipeline(store, Opcoes(fontes=("camara", "tse"), nacional=True),
+             registry={"camara": CamaraComHomonimos, "tse": TseFalso}, log=lambda _: None).executar()
+    assert store.load_ambiguities() == []  # o candidato 20 foi lido de novo e não é mais ambíguo
+
+
+def test_link_velho_de_candidato_que_nao_e_mais_mantido_e_limpo():
+    from repo.links import EntityLink
+    store = Store(":memory:")
+    store.upsert_links([EntityLink("candidatura:20", "deputado:1", "nome_norm", 0.8)])
+    Pipeline(store, Opcoes(fontes=("camara", "tse"), nacional=True),
+             registry={"camara": CamaraFalsa, "tse": TseFalso}, log=lambda _: None).executar()
+    assert [lk.origem for lk in store.load_links("candidatura")] == ["candidatura:10"]
+
+
+# ---------- universo vazio com fonte que filtra ----------
+
+def test_universo_vazio_avisa_que_nada_foi_filtrado():
+    linhas: list[str] = []
+    Pipeline(Store(":memory:"), Opcoes(fontes=("ceap",), ano=2024, nacional=True),
+             registry=REGISTRO, log=linhas.append).executar()
+    assert any("ATENÇÃO" in ln and "sem deputados no banco" in ln for ln in linhas)
+
+
+def test_universo_conhecido_nao_avisa():
+    linhas: list[str] = []
+    Pipeline(Store(":memory:"), Opcoes(fontes=("camara", "ceap"), ano=2024, nacional=True),
+             registry=REGISTRO, log=linhas.append).executar()
+    assert not any("sem deputados no banco" in ln for ln in linhas)

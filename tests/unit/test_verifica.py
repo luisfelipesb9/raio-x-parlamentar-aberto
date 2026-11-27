@@ -270,13 +270,34 @@ def test_ceap_anos_restringe_os_zips_conferidos(ambiente_dois_anos):
 
 
 def test_banco_so_com_2024_e_zips_2023_e_2024_em_disco_confere_sem_divergir(ambiente):
-    """O padrão são os anos efetivamente ingeridos: o zip de 2023 sobrando em disco não conta."""
+    """O padrão são os anos efetivamente ingeridos: o zip de 2023 sobrando não reprova, mas também
+    não fica como se estivesse conferido."""
     db, raw = ambiente
     _zip_ano(raw, 2023, _linhas_2023())  # não foi ingerido neste banco
     r = rodar(db, raw)
-    linhas = por(r, "ceap")
-    assert linhas and all(x.status == "ok" for x in linhas) and r.divergencias == 0
+    deputados = [x for x in por(r, "ceap") if x.item[0].isdigit()]
+    assert deputados and all(x.status == "ok" for x in deputados) and r.divergencias == 0
+    [zip_sobrando] = [x for x in por(r, "ceap") if x.item == "Ano-2023.json.zip"]
+    assert zip_sobrando.status == "nao_verificado"
+    assert "não fecha com o banco" in zip_sobrando.detalhe and "--anos-ceap" in zip_sobrando.detalhe
+    assert r.nao_verificados >= 1
     assert any("Ano-2023.json.zip" in a and "ignorado" in a for a in r.avisos)
+
+
+def test_ano_que_faltou_entrar_no_banco_nao_passa_como_ok(ambiente):
+    """Banco com 2023, zip de 2024 íntegro em disco que não foi ingerido: o 2024 sai como não
+    verificado, e o relatório não diz que tudo foi conferido."""
+    db, raw = ambiente
+    _zip_ano(raw, 2023, _linhas_2023())
+    s = Store(db)
+    s.con.execute("DELETE FROM fact WHERE tipo = 'despesa_ceap'")  # o banco só tem 2023
+    s.upsert_facts(CeapSource().normalize({"dados": _linhas_2023()}))
+    s.con.close()
+    r = rodar(db, raw)
+    assert r.divergencias == 0
+    [faltou] = [x for x in por(r, "ceap") if x.item == "Ano-2024.json.zip"]
+    assert faltou.status == "nao_verificado" and "--anos-ceap" in faltou.detalhe
+    assert "Ano-2024.json.zip" in verifica.renderizar_md(r).split("## Não verificado")[1]
 
 
 def test_zip_sobrando_nao_mascara_despesa_que_falta_no_banco(ambiente):

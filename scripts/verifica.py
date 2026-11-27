@@ -299,7 +299,10 @@ def _conferir_ceap(raw_dir: Path, store: Store, deputados: dict[str, str],
         avisos.append("CEAP conferida somando os zips " + ", ".join(nomes[a] for a in usados)
                       + (f"; ignorado(s), porque não fecham com o banco: {', '.join(sobras)} "
                          "(`--anos-ceap` fixa os anos)" if sobras else ""))
-    linhas = []
+    # zip que sobrou da busca: pode ser um ano que faltou entrar no banco, e isso não pode passar por "ok"
+    linhas = [Linha("ceap", achados[a].name, "—", "—", NAO_VERIFICADO,
+                    "não fecha com o banco; confirme com --anos-ceap")
+              for a in achados if a not in usados]
     for dep, nome in sorted(deputados.items(), key=lambda kv: (len(kv[0]), kv[0])):
         (n_b, c_b), (n_d, c_d) = bruto.get(dep, (0, 0)), banco.get(dep, (0, 0))
         problemas = []

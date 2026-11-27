@@ -42,6 +42,7 @@ from sources import REGISTRY
 from sources.camara.escopo import avaliar_reuso, escopo_da_coleta
 from sources.camara.source import FONTES_VOTOS
 
+FONTES_QUE_FILTRAM = ("ceap", "cgu", "tse", "opensanctions")  # só gravam o que é de deputado conhecido
 ORDEM = ("camara", "ceap", "cgu", "tse", "opensanctions", "rfb")  # ordem de execução fixa
 
 
@@ -186,6 +187,9 @@ class Pipeline:
         for nome in ORDEM:
             if nome in self.opcoes.fontes:
                 self.log(f"[{nome}] ...")
+                if nome in FONTES_QUE_FILTRAM and self.escopo is None and not self.universo:
+                    self.log("    ATENÇÃO: sem deputados no banco, nada filtrado (rode a fonte camara "
+                             "antes para só gravar o que é de deputado)")
                 getattr(self, f"_passo_{nome}")()
         if {"ceap", "cgu", "rfb"} & set(self.opcoes.fontes):
             self._ligar_cnpj()
@@ -471,7 +475,9 @@ class Pipeline:
         sqs = {f.chave for f in ficam if f.atributos.get("deputado_id")}
         self.store.delete_facts("candidatura", fonte=cand_raw[0].fonte if cand_raw else None,
                                 onde={"ano": [o.ano_eleicao], **({"uf": [uf]} if uf else {})})
-        self._gravar(ficam, res_c, origens=[f"candidatura:{f.chave}" for f in ficam])
+        # todos os candidatos lidos (não só os mantidos): link e ambiguidade de quem deixou de ser
+        # mantido também são limpos
+        self._gravar(ficam, res_c, origens=[f"candidatura:{f.chave}" for f in cand_raw])
         contagem["gravadas"] += len(ficam)
 
         todos_sq = [f.chave for f in cand_raw]
@@ -513,8 +519,8 @@ class Pipeline:
         ficam = [f for f in peps if f"pep:{f.chave}" in ligados]
         links = [lk for lk in res.links if lk.origem in ligados
                  and self._no_escopo(lk.destino.removeprefix("deputado:"))]
-        amb = [a for a in res.ambiguos if self.escopo is None or any(
-            c.removeprefix("deputado:") in self.escopo for c in a.candidatos)]
+        amb = [a for a in res.ambiguos if any(
+            self._no_escopo(c.removeprefix("deputado:")) for c in a.candidatos)]
         self._gravar(ficam, Resolucao(links=links, ambiguos=amb), origens=sorted(ligados))
         self.relatorio["opensanctions"] = {"peps_lidos": len(peps), **res.resumo(),
                                            "gravados": len(ficam)}

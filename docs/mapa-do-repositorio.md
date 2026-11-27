@@ -42,7 +42,9 @@ make infer    # roda o motor e materializa findings
 make sample   # ingere a amostra (20 deputados de MG; votações de fev–mar/2025, CEAP do arquivo de 2024, eleição TSE de 2022) em data/sample/raio_x_sample.duckdb e roda o motor
 make sample-publico  # amostra pseudonimizada (HMAC) + varredura de CPF em $TMPDIR/raio_x_publico_origem.duckdb (fora da árvore), depois `make publicar`
 make publicar # origem pseudonimizada -> data/sample/raio_x_publico.duckdb (enxuto, sem chave primária; ADR-011)
-make ingest-nacional   # Onda 4: deputados em exercício (sem --amostra, sem teto de votações/proposições) na origem pseudonimizada ($ORIGEM); coleta longa
+make ingest-nacional   # Onda 4: deputados em exercício (sem --amostra, sem teto de votações/proposições) na origem pseudonimizada ($ORIGEM_NACIONAL); coleta longa
+make verifica-nacional # confere $ORIGEM_NACIONAL contra os brutos, só nos anos de $ANOS_CEAP (relatório em data/nacional/)
+make deploy-check-nacional # como deploy-check, sobre $DESTINO_NACIONAL
 make publicar-nacional # depois do anterior: motor, varredura de CPF e o arquivo enxuto em $DESTINO_NACIONAL (data/nacional/, não versionado; origem em $ORIGEM_NACIONAL)
 make test     # pytest
 make verifica # recalcula governismo e CEAP dos brutos e confronta com o banco/motor (docs/relatorio/verificacao.md)
