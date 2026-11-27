@@ -35,26 +35,23 @@ class Achado(NamedTuple):
     campo: str
 
 
-# Derivados (findings, links, grafo) repetem ids públicos e números dos fatos. Três formas que podem
-# fechar como CPF por coincidência (~1%) e não são CPF: a referência `candidatura:<SQ_CANDIDATO>`, o
-# `id_oficial` de `votos_municipio` (`<SQ>:<município>`) nas evidências e valor em reais cru, com 9
-# dígitos, ponto e 2 casas (`123456789.12`; CPF com ponto traz o ponto entre os grupos de 3).
-_ID_PUBLICO_DERIVADO = (
-    (re.compile(r"candidatura:\d{11}(?!\d)"), "candidatura:#"),
-    (re.compile(r'("tipo":\s*"votos_municipio",\s*"id_oficial":\s*")\d{11}(?=:)'), r"\1#"),
-    (re.compile(r"(?<![\d.])\d{9}\.\d{2}(?![\d.])"), "#"),
-)
+# Derivados (findings, links, grafo) repetem ids públicos e números dos fatos. Duas formas que podem
+# fechar como CPF por coincidência (~1%) e não são CPF: o SQ_CANDIDATO (em `candidatura:<SQ>` e no
+# `id_oficial` `<SQ>:<município>` de `votos_municipio`), só quando o SQ é de uma `candidatura` que está
+# no banco, e o valor em reais cru, com 9 dígitos, ponto e 2 casas (`123456789.12`; CPF com ponto
+# traz o ponto entre os grupos de 3).
+_REF_SQ = re.compile(r'(candidatura:|"tipo":\s*"votos_municipio",\s*"id_oficial":\s*")(\d{11})(?!\d)')
+_VALOR_CRU = re.compile(r"(?<![\d.])\d{9}\.\d{2}(?![\d.])")
 
 
-def _sem_ids_publicos(texto: str) -> str:
-    for padrao, troca in _ID_PUBLICO_DERIVADO:
-        texto = padrao.sub(troca, texto)
-    return texto
+def _sem_ids_publicos(texto: str, sqs: frozenset[str] | set[str]) -> str:
+    texto = _REF_SQ.sub(lambda m: m.group(1) + ("#" if m.group(2) in sqs else m.group(2)), texto)
+    return _VALOR_CRU.sub("#", texto)
 
 
-def tem_cpf_derivado(texto: str) -> bool:
-    """`tem_cpf` para findings, links e grafo: ignora as 3 formas de id público/valor acima."""
-    return tem_cpf(_sem_ids_publicos(texto))
+def tem_cpf_derivado(texto: str, sqs: frozenset[str] | set[str] = frozenset()) -> bool:
+    """`tem_cpf` para findings, links e grafo: ignora SQ de candidatura conhecido e valor cru."""
+    return tem_cpf(_sem_ids_publicos(texto, sqs))
 
 
 def tem_cpf(texto: str) -> bool:
@@ -89,11 +86,13 @@ def cpfs_integros(fatos: Iterable[Fact]) -> list[Achado]:
 def varrer_banco(store: Any) -> list[Achado]:
     """Fatos, findings/explicações (citam valores dos fatos), entity_link, entity_ambiguity e as
     tabelas materializadas da publicação (as que existirem)."""
-    achados = cpfs_integros(store.load_facts())
+    fatos = store.load_facts()
+    achados = cpfs_integros(fatos)
+    sqs = {f.chave for f in fatos if f.tipo == "candidatura"}
     for fid, payload, expl in store.con.execute(
             "SELECT id, payload::VARCHAR, explanation::VARCHAR FROM finding").fetchall():
         for campo, texto in (("payload", payload), ("explanation", expl)):
-            if tem_cpf_derivado(texto or ""):
+            if tem_cpf_derivado(texto or "", sqs):
                 achados.append(Achado("finding", fid, campo))
     ausentes = set(store.tabelas_publicacao_faltando())
     for tabela, colunas in (("entity_link", ("origem", "destino", "metodo")),
@@ -102,7 +101,7 @@ def varrer_banco(store: Any) -> list[Achado]:
         sel = ", ".join(f"{c}::VARCHAR" for c in colunas)
         for linha in store.con.execute(f"SELECT {sel} FROM {tabela}").fetchall():
             for campo, texto in zip(colunas, linha, strict=True):
-                if tem_cpf_derivado(texto or ""):
+                if tem_cpf_derivado(texto or "", sqs):
                     achados.append(Achado(tabela, linha[0], campo))
     return achados
 

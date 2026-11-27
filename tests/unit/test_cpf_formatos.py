@@ -178,8 +178,9 @@ def test_varredura_de_derivados_ignora_so_ids_publicos_e_valor_cru():
     from ingest.varredura import tem_cpf_derivado
     sq, outro = _sq_com_dv_de_cpf(), CPF
     # ignorados: referência à candidatura, evidência de votos_municipio e valor em reais cru
-    assert not tem_cpf_derivado(f"candidatura:{sq}")
-    assert not tem_cpf_derivado('{"tipo":"votos_municipio","id_oficial":"' + sq + ':14931"}')
+    sqs = {sq}
+    assert not tem_cpf_derivado(f"candidatura:{sq}", sqs)
+    assert not tem_cpf_derivado('{"tipo":"votos_municipio","id_oficial":"' + sq + ':14931"}', sqs)
     assert not tem_cpf_derivado('{"valor_emendas":' + sq[:9] + "." + sq[9:] + "}")
     # continuam acusados: CPF solto, em outro tipo de evidência, formatado, ou colado a "candidatura:"
     assert tem_cpf_derivado(f"doador {outro}")
@@ -187,3 +188,6 @@ def test_varredura_de_derivados_ignora_so_ids_publicos_e_valor_cru():
     assert tem_cpf_derivado(f"{outro[:3]}.{outro[3:6]}.{outro[6:9]}-{outro[9:]}")
     assert tem_cpf_derivado(f"{outro[:3]}.{outro[3:6]}.{outro[6:9]}.{outro[9:]}")
     assert tem_cpf_derivado(f"despesa:{outro}")
+    # o mesmo número, se NÃO é o SQ de uma candidatura do banco, é acusado
+    assert tem_cpf_derivado(f"candidatura:{sq}")
+    assert tem_cpf_derivado(f"candidatura:{sq}", {outro})
