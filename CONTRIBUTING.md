@@ -22,6 +22,8 @@ make infer          # roda o motor e materializa findings
 make sample         # amostra de 20 deputados de MG + motor
 make sample-publico # amostra pseudonimizada (HMAC) + varredura de CPF, depois `make publicar`
 make publicar       # banco público enxuto (ADR-011) a partir da origem pseudonimizada
+make ingest-nacional   # deputados em exercício (modo nacional) na origem pseudonimizada; ver docs/ampliacao/ingest-nacional.md
+make publicar-nacional # motor, varredura de CPF e banco enxuto depois do ingest-nacional
 make seed-demo      # gera o banco fictício da demonstração (offline)
 make demo           # seed-demo + instruções para subir API e site
 make dev-demo       # API sobre o banco da demo (sal e banco já definidos)

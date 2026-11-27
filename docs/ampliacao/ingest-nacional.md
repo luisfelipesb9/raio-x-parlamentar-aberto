@@ -2,6 +2,38 @@
 
 Parte da Onda 4 (513 deputados). Contexto e números de volume em [pesquisa.md](pesquisa.md).
 
+## Modo nacional (`--nacional`, `make ingest-nacional`)
+
+`python -m ingest.pipeline --nacional ...` junta o que a Onda 4 precisa: todos os deputados em exercício (sem `--uf`/`--amostra`;
+combinar é erro), sem teto de votações nem de proposições (`--max-votacoes`/`--max-proposicoes` só valem se dados; os tetos de 30 e
+300 continuam sendo o padrão do modo amostra), TSE por UF e CEAP de vários anos (`--anos-ceap`). O Makefile acrescenta o resto
+(`make ingest-nacional`: dump anual de votos, detalhe dos deputados, proposições, pseudonimização, saída em `$(ORIGEM)`); `make
+publicar-nacional` roda o motor, a varredura de CPF e o `publicar` depois. `make sample` e `make sample-publico` não mudam
+(20 deputados de MG, teto de 145 votações e de 300 proposições).
+
+Flags da Câmara repassadas ao `CamaraSource.fetch`: `--legislatura-completa` (878 da legislatura em vez dos 513 em exercício),
+`--fonte-votos {api,dump}`, `--reusar-dumps` e `--retomar`/`--sem-retomar` (padrão: retomar o checkpoint; vale também para as
+proposições). No modo nacional as proposições são pedidas pela janela inteira, sem filtrar por autor (o `fetch_proposicoes` sem
+`deputado_ids`); só ficam proposição e autoria de deputado conhecido.
+
+### Quem entra: a lista de deputados conhecidos
+
+Sem escopo (`--nacional` ou uma rodada sem `--uf`/`--amostra`), o pipeline só grava voto, autoria e despesa de quem está entre os deputados
+conhecidos. Antes, voto de quem não está na lista (ex-deputado, suplente que já saiu; o dump de votos traz todo mundo que votou na janela)
+virava fato órfão e podia gerar achado sobre quem não tem ficha. Se o banco ainda não tem deputados (rodada só de CEAP, por exemplo), nada
+é filtrado. Com escopo (`--uf`, `--amostra`) vale o recorte de sempre. Os deletes pré-gravação do modo sem escopo não filtram por
+deputado, então rodar de novo remove o voto órfão deixado por uma rodada antiga.
+
+### `--reusar-raw` e o escopo gravado no bruto da Câmara
+
+O `fetch` grava `_escopo` no `camara_<início>_<fim>.json`: `legislatura`, `legislatura_completa`, `janela`, `fonte_votos` e `max_votacoes`
+(`None` = sem teto). Com `--reusar-raw` (ou `--detalhar-deputados`, que lê a lista de deputados do bruto), o pipeline só reaproveita o
+arquivo se ele serve ao pedido: mesma legislatura completa ou não, mesma janela, mesma fonte de votos e teto igual ou menor que o gravado
+(bruto sem teto serve a qualquer pedido; bruto de 145 votações não serve a um pedido sem teto). Se não serve, o pipeline avisa
+(`ATENÇÃO: ... não reaproveitado: <motivo>; coletando de novo`) e coleta de novo, sobrescrevendo o arquivo. Bruto de antes do registro
+(sem `_escopo`, possivelmente com a legislatura inteira) só serve à rodada de amostra, com aviso; numa rodada nacional é recusado. O
+formato do bruto ganhou só esta chave (`normalize` a ignora). Os brutos do TSE já eram por UF e conferidos por ano e UF.
+
 ## TSE, uma UF por vez
 
 Sem `--uf` nem `--amostra`, `_passo_tse` usa `TseSource.fetch_por_uf` em vez de `fetch(uf=None)`
@@ -65,5 +97,7 @@ vez) e vale no lugar de `--ano`. `relatorio["ceap"]["por_ano"]` traz a contagem 
   230 a 281 mil linhas. Cabe numa máquina comum e no runner do GitHub (16 GB); se for um limite,
   o próximo passo é normalizar e gravar por lote de deputados (linhas idênticas ficam juntas
   porque têm o mesmo `idDeputado`, então o sufixo `-2`, `-3` da chave continua correto).
-- `scripts/verifica.py` compara com **um** zip (`Ano-*.json.zip`); com vários anos no banco ele
-  precisa somar os anos antes de conferir o total por deputado (fora desta mudança).
+- `scripts/verifica.py` soma, por deputado, todos os zips `data/raw/ceap/Ano-*.json.zip` antes de conferir
+  o total com o banco (cada zip é uma partição das despesas). Sobrou um zip de ano que não foi ingerido?
+  `--anos-ceap 2023,2024` (`make verifica ARGS="--anos-ceap 2023,2024"`) restringe; zip ilegível ou de ano pedido e ausente
+  vira "não verificado", nunca "ok", e o relatório avisa quais zips foram somados.

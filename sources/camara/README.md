@@ -47,6 +47,8 @@ Conector da Câmara dos Deputados (API v2 e dumps anuais oficiais). Medições d
 nome civil que a API pública devolve; nada de terceiros.
 
 ## Migração
-O formato de `data/raw/camara/` não mudou; acrescentam-se as subpastas `parcial/` (transitória) e `dumps/`.
+O formato de `data/raw/camara/` só ganhou a chave `_escopo` no JSON (legislatura, janela, fonte de votos, teto de votações:
+`sources/camara/escopo.py`), que o pipeline confere antes de reaproveitar o bruto com `--reusar-raw`; acrescentam-se as
+subpastas `parcial/` (transitória) e `dumps/`. Bruto sem `_escopo` só serve à rodada de amostra, com aviso.
 Um `camara_<início>_<fim>.json` antigo foi baixado com a legislatura inteira (878); com `--reusar-raw` o
-pipeline o reaproveita como está. Apague-o para refazer com os 513.
+pipeline o reaproveita como está na amostra (com aviso) e o recusa na rodada nacional. Apague-o para refazer com os 513.
