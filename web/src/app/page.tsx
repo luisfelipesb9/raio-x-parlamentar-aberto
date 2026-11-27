@@ -31,6 +31,9 @@ async function contagens(): Promise<{ deputados: number; alertas: number; atuali
 
 const inteiro = new Intl.NumberFormat("pt-BR");
 
+/** Cadeiras da Câmara dos Deputados (fato constitucional): permite dizer, sem inventar, quanto da Câmara a base já cobre. */
+const CADEIRAS_DA_CAMARA = 513;
+
 export default async function Inicio() {
   const total = await contagens();
   return (
@@ -49,7 +52,7 @@ export default async function Inicio() {
         </div>
         <HeroScan />
       </section>
-      <Numeros />
+      <Numeros totalInicial={total?.deputados ?? null} />
       <Ticker />
       <AvisoNaoAcusacao compacto />
       <section className="secao" aria-labelledby="h-lista">
@@ -57,7 +60,8 @@ export default async function Inicio() {
         <p>
           {total ? (
             <>
-              A base reúne <strong>{inteiro.format(total.deputados)}</strong> deputados federais e{" "}
+              A base reúne <strong>{inteiro.format(total.deputados)}</strong>
+              {total.deputados < CADEIRAS_DA_CAMARA ? ` dos ${CADEIRAS_DA_CAMARA}` : ""} deputados federais e{" "}
               <strong>{inteiro.format(total.alertas)}</strong> {total.alertas === 1 ? "alerta (um padrão" : "alertas (padrões"} nos dados públicos, não
               acusações), cada um com nível de certeza e fonte oficial.{" "}
             </>

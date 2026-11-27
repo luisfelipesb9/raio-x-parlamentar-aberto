@@ -8,9 +8,10 @@ import { useApi } from "@/lib/useApi";
 import { Contador } from "./Contador";
 
 /** Tira de números. Só dado real (total vindo da API) ou fato estrutural do sistema, rotulado como tal. */
-export function Numeros() {
+export function Numeros({ totalInicial = null }: { totalInicial?: number | null }) {
   const { estado } = useApi<PaginaDeputados>("/deputados", { page_size: 1 });
-  const total = estado.status === "ok" ? estado.data.total : null;
+  // o total do servidor (ISR) já vem no HTML; o cliente só o atualiza quando a API responde
+  const total = estado.status === "ok" ? estado.data.total : totalInicial;
   const itens: { valor: number | null; rotulo: string }[] = [
     { valor: total, rotulo: "deputados na base" },
     { valor: OBJETIVOS.length, rotulo: "perguntas que o sistema sabe responder" },
