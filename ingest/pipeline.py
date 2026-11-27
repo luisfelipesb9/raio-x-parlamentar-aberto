@@ -154,6 +154,10 @@ class Pipeline:
     log: Callable[[str], None] = print
     todos_deputados: list[Fact] = field(default_factory=list)
     escopo: set[str] | None = None
+    # ids dos deputados conhecidos. Sem escopo (modo nacional ou rodada sem --uf/--amostra) é ele que
+    # decide quem entra: voto de quem não está na lista (ex-deputado, suplente que saiu) não vira fato
+    # órfão, que inflaria os achados.
+    universo: set[str] = field(default_factory=set)
     relatorio: dict[str, Any] = field(default_factory=dict)
     salt: str | None = None
 
@@ -192,9 +196,12 @@ class Pipeline:
     def _deputados_do_banco(self) -> None:
         self.todos_deputados = list(deputados_unicos(self.store.facts_by_tipo("deputado")).values())
         self.escopo = selecionar_escopo(self.todos_deputados, self.opcoes.uf, self.opcoes.amostra)
+        self.universo = {d.chave for d in self.todos_deputados}
 
     def _no_escopo(self, dep_id: Any) -> bool:
-        return self.escopo is None or str(dep_id) in self.escopo
+        if self.escopo is not None:
+            return str(dep_id) in self.escopo
+        return not self.universo or str(dep_id) in self.universo  # sem deputados conhecidos: tudo
 
     def _ufs_do_escopo(self) -> list[str | None]:
         if self.opcoes.uf:
@@ -243,6 +250,7 @@ class Pipeline:
         self.todos_deputados = list(deputados_unicos(
             [f for f in fatos if f.tipo == "deputado"]).values())
         self.escopo = selecionar_escopo(self.todos_deputados, o.uf, o.amostra)
+        self.universo = {d.chave for d in self.todos_deputados}
         ficam = [f for f in fatos if f.tipo == "votacao"] + \
                 [f for f in self.todos_deputados if self._no_escopo(f.chave)] + \
                 [f for f in fatos if f.tipo in ("voto", "autoria")
@@ -265,9 +273,10 @@ class Pipeline:
         de deputado do escopo, e a proposição que tem ao menos uma delas."""
         o = self.opcoes
         ids = None if self.escopo is None else sorted(self.escopo, key=lambda x: (len(x), x))
-        raw = src.fetch_proposicoes(o.janela_inicio, o.janela_fim, deputado_ids=ids,
-                                    siglas_tipo=o.siglas_proposicoes,
-                                    max_proposicoes=o.max_proposicoes)
+        pedido = {"data_inicio": o.janela_inicio, "data_fim": o.janela_fim, "deputado_ids": ids,
+                  "siglas_tipo": o.siglas_proposicoes, "max_proposicoes": o.max_proposicoes,
+                  "retomar": o.retomar}
+        raw = src.fetch_proposicoes(**montar_kwargs(src.fetch_proposicoes, pedido))
         fatos = src.normalize({"proposicoes": raw.get("proposicoes", [])})
         autorias = [f for f in fatos if f.tipo == "autoria"
                     and self._no_escopo(f.atributos.get("deputado_id"))]
@@ -298,7 +307,12 @@ class Pipeline:
                 cache["votacoes"] = cache.get("votacoes", [])[:o.max_votacoes]
             return cache
         return chamar_fetch(src, data_inicio=o.janela_inicio, data_fim=o.janela_fim,
-                            max_votacoes=o.max_votacoes, **extra)
+                            max_votacoes=o.max_votacoes, **self._opcoes_camara(), **extra)
+
+    def _opcoes_camara(self) -> dict[str, Any]:
+        o = self.opcoes
+        return {"legislatura_completa": o.legislatura_completa, "fonte_votos": o.fonte_votos,
+                "reusar_dumps": o.reusar_dumps, "retomar": o.retomar}
 
     @staticmethod
     def _exigir_detalhamento(src: Any) -> None:
@@ -316,7 +330,7 @@ class Pipeline:
             return True
         if cache is None:
             cache = chamar_fetch(src, data_inicio=o.janela_inicio, data_fim=o.janela_fim,
-                                 max_votacoes=0)
+                                 max_votacoes=0, **self._opcoes_camara())
         deputados = [f for f in src.normalize({"deputados": cache.get("deputados", [])})
                      if f.tipo == "deputado"]
         escopo = selecionar_escopo(deputados, o.uf, o.amostra) or set()
