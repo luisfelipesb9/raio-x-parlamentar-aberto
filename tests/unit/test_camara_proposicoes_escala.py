@@ -191,3 +191,19 @@ def test_gerador_em_siglas_tipo_e_ids_nao_deixa_parcial_para_tras(raw_dir):
         *JANELA, deputado_ids=(i for i in ["62881"]), siglas_tipo=(s for s in ["PL", "PEC"]))
     assert out["proposicoes"]
     assert not parcial.exists() or list(parcial.iterdir()) == []
+
+
+def test_janela_longa_vira_consultas_de_ate_3_meses(raw_dir):
+    """A API devolve 400 para janela de apresentação maior que 3 meses (visto na rodada real)."""
+    from datetime import date
+    api = FakeApi()
+    out = _fonte(api).fetch_proposicoes("2025-01-01", "2025-12-31", deputado_ids=["62881"])
+    janelas = {(r.url.params["dataApresentacaoInicio"], r.url.params["dataApresentacaoFim"])
+               for r in api.pedidos
+               if r.url.path.endswith("/proposicoes") and "dataApresentacaoInicio" in r.url.params}
+    assert len(janelas) == 4
+    for ini, fim in janelas:
+        d0, d1 = date.fromisoformat(ini), date.fromisoformat(fim)
+        assert (d1.year - d0.year) * 12 + d1.month - d0.month <= 2  # cabe em 3 meses de calendário
+    assert min(j[0] for j in janelas) == "2025-01-01" and max(j[1] for j in janelas) == "2025-12-31"
+    assert [p["id"] for p in out["proposicoes"]] == [PEC, PL719, PL2338]  # sem duplicar entre fatias

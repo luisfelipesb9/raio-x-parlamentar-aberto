@@ -398,17 +398,18 @@ class CamaraSource(Source):
                             deputado_ids: list[str | int] | None,
                             siglas_tipo: list[str] | None,
                             max_proposicoes: int | None) -> list[dict]:
-        params: dict[str, Any] = {"dataApresentacaoInicio": data_inicio,
-                                  "dataApresentacaoFim": data_fim,
-                                  "ordem": "ASC", "ordenarPor": "id"}
+        params: dict[str, Any] = {"ordem": "ASC", "ordenarPor": "id"}
         if siglas_tipo:
             params["siglaTipo"] = list(siglas_tipo)
         consultas = ([{}] if deputado_ids is None
                      else [{"idDeputadoAutor": str(i)} for i in deputado_ids])
         achadas: dict[int, dict] = {}
-        for extra in consultas:
-            for p in self._get_all("/proposicoes", **params, **extra):
-                achadas.setdefault(p["id"], p)
+        # a API recusa (400) janela de apresentação maior que 3 meses: uma consulta por fatia
+        for ini, fim in fatiar_janela(data_inicio, data_fim):
+            for extra in consultas:
+                for p in self._get_all("/proposicoes", dataApresentacaoInicio=ini,
+                                       dataApresentacaoFim=fim, **params, **extra):
+                    achadas.setdefault(p["id"], p)
         lista = [achadas[i] for i in sorted(achadas)][:max_proposicoes]
         if max_proposicoes is not None and len(achadas) > max_proposicoes:
             _log.warning(

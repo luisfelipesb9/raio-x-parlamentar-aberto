@@ -115,7 +115,9 @@ def test_fetch_descobre_por_deputado_pagina_e_deduplica(raw_dir):
     listas = [r for r in api.pedidos if r.url.path.endswith("/proposicoes")]
     assert {r.url.params.get("idDeputadoAutor") for r in listas} == {"62881", "66828"}
     p = listas[0].url.params
-    assert p["dataApresentacaoInicio"] == "2023-01-01" and p["dataApresentacaoFim"] == "2025-12-31"
+    # a janela de 3 anos vira fatias de até 3 meses (a API recusa mais que isso): do início ao fim
+    assert p["dataApresentacaoInicio"] == "2023-01-01" and p["dataApresentacaoFim"] == "2023-03-31"
+    assert max(r.url.params.get("dataApresentacaoFim", "") for r in listas) == "2025-12-31"
     assert p["itens"] == "100"  # limite da API
     assert out["erros"] == []
 
